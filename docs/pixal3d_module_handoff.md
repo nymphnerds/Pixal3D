@@ -47,15 +47,24 @@ Do this:
 
 - Vendor or sync the upstream `TencentARC/Pixal3D` repo into `$HOME/Pixal3D`.
 - Build a dedicated Pixal3D venv.
-- Use an official-compatible CUDA/Torch stack first:
-  Python 3.10, Torch 2.6.0/cu124, torchvision 0.21.0, CUDA Toolkit 12.4.
+- Use a tested CUDA/Torch stack. The conservative upstream/HF-demo profile is
+  Python 3.10, Torch 2.6.0/cu124, torchvision 0.21.0, CUDA Toolkit 12.4. Local
+  validation on 2026-05-17 also proved the Nymph CUDA 13 profile works:
+  Torch 2.11.0+cu130, CUDA Toolkit 13.0, RTX 4080 SUPER.
 - Install TRELLIS.2 native runtime pieces into that venv:
-  `flash-attn` or SDPA fallback, `nvdiffrast`, `cumesh`, `o-voxel`,
-  `flex_gemm`, and the normal Python basics.
+  `flash-attn`, `nvdiffrast`, `cumesh`, `o-voxel`, `flex_gemm`, and the normal
+  Python basics.
+- Hard-require `ATTN_BACKEND=flash_attn` for the Pixal3D module. Do not silently
+  fall back to SDPA.
 - Install Pixal3D extra deps:
-  `git+https://github.com/microsoft/MoGe.git`, `natten==0.21.0`,
-  `diffusers==0.37.1`, `accelerate==1.13.0`, `gradio`, `plyfile==1.1.3`,
-  and the upstream `utils3d` wheel.
+  `git+https://github.com/microsoft/MoGe.git`, `diffusers==0.37.1`,
+  `accelerate==1.13.0`, `gradio`, `plyfile==1.1.3`, and a NATTEN wheel matching
+  the chosen Torch/CUDA ABI. For local CUDA 13 validation this was
+  `natten==0.21.6+torch2110cu130`.
+- For auto camera estimation, use MoGe's pinned `utils3d` git dependency
+  (`EasternJournalist/utils3d@3fab839f0be9931dac7c8488eb0e1600c236e183`), not
+  only the Pixal3D README `utils3d-0.0.2` wheel. The README wheel lacks the
+  `utils3d.pt` alias that MoGe calls.
 - Fetch Pixal3D and auxiliary models into `$HOME/NymphsData` caches.
 - Add Pixal3D as a full third Blender service with start/stop/probe/generate UI.
 
@@ -76,10 +85,13 @@ Official Pixal3D README:
 - `main` is the latest branch and is based on TRELLIS.2.
 - Installation says to follow TRELLIS.2 installation first.
 - Then install Pixal3D `requirements.txt`.
-- Then install the `utils3d` wheel.
+- Then install the `utils3d` wheel. Local validation found that MoGe auto-FOV
+  additionally needs MoGe's pinned `utils3d` git commit because it exposes
+  `utils3d.pt`.
 - Low-VRAM mode is supported.
 - Default resolution is 1536 normally and 1024 in low-VRAM mode.
-- `ATTN_BACKEND=sdpa` is the documented fallback when flash-attn is absent.
+- Upstream documents `ATTN_BACKEND=sdpa` as a fallback when flash-attn is absent,
+  but the Nymph Pixal3D module should not expose or auto-use that fallback.
 - `requirements-hfdemo.txt` is specifically for Hugging Face Spaces/H-series
   hardware and should not be the normal local install recipe.
 
@@ -215,6 +227,67 @@ uninstall safe.
 }
 ```
 
+The module detail page must carry license/access instructions before install or
+model fetch. Put them in `overview.body` so the Manager's standard detail page
+shows them without needing a custom WebView UI. Also expose the BRIA access form
+as an explicit `overview.links` item; do not rely on users finding the link in a
+long paragraph.
+
+Use "acknowledgement" wording, not "waiver" wording. The module cannot waive or
+override Pixal3D's or BRIA's license terms; it can only make the restrictions
+clear and require the user to acknowledge that they are responsible for a
+permitted use case before fetching gated/non-commercial weights.
+
+Required module detail-page notices:
+
+```text
+License / use restrictions:
+- Pixal3D's local LICENSE grants use only for academic purposes.
+- Pixal3D's local LICENSE forbids commercial or production use.
+- Pixal3D's local LICENSE states that Pixal3D is not intended for use within
+  the European Union.
+- Pixal3D is provided as-is, without warranty. Users are responsible for
+  confirming that their use complies with Pixal3D, BRIA RMBG, Hugging Face, and
+  any other dependency terms.
+
+BRIA RMBG-2.0 access:
+- Pixal3D's official pipeline uses briaai/RMBG-2.0 for background removal.
+- briaai/RMBG-2.0 is gated on Hugging Face and released for non-commercial use.
+- The module details page must include a direct BRIA access-form link:
+  https://huggingface.co/briaai/RMBG-2.0
+- A Hugging Face token alone is not enough. The same HF account must first open
+  https://huggingface.co/briaai/RMBG-2.0, fill in BRIA's access form, and agree
+  to BRIA's non-commercial/license terms.
+- BRIA's form says contact information such as email and username may be shared
+  with the repository authors.
+- If the form is not accepted, model fetch or first run fails with
+  GatedRepoError / HTTP 401 or 403.
+```
+
+Suggested `overview` shape:
+
+```json
+{
+  "overview": {
+    "body": "Pixal3D generates textured 3D assets from a single image using a TRELLIS.2-style backbone and Pixal3D projection pipeline.\\n\\nLicense and access notice:\\n- Pixal3D is for academic use only under its local LICENSE. It is not licensed for commercial or production use.\\n- Pixal3D's local LICENSE says it is not intended for use within the European Union.\\n- The official Pixal3D pipeline uses briaai/RMBG-2.0 for background removal. That model is gated on Hugging Face and released for non-commercial use.\\n- Before Fetch Models, open the BRIA RMBG-2.0 access form with the same Hugging Face account as your token, complete BRIA's form, and agree to BRIA's terms. BRIA's form indicates contact information may be shared with the repository authors.\\n- The user is responsible for confirming their intended use is allowed by Pixal3D, BRIA RMBG, Hugging Face, and dependency licenses.\\n\\nModel fetch guide:\\n- Install sets up code and runtime only. Fetch Models downloads Pixal3D checkpoints and auxiliary models.\\n- Start with Low VRAM 1024 on 16 GB GPUs.\\n- Fetch Models requires the license/access acknowledgement in the action form.",
+    "links": [
+      {
+        "label": "Pixal3D model/license",
+        "url": "https://huggingface.co/TencentARC/Pixal3D"
+      },
+      {
+        "label": "BRIA RMBG-2.0 access form",
+        "url": "https://huggingface.co/briaai/RMBG-2.0"
+      },
+      {
+        "label": "BRIA RMBG-2.0 CC BY-NC license",
+        "url": "https://creativecommons.org/licenses/by-nc/4.0/"
+      }
+    ]
+  }
+}
+```
+
 Add entrypoints:
 
 ```json
@@ -278,6 +351,25 @@ Use native action groups for model/profile fetch:
             "secret_id": "huggingface.token",
             "env": "NYMPHS3D_HF_TOKEN",
             "optional": true
+          },
+          {
+            "name": "license_ack",
+            "type": "select",
+            "label": "License/access acknowledgement",
+            "arg": "--license-ack",
+            "default": "no",
+            "options": [
+              {
+                "label": "Not yet",
+                "value": "no",
+                "description": "Do not fetch gated/non-commercial Pixal3D assets yet"
+              },
+              {
+                "label": "I acknowledge",
+                "value": "yes",
+                "description": "I understand Pixal3D is academic-only, not for commercial/production use, not intended for EU use, and BRIA RMBG requires its HF access form"
+              }
+            ]
           }
         ],
         "submit": {
@@ -301,35 +393,41 @@ Use native action groups for model/profile fetch:
 3. Ensure the official `o-voxel/third_party/eigen` submodule or equivalent
    source exists for building `o_voxel`.
 4. Create `$HOME/Pixal3D/.venv` with Python 3.10.
-5. Install PyTorch. V1 target should mirror official TRELLIS.2/Pixal3D:
-   `torch==2.6.0 torchvision==0.21.0 --index-url cu124`.
-   Build native extensions with CUDA Toolkit 12.4 via `CUDA_HOME=/usr/local/cuda-12.4`.
-   If the NymphsCore CUDA 13/Torch 2.11 path is preferred later, make that a
-   separate tested branch because `natten==0.21.0` and the Pixal3D/HF demo
-   wheels are aligned around Torch 2.6/cu124.
+5. Install PyTorch. Two profiles are now known:
+   - Conservative upstream/HF-demo profile:
+     `torch==2.6.0 torchvision==0.21.0 --index-url cu124`, native extensions
+     built with CUDA Toolkit 12.4.
+   - Locally validated Nymph CUDA 13 profile:
+     `torch==2.11.0+cu130 torchvision==0.26.0+cu130`, native extensions built
+     with CUDA Toolkit 13.0.
 6. Install official TRELLIS.2 basics:
    `imageio`, `imageio-ffmpeg`, `tqdm`, `easydict`, `opencv-python-headless`,
    `ninja`, `trimesh`, `transformers`, `gradio==6.0.1`, `tensorboard`,
    `pandas`, `lpips`, `zstandard`, `kornia`, `timm`.
-7. Install `utils3d` wheel from the Pixal3D README.
+7. Install `utils3d`. For full auto-camera support, prefer MoGe's pinned git
+   dependency:
+   `git+https://github.com/EasternJournalist/utils3d.git@3fab839f0be9931dac7c8488eb0e1600c236e183`.
+   Pixal3D's README wheel (`utils3d-0.0.2`) worked for manual-FOV generation but
+   failed MoGe inference because it lacks `utils3d.pt`.
 8. Install Pixal3D requirements:
    `git+https://github.com/microsoft/MoGe.git`,
-   `natten==0.21.0`, `diffusers==0.37.1`, `accelerate==1.13.0`,
-   `gradio`, `plyfile==1.1.3`.
+   `diffusers==0.37.1`, `accelerate==1.13.0`, `gradio`, `plyfile==1.1.3`.
+   Install a NATTEN build matching the selected Torch/CUDA stack. The CUDA 13
+   validation used `natten==0.21.6+torch2110cu130` from `https://whl.natten.org`.
 9. Install native runtime extensions:
-   `flash-attn` if selected/available, `nvdiffrast`, `cumesh`, `flex_gemm`,
-   `o-voxel`.
+   `flash-attn`, `nvdiffrast`, `cumesh`, `flex_gemm`, `o-voxel`.
 10. Compile-check:
    `scripts/api_server_pixal3d.py`, import `pixal3d`, import `o_voxel`,
-   import `cumesh`, import `flex_gemm`, import `nvdiffrast.torch`.
+   import `cumesh`, import `flex_gemm`, import `nvdiffrast.torch`, import
+   `flash_attn`, and run a tiny CUDA flash-attn kernel smoke.
 11. Write `$HOME/Pixal3D/.nymph-module-version`.
 
 Install risk policy:
 
-- If `flash-attn` fails, install should allow a documented SDPA runtime profile:
-  `ATTN_BACKEND=sdpa`.
-- If `natten==0.21.0` does not support the chosen Torch/CUDA ABI, fail with a
-  clear message and point to the tested profile.
+- If `flash-attn` fails to import or its CUDA kernel smoke fails, install should
+  fail clearly. Do not continue with `ATTN_BACKEND=sdpa`.
+- If NATTEN does not support the chosen Torch/CUDA ABI, fail with a clear
+  message and point to the tested profile.
 - Do not use `requirements-hfdemo.txt` by default. It is hardware-specific.
 
 ### Status Script Contract
@@ -385,6 +483,20 @@ Do not instantiate Pixal3D, DINO, MoGe, RMBG, or NAF in status.
 ```text
 --profile low_vram_1024|standard_1536
 --hf-token <token>
+--license-ack yes|no
+```
+
+`--license-ack yes` should be required before downloading `TencentARC/Pixal3D`
+or `briaai/RMBG-2.0`. If it is omitted or set to `no`, fail before network
+downloads with a targeted message:
+
+```text
+LICENSE ACK REQUIRED:
+Pixal3D is academic-only, not licensed for commercial or production use, and
+its LICENSE says it is not intended for use within the European Union.
+BRIA RMBG-2.0 is gated/non-commercial and requires the Hugging Face access form:
+https://huggingface.co/briaai/RMBG-2.0
+Rerun Fetch Models after selecting "I acknowledge" in the module action form.
 ```
 
 It should download:
@@ -396,6 +508,14 @@ camenduru/dinov3-vitl16-pretrain-lvd1689m
 briaai/RMBG-2.0
 valeoai/NAF through torch.hub
 ```
+
+`briaai/RMBG-2.0` is a gated Hugging Face model. A Hugging Face token is
+necessary but not sufficient: the same HF account must first open
+`https://huggingface.co/briaai/RMBG-2.0`, fill in BRIA's access form, and agree
+to the non-commercial/license terms. If the form has not been accepted, fetch or
+first pipeline load fails with `GatedRepoError` / HTTP `401` or `403` even when a
+token is supplied. The fetch script should detect this and print a targeted
+message instead of reporting a generic model-download failure.
 
 Main Pixal3D `snapshot_download` allow patterns:
 
@@ -470,7 +590,7 @@ worker.
   "low_vram": true,
   "resolution": 1024,
   "supported_resolutions": [1024, 1536],
-  "attention_backend": "sdpa",
+  "attention_backend": "flash_attn",
   "sparse_conv_backend": "flex_gemm",
   "model_ready": true,
   "aux_models_ready": true,
@@ -717,7 +837,7 @@ Extend summary parsing and fallback:
 - `_summarize_server_info(info)` must produce:
 
 ```text
-Pixal3D | TencentARC/Pixal3D | low_vram=true | resolution=1024 | attn=sdpa | shape=true | tex=true | retexture=false | mv=false | text=false
+Pixal3D | TencentARC/Pixal3D | low_vram=true | resolution=1024 | attn=flash_attn | shape=true | tex=true | retexture=false | mv=false | text=false
 ```
 
 - `_service_capabilities_from_summary` must recognize `"Pixal3D |"` and set
@@ -992,6 +1112,13 @@ briaai/RMBG-2.0
 NAF via valeoai/NAF torch hub path in projection feature extractor
 ```
 
+Access note: `briaai/RMBG-2.0` is gated. During local validation on
+2026-05-17, Pixal3D reached pipeline construction and then failed at
+`AutoModelForImageSegmentation.from_pretrained("briaai/RMBG-2.0")` with
+`GatedRepoError` until the user accepted BRIA's HF access form. Document this in
+Manager UI/help text: the token must belong to an account that has already been
+granted repository access.
+
 Pixal3D model config currently names `Trellis2ImageTo3DPipeline`, but its model
 entries are Pixal3D-local checkpoint paths:
 
@@ -1205,6 +1332,9 @@ profile:
 
 hf_token:
   optional secret
+
+license_ack:
+  required select; must be "yes" before Fetch Models downloads Pixal3D or RMBG
 ```
 
 Potential fetch modes:
@@ -1617,18 +1747,107 @@ Phase 4: addon integration.
 - Confirm output imports and result folder opens.
 - Confirm `Nymphs Texture` still uses TRELLIS for selected-mesh retexture.
 
+### Local Validation Results 2026-05-17
+
+Validated on:
+
+```text
+GPU: NVIDIA GeForce RTX 4080 SUPER, compute capability 8.9
+Driver: 595.79, driver-reported CUDA 13.2
+Toolkit: /usr/local/cuda-13.0, nvcc V13.0.88
+Python: 3.10.20
+Torch: 2.11.0+cu130
+Torch CUDA runtime: 13.0
+Transformers: 4.57.3
+NATTEN: 0.21.6+torch2110cu130
+```
+
+Validated imports/native deps:
+
+```text
+flash_attn 2.8.3
+nvdiffrast.torch
+cumesh
+flex_gemm
+o_voxel
+natten
+moge
+pixal3d.pipelines.pixal3d_image_to_3d
+```
+
+FlashAttention validation:
+
+```text
+Upstream `inference.py` uses `os.environ.setdefault("ATTN_BACKEND", "flash_attn")`.
+The successful smoke commands did not set `ATTN_BACKEND=sdpa`, so Pixal3D used
+the upstream default `flash_attn` backend.
+Additional CUDA kernel smoke on 2026-05-17:
+flash_attn_qkvpacked_func -> output shape (2, 128, 8, 64), dtype torch.float16,
+all finite.
+```
+
+Successful smoke tests:
+
+```text
+/home/nymph/NymphsData/outputs/pixal3d-validation/pixal3d_smoke_public_birefnet_lowvram_1024_after_tf_pin.glb
+  37,646,140 bytes, glTF binary v2, 1 scene geometry
+
+/home/nymph/NymphsData/outputs/pixal3d-validation/pixal3d_smoke_official_rmbg_lowvram_1024.glb
+  37,431,340 bytes, glTF binary v2, 1 scene geometry
+```
+
+Both used:
+
+```text
+python inference.py --image assets/images/0_img.png --low_vram --resolution 1024 --fov 0.8575560450553894
+```
+
+The second smoke used the official Pixal3D model path (`TencentARC/Pixal3D`) and
+official gated `briaai/RMBG-2.0` after the Hugging Face account accepted BRIA's
+access form.
+
+MoGe auto camera validation:
+
+```text
+MoGeModel.from_pretrained("Ruicheng/moge-2-vitl") loaded on CUDA.
+get_camera_params_wild_moge(...) returned:
+camera_angle_x=0.4432972744377575
+distance=2.218759536743164
+mesh_scale=1.0
+```
+
+Dependency corrections discovered during validation:
+
+```text
+transformers==5.5.4 fails Pixal3D DINO extraction:
+AttributeError: 'DINOv3ViTModel' object has no attribute 'layer'
+
+transformers==4.57.3 works and exposes DINOv3ViTModel.layer.
+
+Pixal3D README utils3d-0.0.2 wheel works for manual-FOV generation but fails
+MoGe auto camera:
+ModuleNotFoundError: No module named 'utils3d.pt'
+
+MoGe's pinned utils3d commit works:
+git+https://github.com/EasternJournalist/utils3d.git@3fab839f0be9931dac7c8488eb0e1600c236e183
+
+Do not launch upstream `app.py` unmodified for the Nymph service. Its `__main__`
+block force-reinstalls the Pixal3D README `utils3d-0.0.2` wheel, which can undo
+the MoGe-compatible `utils3d` install and break auto camera estimation. Build the
+Nymph API server around `inference.py`/pipeline calls instead.
+```
+
 ## Risks And Open Questions
 
 - VRAM: upstream standard mode is likely too heavy for a 16 GB default; keep
   low-VRAM default until tested.
 - Model size: Pixal3D ckpts are around 24 GB before auxiliary models.
-- Dependency friction: `natten==0.21.0`, MoGe, diffusers, accelerate, and
-  `utils3d` wheel may conflict with the current TRELLIS module venv. Prefer a
-  separate Pixal3D venv/module root.
-- `flash_attn`: upstream defaults `ATTN_BACKEND=flash_attn`, but also documents
-  `ATTN_BACKEND=sdpa` fallback. Module install should either mirror TRELLIS
-  FlashAttention install fields or expose a conservative SDPA fallback for
-  machines that cannot compile flash-attn.
+- Dependency friction: MoGe and Pixal3D disagree in docs around `utils3d`. For
+  auto camera support, use MoGe's pinned git commit or add an explicit
+  `utils3d.pt` compatibility shim. Prefer a separate Pixal3D venv/module root.
+- `flash_attn`: upstream defaults `ATTN_BACKEND=flash_attn`. Although upstream
+  documents `ATTN_BACKEND=sdpa` as a fallback, this Nymph module should hard
+  require flash-attn and fail fast if import or CUDA kernel smoke fails.
 - NAF: confirm whether `torch.hub.load("valeoai/NAF", "naf", ...)` needs a
   separate prefetch path for offline/managed installs.
 - Blender GLB textures: test `extension_webp=True` vs `False`.
@@ -1973,6 +2192,25 @@ Recommended Manager actions:
             "secret_id": "huggingface.token",
             "env": "NYMPHS3D_HF_TOKEN",
             "optional": true
+          },
+          {
+            "name": "license_ack",
+            "type": "select",
+            "label": "License/access acknowledgement",
+            "arg": "--license-ack",
+            "default": "no",
+            "options": [
+              {
+                "label": "Not yet",
+                "value": "no",
+                "description": "Do not fetch gated/non-commercial Pixal3D assets yet"
+              },
+              {
+                "label": "I acknowledge",
+                "value": "yes",
+                "description": "I understand Pixal3D is academic-only, not for commercial/production use, not intended for EU use, and BRIA RMBG requires its HF access form"
+              }
+            ]
           }
         ],
         "submit": {
@@ -2106,7 +2344,7 @@ The install script should be conservative and separate from TRELLIS GGUF:
    https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl
 
 8. Install native TRELLIS-style runtime pieces:
-   flash-attn or document/use ATTN_BACKEND=sdpa fallback
+   flash-attn
    CuMesh
    FlexGEMM
    nvdiffrast
@@ -2135,8 +2373,9 @@ Native package source choices:
 - Investigate whether upstream Pixal3D works with prebuilt wheels from
   `requirements-hfdemo.txt`, but do not make H-series demo wheels the default
   for local Nymph installs. They are documented upstream as HF demo specific.
-- Keep `ATTN_BACKEND=sdpa` exposed as an install/runtime fallback because the
-  Pixal3D README explicitly documents it for machines without flash-attn.
+- Do not expose `ATTN_BACKEND=sdpa` as an install/runtime fallback for this
+  module. The module should set/require `ATTN_BACKEND=flash_attn` and fail fast
+  if flash-attn is unavailable.
 
 ## Model Fetch Design
 
@@ -2189,6 +2428,27 @@ Recommended steps:
 3. MoGe model.
 4. RMBG model.
 5. NAF torch hub prefetch.
+```
+
+RMBG fetch must handle the gated-model case explicitly. Suggested behavior:
+
+```text
+MODEL FETCH NEEDS ACCESS: repo=briaai/RMBG-2.0
+Open https://huggingface.co/briaai/RMBG-2.0, complete BRIA's access form,
+then rerun Fetch Models with a Hugging Face token from the same account.
+```
+
+Fetch should also refuse before any download unless the Manager action passes
+`--license-ack yes`:
+
+```text
+LICENSE ACK REQUIRED:
+Pixal3D permits academic use only, forbids commercial/production use, and says
+it is not intended for use within the European Union.
+BRIA RMBG-2.0 requires the Hugging Face access form:
+https://huggingface.co/briaai/RMBG-2.0
+Select "I acknowledge" in Fetch Models before downloading gated/non-commercial
+weights.
 ```
 
 NAF prefetch can be implemented by running a small Python snippet in the venv:
@@ -2543,7 +2803,7 @@ if family == "Pixal3D":
 Extend server summary:
 
 ```text
-Pixal3D | TencentARC/Pixal3D | low_vram=true | resolution=1024 | attn=sdpa | shape=true | tex=true | retexture=false
+Pixal3D | TencentARC/Pixal3D | low_vram=true | resolution=1024 | attn=flash_attn | shape=true | tex=true | retexture=false
 ```
 
 ## Addon UI Gating
@@ -2630,6 +2890,7 @@ Research spike acceptance:
 - Verify `natten==0.21.0` with the chosen Torch/CUDA stack.
 - Verify `o_voxel`, `cumesh`, `flex_gemm`, and `nvdiffrast` build in the
   Pixal3D venv.
-- Verify `ATTN_BACKEND=sdpa` works as fallback when flash-attn is absent.
+- Verify `ATTN_BACKEND=flash_attn` is active and a tiny flash-attn CUDA kernel
+  smoke passes. Do not accept SDPA fallback for Pixal3D.
 - Verify WebP vs non-WebP GLB texture import in target Blender.
 - Measure VRAM for low_vram 1024 and standard 1536 on the user's actual GPU.
