@@ -1749,7 +1749,7 @@ Phase 4: addon integration.
 
 ### Local Validation Results 2026-05-17
 
-Validated on:
+Validation environment:
 
 ```text
 GPU: NVIDIA GeForce RTX 4080 SUPER, compute capability 8.9
@@ -1758,8 +1758,27 @@ Toolkit: /usr/local/cuda-13.0, nvcc V13.0.88
 Python: 3.10.20
 Torch: 2.11.0+cu130
 Torch CUDA runtime: 13.0
+torchvision: 0.26.0+cu130
 Transformers: 4.57.3
-NATTEN: 0.21.6+torch2110cu130
+tokenizers: 0.22.1
+huggingface-hub: 0.36.2
+NATTEN: 0.21.6+torch2110cu130 / import reports 0.21.6
+diffusers: 0.37.1
+accelerate: 1.13.0
+gradio: 6.0.1
+plyfile: 1.1.3
+opencv-python: 4.13.0.92
+MoGe: 2.0.0
+pipeline:
+  git+https://github.com/EasternJournalist/pipeline.git@866f059d2a05cde05e4a52211ec5051fd5f276d6
+utils3d:
+  git+https://github.com/EasternJournalist/utils3d.git@3fab839f0be9931dac7c8488eb0e1600c236e183
+```
+
+Dependency health check:
+
+```text
+pip check: No broken requirements found.
 ```
 
 Validated imports/native deps:
@@ -1786,25 +1805,92 @@ flash_attn_qkvpacked_func -> output shape (2, 128, 8, 64), dtype torch.float16,
 all finite.
 ```
 
-Successful smoke tests:
+The generation logs also explicitly printed:
 
 ```text
-/home/nymph/NymphsData/outputs/pixal3d-validation/pixal3d_smoke_public_birefnet_lowvram_1024_after_tf_pin.glb
-  37,646,140 bytes, glTF binary v2, 1 scene geometry
-
-/home/nymph/NymphsData/outputs/pixal3d-validation/pixal3d_smoke_official_rmbg_lowvram_1024.glb
-  37,431,340 bytes, glTF binary v2, 1 scene geometry
+[SPARSE] Conv backend: flex_gemm; Attention backend: flash_attn
+[ATTENTION] Using backend: flash_attn
 ```
 
-Both used:
+End-to-end smoke tests:
 
 ```text
-python inference.py --image assets/images/0_img.png --low_vram --resolution 1024 --fov 0.8575560450553894
+1. Official Pixal3D + unauthenticated official RMBG:
+   command:
+     python inference.py --image assets/images/0_img.png --low_vram --resolution 1024 --fov 0.8575560450553894
+   result:
+     FAILED before generation
+   reason:
+     briaai/RMBG-2.0 is gated. Without authenticated accepted access, Hugging Face
+     returned GatedRepoError / HTTP 401 for config.json.
+
+2. Public BiRefNet substitute before Transformers pin:
+   command:
+     python inference.py --image assets/images/0_img.png --low_vram --resolution 1024 --fov 0.8575560450553894
+   result:
+     FAILED during DINO feature extraction
+   reason:
+     transformers==5.5.4 exposes a DINOv3 model shape Pixal3D does not expect:
+     AttributeError: 'DINOv3ViTModel' object has no attribute 'layer'
+
+3. Public BiRefNet substitute after Transformers pin:
+   command:
+     python inference.py --image assets/images/0_img.png --low_vram --resolution 1024 --fov 0.8575560450553894
+   result:
+     PASSED
+   output:
+     /home/nymph/NymphsData/outputs/pixal3d-validation/pixal3d_smoke_public_birefnet_lowvram_1024_after_tf_pin.glb
+     37,646,140 bytes, glTF binary v2
+
+4. Official Pixal3D + official gated BRIA RMBG after HF access form acceptance:
+   command:
+     python inference.py --image assets/images/0_img.png --low_vram --resolution 1024 --fov 0.8575560450553894
+   result:
+     PASSED
+   output:
+     /home/nymph/NymphsData/outputs/pixal3d-validation/pixal3d_smoke_official_rmbg_lowvram_1024.glb
+     37,431,340 bytes, glTF binary v2
 ```
 
-The second smoke used the official Pixal3D model path (`TencentARC/Pixal3D`) and
-official gated `briaai/RMBG-2.0` after the Hugging Face account accepted BRIA's
-access form.
+Successful run behavior observed in logs:
+
+```text
+Pipeline loaded from TencentARC/Pixal3D for the official smoke.
+Low-VRAM mode was enabled.
+Manual FOV was used: 49.13 degrees / 0.8576 rad, distance=1.0938.
+Pipeline type was 1024_cascade.
+Sampling stages completed:
+  - sparse structure (proj), 12 steps
+  - shape SLat (proj), 12 steps
+  - HR shape SLat (proj, 1024), 12 steps
+  - texture SLat (proj), 12 steps
+GLB extraction completed all 6 phases:
+  - Building BVH
+  - Cleaning mesh
+  - Parameterizing new mesh
+  - Sampling attributes
+  - Finalizing mesh
+```
+
+GLB validation:
+
+```text
+file:
+  both successful outputs are glTF binary model, version 2
+
+trimesh:
+  both outputs opened as trimesh.Scene with 1 geometry
+```
+
+Warnings seen but not blockers:
+
+```text
+transformers/timm emitted FutureWarning messages for old timm import paths.
+cumesh emitted a torch.cross deprecation warning during remeshing.
+Hugging Face warned that remote code files were downloaded for BiRefNet/RMBG.
+Module implementation should pin revisions where practical when using
+trust_remote_code-style model code.
+```
 
 MoGe auto camera validation:
 
@@ -1819,10 +1905,17 @@ mesh_scale=1.0
 Dependency corrections discovered during validation:
 
 ```text
+CUDA 13 works for this stack:
+torch==2.11.0+cu130, torchvision==0.26.0+cu130, natten==0.21.6+torch2110cu130,
+flash_attn==2.8.3, CUDA Toolkit 13.0, RTX 4080 SUPER.
+
 transformers==5.5.4 fails Pixal3D DINO extraction:
 AttributeError: 'DINOv3ViTModel' object has no attribute 'layer'
 
 transformers==4.57.3 works and exposes DINOv3ViTModel.layer.
+
+The README-level `natten==0.21.0` is not the validated CUDA 13 target. Use the
+Torch/CUDA-matched NATTEN wheel from https://whl.natten.org.
 
 Pixal3D README utils3d-0.0.2 wheel works for manual-FOV generation but fails
 MoGe auto camera:
@@ -1835,6 +1928,29 @@ Do not launch upstream `app.py` unmodified for the Nymph service. Its `__main__`
 block force-reinstalls the Pixal3D README `utils3d-0.0.2` wheel, which can undo
 the MoGe-compatible `utils3d` install and break auto camera estimation. Build the
 Nymph API server around `inference.py`/pipeline calls instead.
+```
+
+Implementation lessons learned:
+
+```text
+- Treat CUDA 13 as validated, not speculative, for the exact package set above.
+- Treat flash-attn as required. Do not add a silent SDPA fallback in Nymph.
+- Fetch Models must explicitly handle BRIA RMBG gated access. Token plus accepted
+  HF form is required; token alone can still fail.
+- The module details page must explain Pixal3D academic-only/non-commercial,
+  no-production, not-for-EU license language and link directly to the BRIA form.
+- Use an acknowledgement gate before downloading Pixal3D/RMBG weights; do not
+  call it a waiver.
+- Pin Transformers to 4.57.3 until Pixal3D updates its DINO extraction code for
+  newer Transformers model internals.
+- Use MoGe's pinned utils3d commit for auto camera. If using the Pixal3D README
+  utils3d wheel, expect only manual-FOV validation to work.
+- Do not base Pixal3D on the TRELLIS GGUF loader. It needs the TRELLIS.2-style
+  native/runtime surface but loads TencentARC/Pixal3D checkpoints directly.
+- Keep NAF prefetch in the fetch path; first use downloads the GitHub repo and
+  naf_release.pth into the torch hub cache.
+- Standard 1536 and Blender texture import remain unvalidated; keep low_vram
+  1024 as the default first profile.
 ```
 
 ## Risks And Open Questions
