@@ -73,6 +73,14 @@ if [[ ! -x "$(pixal3d_python)" ]]; then
 fi
 
 pixal3d_ensure_data_dirs
+fetch_lock="${PIXAL3D_CONFIG_DIR}/fetch_models.lock"
+exec 9>"${fetch_lock}"
+if ! flock -n 9; then
+  echo "MODEL FETCH STATUS: status=running waiting_on=existing_fetch lock=${fetch_lock}"
+  echo "Pixal3D model fetch is already running."
+  exit 0
+fi
+
 pixal3d_load_hf_token
 if [[ -n "${NYMPHS3D_HF_TOKEN:-}" ]]; then
   export HF_TOKEN="${NYMPHS3D_HF_TOKEN}"
