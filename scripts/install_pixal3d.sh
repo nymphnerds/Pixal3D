@@ -7,6 +7,22 @@ source "${SCRIPT_DIR}/_pixal3d_common.sh"
 profile="${PIXAL3D_RUNTIME_PROFILE:-cuda13}"
 pixal3d_ensure_data_dirs
 
+if [[ ! -d "${PIXAL3D_INSTALL_ROOT}/pixal3d" && -d "${MODULE_ROOT}/pixal3d" ]]; then
+  echo "Syncing Pixal3D source into ${PIXAL3D_INSTALL_ROOT}..."
+  mkdir -p "${PIXAL3D_INSTALL_ROOT}"
+  (
+    cd "${MODULE_ROOT}"
+    tar \
+      --exclude='./.git' \
+      --exclude='./.venv' \
+      --exclude='./__pycache__' \
+      -cf - .
+  ) | (
+    cd "${PIXAL3D_INSTALL_ROOT}"
+    tar -xf -
+  )
+fi
+
 if [[ "${profile}" == "manual" ]]; then
   echo "Manual profile selected. Creating module folders and marker only."
   mkdir -p "${PIXAL3D_INSTALL_ROOT}" "${PIXAL3D_VENV_DIR}"
