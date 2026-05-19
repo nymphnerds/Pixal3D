@@ -1,0 +1,259 @@
+{
+  "manifest_version": 1,
+  "id": "pixal3d",
+  "name": "Pixal3D",
+  "short_name": "PX",
+  "version": "0.1.0",
+  "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module.",
+  "category": "3d",
+  "packaging": "repo",
+  "repo": {
+    "url": "https://github.com/nymphnerds/Pixal3D.git",
+    "branch": "master"
+  },
+  "source": {
+    "type": "repo",
+    "repo": "https://github.com/nymphnerds/Pixal3D.git",
+    "ref": "master"
+  },
+  "overview": {
+    "body": "Pixal3D generates textured 3D assets from a single image using a TRELLIS.2-style backbone and Pixal3D projection pipeline.\n\nInstall sets up the local source tree and runtime shell. Fetch Models downloads model assets into shared NymphsData caches. Start launches the addon API server for Blender. Open Gradio launches the official Pixal3D Gradio app and opens it inside the NymphsCore module details WebView.\n\nLicense and access notice:\n- Pixal3D is for academic use only under its local LICENSE. It is not licensed for commercial or production use.\n- Pixal3D's local LICENSE says it is not intended for use within the European Union.\n- The official Pixal3D pipeline uses briaai/RMBG-2.0 for background removal. That model is gated on Hugging Face and released for non-commercial use.\n- Before Fetch Models, open the BRIA RMBG-2.0 access form with the same Hugging Face account as your token, complete BRIA's form, and agree to BRIA's terms.\n- The user is responsible for confirming their intended use is allowed by Pixal3D, BRIA RMBG, Hugging Face, and dependency licenses.",
+    "links": [
+      {
+        "label": "Pixal3D source",
+        "url": "https://github.com/TencentARC/Pixal3D"
+      },
+      {
+        "label": "Pixal3D models",
+        "url": "https://huggingface.co/TencentARC/Pixal3D"
+      },
+      {
+        "label": "BRIA RMBG-2.0 access form",
+        "url": "https://huggingface.co/briaai/RMBG-2.0"
+      }
+    ],
+    "requirements": [
+      "Managed NymphsCore WSL distro",
+      "CUDA-capable NVIDIA GPU",
+      "Python 3.10 with venv",
+      "TRELLIS.2 native runtime dependencies"
+    ]
+  },
+  "install": {
+    "title": "PIXAL3D RUNTIME OPTIONS",
+    "root": "$HOME/Pixal3D",
+    "entrypoint": "scripts/install_pixal3d.sh",
+    "version_marker": "$HOME/Pixal3D/.nymph-module-version",
+    "installed_markers": [
+      "$HOME/Pixal3D/.nymph-module-version"
+    ],
+    "fields": [
+      {
+        "name": "runtime_profile",
+        "type": "select",
+        "label": "Runtime",
+        "env": "PIXAL3D_RUNTIME_PROFILE",
+        "default": "cuda13",
+        "options": [
+          {
+            "label": "CUDA 13",
+            "value": "cuda13",
+            "description": "Use the NymphsCore CUDA 13 runtime profile"
+          },
+          {
+            "label": "Manual",
+            "value": "manual",
+            "description": "Create folders and marker only; install heavy deps manually"
+          }
+        ]
+      }
+    ]
+  },
+  "runtime": {
+    "host": "127.0.0.1",
+    "port": 8096,
+    "health_url": "http://127.0.0.1:8096/health",
+    "server_info_url": "http://127.0.0.1:8096/server_info",
+    "frontend_url": "http://127.0.0.1:8097"
+  },
+  "artifacts": {
+    "models_root": "$HOME/NymphsData/models",
+    "cache_root": "$HOME/NymphsData/cache",
+    "outputs_root": "$HOME/NymphsData/outputs/pixal3d",
+    "logs_root": "$HOME/NymphsData/logs/pixal3d",
+    "config_root": "$HOME/NymphsData/config/pixal3d",
+    "huggingface_cache": "$HOME/NymphsData/cache/huggingface",
+    "torch_home": "$HOME/NymphsData/cache/torch-hub"
+  },
+  "entrypoints": {
+    "install": "scripts/install_pixal3d.sh",
+    "update": "scripts/pixal3d_update.sh",
+    "status": "scripts/pixal3d_status.sh",
+    "start": "scripts/pixal3d_start.sh",
+    "stop": "scripts/pixal3d_stop.sh",
+    "open": "scripts/pixal3d_open.sh",
+    "open_gradio": "scripts/pixal3d_gradio.sh",
+    "logs": "scripts/pixal3d_logs.sh",
+    "fetch_models": "scripts/pixal3d_fetch_models.sh",
+    "smoke_test": "scripts/pixal3d_smoke_test.sh",
+    "uninstall": "scripts/pixal3d_uninstall.sh",
+    "open_weights": "scripts/pixal3d_open_weights.sh",
+    "open_outputs": "scripts/pixal3d_open_outputs.sh"
+  },
+  "ui": {
+    "sort_order": 45,
+    "standard_lifecycle_rail": true,
+    "manager_ui": {
+      "type": "local_url",
+      "title": "Pixal3D Gradio",
+      "url": "http://127.0.0.1:8097"
+    },
+    "manager_action_groups": [
+      {
+        "id": "model_fetch",
+        "title": "Model Fetch",
+        "layout": "compact",
+        "entrypoint": "fetch_models",
+        "result": "show_logs",
+        "visibility": "installed",
+        "description": "Fetch Pixal3D checkpoints and auxiliary camera/background/projection models into shared NymphsData caches. The BRIA RMBG-2.0 access form must be accepted on Hugging Face before gated background-removal weights can be downloaded.",
+        "links": [
+          {
+            "label": "Pixal3D models",
+            "url": "https://huggingface.co/TencentARC/Pixal3D"
+          },
+          {
+            "label": "BRIA RMBG-2.0 access form",
+            "url": "https://huggingface.co/briaai/RMBG-2.0"
+          }
+        ],
+        "fields": [
+          {
+            "name": "profile",
+            "type": "select",
+            "label": "Profile",
+            "arg": "--profile",
+            "default": "low_vram_1024",
+            "options": [
+              {
+                "label": "Low VRAM 1024",
+                "value": "low_vram_1024",
+                "description": "Recommended first test; lower peak VRAM and 1024 cascade"
+              },
+              {
+                "label": "Standard 1536",
+                "value": "standard_1536",
+                "description": "Heavier profile for high VRAM systems"
+              }
+            ]
+          },
+          {
+            "name": "hf_token",
+            "type": "secret",
+            "label": "Hugging Face token",
+            "secret_id": "huggingface.token",
+            "env": "NYMPHS3D_HF_TOKEN",
+            "optional": true
+          },
+          {
+            "name": "license_ack",
+            "type": "select",
+            "label": "License/access acknowledgement",
+            "arg": "--license-ack",
+            "default": "no",
+            "options": [
+              {
+                "label": "Not yet",
+                "value": "no",
+                "description": "Do not fetch gated/non-commercial Pixal3D assets yet"
+              },
+              {
+                "label": "I acknowledge",
+                "value": "yes",
+                "description": "I understand Pixal3D and BRIA RMBG access/use restrictions"
+              }
+            ]
+          }
+        ],
+        "submit": {
+          "label": "Fetch Models"
+        }
+      }
+    ],
+    "manager_actions": [
+      {
+        "id": "open_gradio",
+        "label": "Open Gradio",
+        "entrypoint": "open_gradio",
+        "result": "open_in_manager"
+      },
+      {
+        "id": "smoke_test",
+        "label": "Smoke Test",
+        "entrypoint": "smoke_test",
+        "result": "show_output"
+      },
+      {
+        "id": "fetch_models",
+        "label": "Fetch Models",
+        "entrypoint": "fetch_models",
+        "result": "show_output"
+      },
+      {
+        "id": "open_weights",
+        "label": "Open Weights",
+        "entrypoint": "open_weights",
+        "result": "open_directory"
+      },
+      {
+        "id": "open_outputs",
+        "label": "Open Outputs",
+        "entrypoint": "open_outputs",
+        "result": "open_directory"
+      },
+      {
+        "id": "start",
+        "label": "Start API",
+        "entrypoint": "start",
+        "result": "show_output"
+      },
+      {
+        "id": "stop",
+        "label": "Stop",
+        "entrypoint": "stop",
+        "result": "show_output"
+      },
+      {
+        "id": "logs",
+        "label": "Logs",
+        "entrypoint": "logs",
+        "result": "open_notepad"
+      }
+    ]
+  },
+  "uninstall": {
+    "supports_purge": true,
+    "supports_data_delete": true,
+    "requires_confirmation": true,
+    "dry_run_arg": "--dry-run",
+    "confirm_arg": "--yes",
+    "purge_arg": "--purge",
+    "data_only_arg": "--data-only",
+    "preserve_by_default": [
+      "outputs",
+      "logs",
+      "config",
+      "Hugging Face cache",
+      "Torch cache"
+    ],
+    "removes_by_default": [
+      "runtime source files",
+      ".venv",
+      "generated module scripts"
+    ]
+  },
+  "notes": [
+    "The official upstream training code and data toolkit are preserved in the module repo, but v0.1 exposes inference and Gradio testing only.",
+    "Do not vendor model weights into this repo."
+  ]
+}

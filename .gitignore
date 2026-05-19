@@ -7,6 +7,7 @@ __pycache__/
 # Output files
 output.glb
 autotune_cache.json
+.nymph-module-version
 
 # Virtual environment
 venv/

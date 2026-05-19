@@ -182,6 +182,9 @@ def run_inference(
     manual_fov: float = -1.0,
     low_vram: bool = False,
     resolution: int = -1,
+    decimation_target: int = 1000000,
+    texture_size: int = 4096,
+    extension_webp: bool = False,
 ):
     # Load models
     pipeline = init_pipeline(model_path, low_vram=low_vram)
@@ -264,7 +267,7 @@ def run_inference(
         vertices=mesh.vertices, faces=mesh.faces, attr_volume=mesh.attrs,
         coords=mesh.coords, attr_layout=pipeline.pbr_attr_layout,
         grid_size=res, aabb=[[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
-        decimation_target=1000000, texture_size=4096,
+        decimation_target=decimation_target, texture_size=texture_size,
         remesh=True, remesh_band=1, remesh_project=0, use_tqdm=True,
     )
 
@@ -279,7 +282,7 @@ def run_inference(
 
     # Export
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    glb.export(output_path, extension_webp=True)
+    glb.export(output_path, extension_webp=extension_webp)
     print(f"[Done] GLB saved to: {output_path}")
 
 

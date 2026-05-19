@@ -2,6 +2,10 @@
 
 Date: 2026-05-17
 
+Updated: 2026-05-19 after merging upstream `TencentARC/Pixal3D` through
+`e3b2ac1` (`docs: add natten installation step in README`). The fork now
+includes the official Pixal3D training pipeline and data preparation toolkit.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -18,6 +22,14 @@ Short answer:
   a separate inference dependency.
 - The Blender addon should treat Pixal3D as a separate 3D runtime/backend, not
   as another GGUF quant under the existing TRELLIS.2 GGUF runtime.
+- New upstream training support is real, but it should not be folded into the
+  first Blender inference module. Treat training as a later Pixal3D Trainer
+  sidecar or module because it has different data, storage, runtime, and UX
+  needs.
+- The existing Nymph LoRA module cannot directly train Pixal3D. It is a
+  Z-Image Turbo LoRA trainer using AI Toolkit. Its Manager/job UX patterns are
+  useful, but Pixal3D training is full 3D flow-model training, not a Z-Image
+  LoRA adapter workflow.
 
 ## Build Handoff V1: Achievable Implementation Plan
 
@@ -67,6 +79,9 @@ Do this:
   `utils3d.pt` alias that MoGe calls.
 - Fetch Pixal3D and auxiliary models into `$HOME/NymphsData` caches.
 - Add Pixal3D as a full third Blender service with start/stop/probe/generate UI.
+- Preserve upstream `train.py`, `configs/gen/*.json`, and `data_toolkit/` in
+  the installed tree, but do not expose them as v1 Manager actions. They are
+  future training-surface material.
 
 Do not do this in v1:
 
@@ -77,6 +92,9 @@ Do not do this in v1:
 - Do not create a custom Manager WebView UI just for model selection.
 - Do not return JSON from Pixal3D `/generate` in v1; the current Blender shape
   worker expects mesh bytes.
+- Do not wire Pixal3D training into the current LoRA module. That module is
+  Z-Image Turbo-specific and emits `.safetensors` LoRA adapters for image
+  generation, not Pixal3D/TRELLIS.2 3D generator checkpoints.
 
 ### Official Source Conclusions
 
@@ -85,6 +103,11 @@ Official Pixal3D README:
 - `main` is the latest branch and is based on TRELLIS.2.
 - Installation says to follow TRELLIS.2 installation first.
 - Then install Pixal3D `requirements.txt`.
+- As of upstream `e3b2ac1`, NATTEN is a separate manual install step:
+  `NATTEN_CUDA_ARCH="xx" NATTEN_N_WORKERS=xx pip install natten==0.21.0 --no-build-isolation`.
+  Upstream removed `natten==0.21.0` from `requirements.txt` and added explicit
+  pins for basics such as `pillow`, `imageio`, `opencv-python-headless`,
+  `trimesh`, `transformers`, `zstandard`, `kornia`, and `timm`.
 - Then install the `utils3d` wheel. Local validation found that MoGe auto-FOV
   additionally needs MoGe's pinned `utils3d` git commit because it exposes
   `utils3d.pt`.
@@ -94,6 +117,18 @@ Official Pixal3D README:
   but the Nymph Pixal3D module should not expose or auto-use that fallback.
 - `requirements-hfdemo.txt` is specifically for Hugging Face Spaces/H-series
   hardware and should not be the normal local install recipe.
+- Upstream now includes official training code:
+  `train.py`, eight staged configs under `configs/gen/`, and a
+  `data_toolkit/` for downloading assets, rendering conditions, building
+  metadata, view-aligned O-Voxel conversion, PBR/shape/sparse-structure latent
+  encoding, and visualization.
+- Pixal3D training is a three-stage cascade:
+  sparse structure `32 -> 64`, shape `256 -> 512 -> 1024`, and texture
+  `256 -> 512 -> 1024`.
+- Training uses view-aligned projection conditioning, two views by default,
+  DINOv3 projection features, optional NAF upsampling for shape/texture stages,
+  TRELLIS.2 SC-VAE decoders, and distributed Torch launch support through
+  `torch.multiprocessing.spawn`.
 
 Official TRELLIS.2 README/install surface:
 
@@ -128,7 +163,107 @@ Conclusion:
 The existing TRELLIS module install recipe is useful.
 The existing TRELLIS GGUF service/runtime path is not the Pixal3D base.
 The Pixal3D module must install/run the Pixal3D package itself.
+The existing LoRA module UI/job architecture is useful as a pattern.
+The existing LoRA module training backend is not a Pixal3D trainer.
 ```
+
+### Training Update From Upstream 2026-05-19
+
+The merged upstream commits add enough official training surface to plan a
+future Pixal3D Trainer, but not enough to make it a small extension of the
+current LoRA module.
+
+New upstream files:
+
+```text
+train.py
+configs/gen/ss_flow_img_dit_1_3B_32_bf16_proj_finetune.json
+configs/gen/ss_flow_img_dit_1_3B_32_bf16_proj_finetune_ft64.json
+configs/gen/slat_flow_img2shape_dit_1_3B_256_bf16_proj_finetune.json
+configs/gen/slat_flow_img2shape_dit_1_3B_256_bf16_proj_finetune_ft512.json
+configs/gen/slat_flow_img2shape_dit_1_3B_512_bf16_proj_finetune_ft1024.json
+configs/gen/slat_flow_imgshape2tex_dit_1_3B_256_bf16_proj_finetune.json
+configs/gen/slat_flow_imgshape2tex_dit_1_3B_512_bf16_proj_finetune.json
+configs/gen/slat_flow_imgshape2tex_dit_1_3B_512_bf16_proj_finetune_ft1024.json
+data_toolkit/
+```
+
+Training command shape:
+
+```bash
+python train.py \
+  --config <CONFIG_JSON> \
+  --output_dir <OUTPUT_DIR> \
+  --data_dir '<DATA_DIR_JSON>'
+```
+
+`--data_dir` is not a simple image folder. It is a JSON object that points each
+dataset to staged 3D assets:
+
+```text
+Sparse Structure: base, ss_latent, render_cond
+Shape:            base, shape_latent, render_cond
+Texture:          base, shape_latent, pbr_latent, render_cond
+```
+
+This means Pixal3D training needs a data preparation workflow before training
+can even start. The toolkit path is:
+
+```text
+metadata -> download 3D assets -> dump mesh/PBR -> render condition views
+-> view-aligned O-Voxels -> shape/PBR/SS latents -> train cascade stages
+```
+
+The Nymph implementation implication:
+
+- V1 Pixal3D should stay inference-only from the Manager/Blender perspective.
+- Keep `train.py`, `configs/gen/`, and `data_toolkit/` installed and documented
+  so advanced users can inspect or run them manually.
+- Plan a separate `pixal3d-trainer` module or a later Pixal3D module training
+  tab once the inference module is stable.
+- Do not present this as a small “LoRA training” feature. It is closer to a
+  full 3D model training workbench.
+
+### LoRA Module Compatibility Answer
+
+Could the current Nymph LoRA module train Pixal3D?
+
+Short answer: no, not directly.
+
+What the current LoRA module does:
+
+- Installs `$HOME/LoRA`.
+- Uses `ostris/ai-toolkit`.
+- Fetches `Tongyi-MAI/Z-Image-Turbo` and
+  `ostris/zimage_turbo_training_adapter`.
+- Builds AI Toolkit jobs with `arch: "zimage:turbo"`.
+- Trains image-generation LoRA adapters and writes finished `.safetensors`
+  under `$HOME/LoRA/loras`.
+
+What Pixal3D training needs:
+
+- Pixal3D/TRELLIS.2 model classes and trainers from this repo.
+- Datasets made from 3D assets, not only captioned 2D images.
+- Rendered condition views with camera transforms.
+- View-aligned O-Voxels.
+- Shape, PBR, and sparse-structure latents.
+- Multi-stage checkpoint handoff between sparse structure, shape, and texture.
+- Native TRELLIS.2/Pixal3D runtime extensions in the training venv.
+
+Useful reuse from the LoRA module:
+
+- Separate training sidecar pattern.
+- `Fetch Training Assets` as a distinct Manager action.
+- Module-owned local HTML for beginner training UX.
+- Dataset/job/log/output folder conventions.
+- Status fields for assets, active jobs, finished outputs, and retained data.
+
+Do not reuse:
+
+- AI Toolkit as the Pixal3D training backend.
+- Z-Image Turbo training configs.
+- The `.safetensors` LoRA output assumption as the product deliverable.
+- The simple captioned-image dataset path as the Pixal3D data contract.
 
 ### Deliverable File Tree
 

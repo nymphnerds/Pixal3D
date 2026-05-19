@@ -30,7 +30,16 @@ os.environ.setdefault("ATTN_BACKEND", "flash_attn")
 os.environ["FLEX_GEMM_AUTOTUNE_CACHE_PATH"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'autotune_cache.json')
 os.environ["FLEX_GEMM_AUTOTUNER_VERBOSE"] = '1'
 
-import spaces
+try:
+    import spaces
+except ImportError:
+    class _SpacesFallback:
+        @staticmethod
+        def GPU(*args, **kwargs):
+            def decorator(func):
+                return func
+            return decorator
+    spaces = _SpacesFallback()
 from gradio import Server
 from gradio.data_classes import FileData
 from fastapi.responses import HTMLResponse
@@ -543,17 +552,22 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pixal3D Demo Server")
     parser.add_argument("--low_vram", action="store_true",
                         help="Enable low-VRAM mode: models lazy-load to GPU per stage.")
+    parser.add_argument("--host", default=os.environ.get("GRADIO_SERVER_NAME", "127.0.0.1"))
+    parser.add_argument("--port", type=int, default=int(os.environ.get("GRADIO_SERVER_PORT", "8097")))
+    parser.add_argument("--share", action="store_true", help="Enable Gradio share link.")
+    parser.add_argument("--lazy-load", action="store_true", help="Start the UI before loading models.")
+    parser.add_argument("--reinstall-utils3d", action="store_true", help="Reinstall upstream utils3d wheel before launch.")
     args, remaining = parser.parse_known_args()
     if args.low_vram:
         LOW_VRAM = True
 
-    # Re-install utils3d as in original app.py
-    subprocess.run([
-        sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps",
-        "https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl"
-    ], check=True)
+    if args.reinstall_utils3d or os.environ.get("PIXAL3D_REINSTALL_UTILS3D") == "1":
+        subprocess.run([
+            sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps",
+            "https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl"
+        ], check=True)
     
-    # Pre-initialize models before launching the server
-    init_models()
+    if not args.lazy_load:
+        init_models()
     
-    app.launch(show_error=True, share=True)
+    app.launch(show_error=True, share=args.share, server_name=args.host, server_port=args.port)
