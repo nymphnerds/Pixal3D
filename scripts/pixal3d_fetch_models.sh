@@ -79,6 +79,12 @@ if [[ -n "${NYMPHS3D_HF_TOKEN:-}" ]]; then
   export HUGGING_FACE_HUB_TOKEN="${NYMPHS3D_HF_TOKEN}"
 fi
 
+pixal3d_cache_repo_present() {
+  local cache_name="$1"
+  [[ -d "${NYMPHS3D_HF_CACHE_DIR}/${cache_name}/snapshots" ]] &&
+    [[ -n "$(find "${NYMPHS3D_HF_CACHE_DIR}/${cache_name}/snapshots" -mindepth 1 -maxdepth 1 -type d -print -quit 2>/dev/null)" ]]
+}
+
 cat > "${PIXAL3D_PROFILE_FILE}" <<EOF
 PIXAL3D_PROFILE=${profile}
 PIXAL3D_VENV_DIR=${PIXAL3D_VENV_DIR}
@@ -86,6 +92,15 @@ PIXAL3D_LOW_VRAM=${PIXAL3D_LOW_VRAM}
 PIXAL3D_RESOLUTION=${PIXAL3D_RESOLUTION}
 PIXAL3D_MODEL_REPO=TencentARC/Pixal3D
 EOF
+
+if pixal3d_cache_repo_present "models--TencentARC--Pixal3D" &&
+   pixal3d_cache_repo_present "models--Ruicheng--moge-2-vitl" &&
+   pixal3d_cache_repo_present "models--camenduru--dinov3-vitl16-pretrain-lvd1689m" &&
+   pixal3d_cache_repo_present "models--briaai--RMBG-2.0"; then
+  echo "MODEL FETCH COMPLETE: phase=all status=complete models_ready=true aux_models_ready=true shared_cache=${NYMPHS3D_HF_CACHE_DIR}"
+  echo "Pixal3D model fetch skipped: all required model caches are already present."
+  exit 0
+fi
 
 echo "MODEL FETCH STARTED: phase=prepare status=downloading profile=${profile} shared_cache=${NYMPHS3D_HF_CACHE_DIR}"
 
