@@ -87,6 +87,8 @@ PIXAL3D_RESOLUTION=${PIXAL3D_RESOLUTION}
 PIXAL3D_MODEL_REPO=TencentARC/Pixal3D
 EOF
 
+echo "MODEL DOWNLOAD STARTED phase=prepare status=downloading profile=${profile} shared_cache=${NYMPHS3D_HF_CACHE_DIR}"
+
 "$(pixal3d_python)" - <<'PY'
 import os
 from huggingface_hub import snapshot_download
@@ -101,13 +103,14 @@ repos = [
 ]
 
 for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
-    print(f"MODEL FETCH STARTED: step={index}/{len(repos)} repo={repo_id}", flush=True)
+    print(f"MODEL DOWNLOAD STARTED step={index}/{len(repos)} status=downloading repo={repo_id} shared_cache={cache_dir}", flush=True)
     kwargs = {"repo_id": repo_id, "cache_dir": cache_dir, "token": token}
     if allow_patterns:
         kwargs["allow_patterns"] = allow_patterns
     try:
         root = snapshot_download(**kwargs)
     except Exception as exc:
+        print(f"MODEL DOWNLOAD FAILED step={index}/{len(repos)} status=failed repo={repo_id}", flush=True)
         if repo_id == "briaai/RMBG-2.0":
             raise SystemExit(
                 "BRIA RMBG-2.0 download failed. Open https://huggingface.co/briaai/RMBG-2.0 "
@@ -115,6 +118,7 @@ for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
                 f"Original error: {exc}"
             )
         raise
-    print(f"MODEL FETCH COMPLETE: step={index}/{len(repos)} repo={repo_id} root={root}", flush=True)
+    print(f"MODEL DOWNLOAD COMPLETE step={index}/{len(repos)} status=complete repo={repo_id} root={root}", flush=True)
+print("MODEL DOWNLOAD COMPLETE phase=all status=complete", flush=True)
 print("Pixal3D model fetch complete.", flush=True)
 PY
