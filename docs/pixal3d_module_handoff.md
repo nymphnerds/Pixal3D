@@ -36,6 +36,91 @@ Short answer:
 This is the implementation-grade plan. The research notes below explain why
 these decisions were made; this section is what to hand to the implementer.
 
+### Current Implementation Status 2026-05-19
+
+The Pixal3D fork is now merged with upstream `TencentARC/Pixal3D` through
+`e3b2ac1` and includes the official training pipeline, NATTEN install doc
+change, and Nymph module wrapper.
+
+Implemented in the Pixal3D module:
+
+- `nymph.json` declares `pixal3d` as a repo-packaged `3d` module with API port
+  `8096` and Gradio/WebView port `8097`.
+- The module detail overview includes Pixal3D academic/non-commercial terms,
+  the not-for-EU license wording, the BRIA RMBG-2.0 gated model notice, and a
+  direct BRIA access form link: `https://huggingface.co/briaai/RMBG-2.0`.
+- Lifecycle scripts now cover install, update, status, start, stop, logs,
+  smoke test, model fetch, Gradio launch, weights folder, outputs folder, and
+  uninstall.
+- `scripts/api_server_pixal3d.py` exposes the Blender-compatible API surface:
+  `/health`, `/server_info`, `/active_task`, and `/generate`.
+- `scripts/gradio_pixal3d_module.py` launches the local Gradio test UI that the
+  Manager can open inside the module details WebView.
+- `app.py` and `inference.py` were adjusted so the module can run with explicit
+  host/port/lazy-load settings and Blender-friendly GLB export knobs.
+- Model fetch uses the shared `NymphsData` Hugging Face/Torch caches and can
+  read the Manager-managed Hugging Face secret without printing the token.
+- Fetch Models refuses to run unless `--license-ack yes` is supplied.
+
+Local validation passed on 2026-05-19:
+
+```text
+bash -n scripts/*.sh
+python -m py_compile scripts/api_server_pixal3d.py scripts/gradio_pixal3d_module.py app.py inference.py
+python -m json.tool nymph.json
+scripts/pixal3d_smoke_test.sh
+scripts/pixal3d_status.sh
+curl http://127.0.0.1:8096/health
+curl http://127.0.0.1:8096/server_info
+curl -I http://127.0.0.1:8097
+```
+
+Current local runtime state from `pixal3d_status.sh`:
+
+```text
+installed=true
+env_ready=true
+adapter_ready=true
+runtime_ready=true
+models_ready=true
+aux_models_ready=true
+running=true
+api_running=true
+gradio_running=true
+health=ok
+profile=low_vram_1024
+resolution=1024
+venv=/home/nymph/TRELLIS.2/.venv
+```
+
+The local validation profile reuses the existing TRELLIS.2 venv because it
+already contains the heavy native runtime stack. The production module contract
+still defaults to `$HOME/Pixal3D/.venv`; keep that as the clean install target
+unless intentionally using the manual/shared-venv profile for a workstation
+smoke test.
+
+Manager/registry status:
+
+- `NymphsModules/nymphs-registry` has a `pixal3d` entry and publishes the BRIA
+  form link in details.
+- NymphsCore now treats display `kind`, content `category`, and install
+  `packaging` as separate manifest/registry concepts. This lets modules show
+  `// image` or `// 3d` while still installing as `repo`.
+- Z-Image should use `category=image`, `kind=image`, `packaging=repo`.
+- Pixal3D should use `category=3d`, `kind=3d` if a display kind is added later,
+  and `packaging=repo`.
+
+Addon status:
+
+- A local NymphsAddon patch exists for Pixal3D as a third 3D backend, but it has
+  not been committed or pushed yet.
+- Local addon checks passed with `python3 -m py_compile Nymphs.py` and
+  `git diff --check -- Nymphs.py`.
+- Blender is not available on this machine's PATH, so the addon still needs a
+  real Blender enable/start/probe/generate/import test before shipping.
+- Keep Blender addon changes local until Pixal3D generation imports a textured
+  GLB correctly in the target Blender build.
+
 ### Final Build Decision
 
 Build Pixal3D as a separate Nymph module:
@@ -2103,8 +2188,10 @@ Implementation lessons learned:
   separate prefetch path for offline/managed installs.
 - Blender GLB textures: test `extension_webp=True` vs `False`.
 - Retexture: do not promise selected-mesh retexture until implemented and tested.
-- Registry: publish module repo first, then add `pixal3d` entry to
-  `NymphsModules/nymphs-registry/nymphs.json`.
+- Registry: `pixal3d` has been published to
+  `NymphsModules/nymphs-registry/nymphs.json`. Keep future manifest changes in
+  sync with the registry entry, especially `category`, `kind`, `packaging`, and
+  the license/access overview text.
 
 ## Recommended First Implementation Order
 
@@ -3135,6 +3222,10 @@ Addon acceptance:
 - Pixal3D selection hides GGUF Quant and launches port 8096.
 - Pixal3D generation imports a GLB into Blender.
 - Texture panel still uses TRELLIS for selected-mesh retexture.
+
+Current addon gate: these acceptance items are not complete until tested inside
+Blender. Do not push or release the addon Pixal3D integration from compile-only
+validation.
 
 Research spike acceptance:
 
