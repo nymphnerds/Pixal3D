@@ -6,6 +6,8 @@ source "${SCRIPT_DIR}/_pixal3d_common.sh"
 
 if pixal3d_gradio_is_running; then
   echo "Pixal3D Gradio is already running at ${PIXAL3D_GRADIO_URL}"
+  echo "url=${PIXAL3D_GRADIO_URL}"
+  echo "module_ui_url=${PIXAL3D_GRADIO_URL}"
   exit 0
 fi
 
@@ -35,6 +37,7 @@ echo "Starting Pixal3D Gradio at ${PIXAL3D_GRADIO_URL}"
 for _ in $(seq 1 60); do
   if pixal3d_probe_url "${PIXAL3D_GRADIO_URL}" >/dev/null 2>&1; then
     echo "Pixal3D Gradio started."
+    echo "url=${PIXAL3D_GRADIO_URL}"
     echo "module_ui_url=${PIXAL3D_GRADIO_URL}"
     exit 0
   fi

@@ -106,7 +106,9 @@
     "manager_ui": {
       "type": "local_url",
       "title": "Pixal3D Gradio",
-      "url": "http://127.0.0.1:8097"
+      "url": "http://127.0.0.1:8097",
+      "requires_running": true,
+      "start_action": "open_gradio"
     },
     "manager_action_groups": [
       {
