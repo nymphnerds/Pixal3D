@@ -87,11 +87,13 @@ PIXAL3D_RESOLUTION=${PIXAL3D_RESOLUTION}
 PIXAL3D_MODEL_REPO=TencentARC/Pixal3D
 EOF
 
-echo "MODEL DOWNLOAD STARTED phase=prepare status=downloading profile=${profile} shared_cache=${NYMPHS3D_HF_CACHE_DIR}"
+echo "MODEL FETCH STARTED: phase=prepare status=downloading profile=${profile} shared_cache=${NYMPHS3D_HF_CACHE_DIR}"
 
 "$(pixal3d_python)" - <<'PY'
 import os
+import threading
 from huggingface_hub import snapshot_download
+from pathlib import Path
 
 cache_dir = os.environ.get("NYMPHS3D_HF_CACHE_DIR")
 token = os.environ.get("NYMPHS3D_HF_TOKEN") or os.environ.get("HF_TOKEN") or None
@@ -102,15 +104,70 @@ repos = [
     ("briaai/RMBG-2.0", None),
 ]
 
+def repo_cache_dir(repo_id):
+    if not cache_dir:
+        return None
+    return Path(cache_dir) / f"models--{repo_id.replace('/', '--')}"
+
+def cache_stats(path):
+    if path is None or not path.exists():
+        return 0, 0, 0
+
+    file_count = 0
+    byte_count = 0
+    partial_count = 0
+    for item in path.rglob("*"):
+        try:
+            if not item.is_file():
+                continue
+            file_count += 1
+            byte_count += item.stat().st_size
+            name = item.name.lower()
+            if name.endswith(".incomplete") or ".incomplete" in name or name.endswith(".lock"):
+                partial_count += 1
+        except OSError:
+            continue
+    return file_count, byte_count, partial_count
+
+def print_fetch_status(step, total, repo_id, path, start_bytes, stop_event):
+    while not stop_event.wait(5):
+        files, bytes_now, partials = cache_stats(path)
+        downloaded = max(0, bytes_now - start_bytes)
+        print(
+            "MODEL FETCH STATUS: "
+            f"step={step}/{total} status=downloading repo={repo_id} "
+            f"cache_dir={path or 'unknown'} repo_cache_blobs={files} "
+            f"repo_cache_mb={bytes_now // (1024 * 1024)} "
+            f"downloaded_this_step_mb={downloaded // (1024 * 1024)} "
+            f"active_partial_files={partials}",
+            flush=True,
+        )
+
 for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
-    print(f"MODEL DOWNLOAD STARTED step={index}/{len(repos)} status=downloading repo={repo_id} shared_cache={cache_dir}", flush=True)
+    total = len(repos)
+    cache_path = repo_cache_dir(repo_id)
+    _, start_bytes, _ = cache_stats(cache_path)
+    print(
+        f"MODEL FETCH STARTED: step={index}/{total} status=downloading repo={repo_id} "
+        f"cache_dir={cache_path or 'unknown'} shared_cache={cache_dir}",
+        flush=True,
+    )
+    stop_event = threading.Event()
+    reporter = threading.Thread(
+        target=print_fetch_status,
+        args=(index, total, repo_id, cache_path, start_bytes, stop_event),
+        daemon=True,
+    )
+    reporter.start()
     kwargs = {"repo_id": repo_id, "cache_dir": cache_dir, "token": token}
     if allow_patterns:
         kwargs["allow_patterns"] = allow_patterns
     try:
         root = snapshot_download(**kwargs)
     except Exception as exc:
-        print(f"MODEL DOWNLOAD FAILED step={index}/{len(repos)} status=failed repo={repo_id}", flush=True)
+        stop_event.set()
+        reporter.join(timeout=1)
+        print(f"MODEL FETCH FAILED: step={index}/{total} status=failed repo={repo_id}", flush=True)
         if repo_id == "briaai/RMBG-2.0":
             raise SystemExit(
                 "BRIA RMBG-2.0 download failed. Open https://huggingface.co/briaai/RMBG-2.0 "
@@ -118,7 +175,18 @@ for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
                 f"Original error: {exc}"
             )
         raise
-    print(f"MODEL DOWNLOAD COMPLETE step={index}/{len(repos)} status=complete repo={repo_id} root={root}", flush=True)
-print("MODEL DOWNLOAD COMPLETE phase=all status=complete", flush=True)
+    stop_event.set()
+    reporter.join(timeout=1)
+    files, bytes_now, partials = cache_stats(cache_path)
+    downloaded = max(0, bytes_now - start_bytes)
+    print(
+        "MODEL FETCH STATUS: "
+        f"step={index}/{total} status=complete repo={repo_id} cache_dir={cache_path or 'unknown'} "
+        f"repo_cache_blobs={files} repo_cache_mb={bytes_now // (1024 * 1024)} "
+        f"downloaded_this_step_mb={downloaded // (1024 * 1024)} active_partial_files={partials}",
+        flush=True,
+    )
+    print(f"MODEL FETCH COMPLETE: step={index}/{total} status=complete repo={repo_id} root={root}", flush=True)
+print("MODEL FETCH COMPLETE: phase=all status=complete", flush=True)
 print("Pixal3D model fetch complete.", flush=True)
 PY
