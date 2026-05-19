@@ -129,19 +129,23 @@ def cache_stats(path):
             continue
     return file_count, byte_count, partial_count
 
+def emit_fetch_status(step, total, repo_id, path, start_bytes):
+    files, bytes_now, partials = cache_stats(path)
+    downloaded = max(0, bytes_now - start_bytes)
+    print(
+        "MODEL FETCH STATUS: "
+        f"step={step}/{total} status=downloading repo={repo_id} "
+        f"cache_dir={path or 'unknown'} repo_cache_blobs={files} "
+        f"repo_cache_mb={bytes_now // (1024 * 1024)} "
+        f"downloaded_this_step_mb={downloaded // (1024 * 1024)} "
+        f"active_partial_files={partials}",
+        flush=True,
+    )
+
 def print_fetch_status(step, total, repo_id, path, start_bytes, stop_event):
+    emit_fetch_status(step, total, repo_id, path, start_bytes)
     while not stop_event.wait(5):
-        files, bytes_now, partials = cache_stats(path)
-        downloaded = max(0, bytes_now - start_bytes)
-        print(
-            "MODEL FETCH STATUS: "
-            f"step={step}/{total} status=downloading repo={repo_id} "
-            f"cache_dir={path or 'unknown'} repo_cache_blobs={files} "
-            f"repo_cache_mb={bytes_now // (1024 * 1024)} "
-            f"downloaded_this_step_mb={downloaded // (1024 * 1024)} "
-            f"active_partial_files={partials}",
-            flush=True,
-        )
+        emit_fetch_status(step, total, repo_id, path, start_bytes)
 
 for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
     total = len(repos)
