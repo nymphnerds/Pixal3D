@@ -159,23 +159,11 @@
           },
           {
             "name": "license_ack",
-            "type": "checkbox",
-            "label": "License/access",
+            "type": "hidden",
+            "label": "License/access acknowledged in popup",
             "arg": "--license-ack",
-            "default": "no",
-            "optional": false,
-            "options": [
-              {
-                "label": "I acknowledge",
-                "value": "yes",
-                "description": "I understand Pixal3D and BRIA RMBG access/use restrictions"
-              },
-              {
-                "label": "Not yet",
-                "value": "no",
-                "description": "Do not fetch gated/non-commercial Pixal3D assets yet"
-              }
-            ]
+            "default": "yes",
+            "optional": false
           }
         ],
         "submit": {
