@@ -157,20 +157,20 @@
           },
           {
             "name": "license_ack",
-            "type": "select",
-            "label": "License/access acknowledgement",
+            "type": "checkbox",
+            "label": "I acknowledge the license/access terms",
             "arg": "--license-ack",
             "default": "no",
             "options": [
               {
-                "label": "Not yet",
-                "value": "no",
-                "description": "Do not fetch gated/non-commercial Pixal3D assets yet"
-              },
-              {
                 "label": "I acknowledge",
                 "value": "yes",
                 "description": "I understand Pixal3D and BRIA RMBG access/use restrictions"
+              },
+              {
+                "label": "Not yet",
+                "value": "no",
+                "description": "Do not fetch gated/non-commercial Pixal3D assets yet"
               }
             ]
           }
@@ -191,12 +191,6 @@
         "id": "smoke_test",
         "label": "Smoke Test",
         "entrypoint": "smoke_test",
-        "result": "show_output"
-      },
-      {
-        "id": "fetch_models",
-        "label": "Fetch Models",
-        "entrypoint": "fetch_models",
         "result": "show_output"
       },
       {
