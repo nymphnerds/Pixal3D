@@ -96,6 +96,18 @@ else
   aux_models_ready=false
 fi
 
+if [[ "${installed}" == "true" && "${env_ready}" == "true" &&
+      ( "${models_ready}" != "true" || "${aux_models_ready}" != "true" ) ]]; then
+  health=model-download-needed
+  if [[ "${models_ready}" != "true" && "${aux_models_ready}" != "true" ]]; then
+    detail="Pixal3D model files and auxiliary model files need downloading. Use Fetch Models after accepting required access terms."
+  elif [[ "${models_ready}" != "true" ]]; then
+    detail="Pixal3D model files need downloading. Use Fetch Models after accepting required access terms."
+  else
+    detail="Pixal3D auxiliary model files need downloading. Use Fetch Models after accepting required access terms."
+  fi
+fi
+
 service_running=false
 if [[ "${api_running}" == "true" || "${gradio_running}" == "true" ]]; then
   service_running=true
@@ -113,6 +125,9 @@ elif [[ "${installed}" == "true" && "${adapter_ready}" != "true" ]]; then
   detail="Pixal3D source is installed, but the API server wrapper is missing."
 elif [[ "${installed}" == "true" && "${runtime_ready}" != "true" ]]; then
   state=needs_attention
+elif [[ "${installed}" == "true" && ( "${models_ready}" != "true" || "${aux_models_ready}" != "true" ) ]]; then
+  state=model_download_needed
+  health=model-download-needed
 elif [[ "${installed}" == "true" ]]; then
   state=installed
   [[ "${health}" == "unavailable" ]] && health=unknown
