@@ -160,9 +160,10 @@
           {
             "name": "license_ack",
             "type": "checkbox",
-            "label": "I acknowledge the license/access terms",
+            "label": "License/access",
             "arg": "--license-ack",
             "default": "no",
+            "optional": false,
             "options": [
               {
                 "label": "I acknowledge",
