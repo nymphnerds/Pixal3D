@@ -59,7 +59,25 @@ echo "Installing Pixal3D runtime profile: ${profile}"
 sudo apt-get update
 sudo apt-get install -y python3.10 python3.10-venv python3.10-dev git curl cmake build-essential pkg-config libegl1-mesa-dev libgl1 libglib2.0-0 ccache ninja-build libjpeg-dev
 
-python3.10 -m venv "${PIXAL3D_VENV_DIR}"
+if [[ -d "${PIXAL3D_VENV_DIR}" ]] && {
+  [[ ! -x "$(pixal3d_python)" ]] ||
+  [[ ! -x "$(pixal3d_pip)" ]] ||
+  ! "$(pixal3d_python)" -m pip --version >/dev/null 2>&1
+}; then
+  echo "Removing incomplete Pixal3D venv at ${PIXAL3D_VENV_DIR}"
+  rm -rf "${PIXAL3D_VENV_DIR}"
+fi
+
+if [[ ! -x "$(pixal3d_python)" ]]; then
+  echo "Creating Pixal3D venv at ${PIXAL3D_VENV_DIR}"
+  python3.10 -m venv "${PIXAL3D_VENV_DIR}"
+fi
+
+if [[ ! -x "$(pixal3d_python)" ]] || ! "$(pixal3d_python)" -m pip --version >/dev/null 2>&1; then
+  echo "Pixal3D venv was created, but Python/pip is missing. Repair Python 3.10 venv tooling and retry." >&2
+  exit 1
+fi
+
 "$(pixal3d_python)" -m pip install --upgrade pip setuptools wheel
 
 if [[ "${profile}" == "cuda13" ]]; then
