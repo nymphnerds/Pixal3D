@@ -85,7 +85,7 @@ pixal3d_ensure_data_dirs
 fetch_lock="${PIXAL3D_CONFIG_DIR}/fetch_models.lock"
 exec 9>"${fetch_lock}"
 if ! flock -n 9; then
-  echo "MODEL FETCH STATUS: status=running waiting_on=existing_fetch lock=${fetch_lock}"
+  echo "MODEL FETCH STATUS: Pixal3D model fetch is already running; using existing fetch lock at ${fetch_lock}."
   echo "Pixal3D model fetch is already running."
   exit 0
 fi
@@ -119,7 +119,7 @@ if pixal3d_cache_repo_present "models--TencentARC--Pixal3D" &&
   exit 0
 fi
 
-echo "MODEL FETCH STARTED: phase=prepare status=downloading profile=${profile} shared_cache=${NYMPHS3D_HF_CACHE_DIR}"
+echo "MODEL FETCH STARTED: Pixal3D ${profile} model fetch into ${NYMPHS3D_HF_CACHE_DIR}."
 
 "$(pixal3d_python)" - <<'PY'
 import os
@@ -135,6 +135,17 @@ repos = [
     ("camenduru/dinov3-vitl16-pretrain-lvd1689m", None),
     ("briaai/RMBG-2.0", None),
 ]
+
+def format_bytes(size):
+    units = ["B", "KiB", "MiB", "GiB", "TiB"]
+    value = float(max(0, size))
+    unit = 0
+    while value >= 1024 and unit < len(units) - 1:
+        value /= 1024
+        unit += 1
+    if unit == 0:
+        return f"{int(value)} {units[unit]}"
+    return f"{value:.2f} {units[unit]}"
 
 def repo_cache_dir(repo_id):
     if not cache_dir:
@@ -166,11 +177,9 @@ def emit_fetch_status(step, total, repo_id, path, start_bytes):
     downloaded = max(0, bytes_now - start_bytes)
     print(
         "MODEL FETCH STATUS: "
-        f"step={step}/{total} status=downloading repo={repo_id} "
-        f"cache_dir={path or 'unknown'} repo_cache_blobs={files} "
-        f"repo_cache_mb={bytes_now // (1024 * 1024)} "
-        f"downloaded_this_step_mb={downloaded // (1024 * 1024)} "
-        f"active_partial_files={partials}",
+        f"step {step}/{total} downloading {repo_id} - "
+        f"{format_bytes(bytes_now)} cached, +{format_bytes(downloaded)} this step, "
+        f"{partials} active download files, {files} cache files.",
         flush=True,
     )
 
@@ -184,8 +193,7 @@ for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
     cache_path = repo_cache_dir(repo_id)
     _, start_bytes, _ = cache_stats(cache_path)
     print(
-        f"MODEL FETCH STARTED: step={index}/{total} status=downloading repo={repo_id} "
-        f"cache_dir={cache_path or 'unknown'} shared_cache={cache_dir}",
+        f"MODEL FETCH STARTED: step {index}/{total} downloading {repo_id} into {cache_dir}.",
         flush=True,
     )
     stop_event = threading.Event()
@@ -203,7 +211,7 @@ for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
     except Exception as exc:
         stop_event.set()
         reporter.join(timeout=1)
-        print(f"MODEL FETCH FAILED: step={index}/{total} status=failed repo={repo_id}", flush=True)
+        print(f"MODEL FETCH FAILED: step {index}/{total} could not download {repo_id}.", flush=True)
         if repo_id == "briaai/RMBG-2.0":
             raise SystemExit(
                 "BRIA RMBG-2.0 download failed. Open https://huggingface.co/briaai/RMBG-2.0 "
@@ -217,12 +225,12 @@ for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
     downloaded = max(0, bytes_now - start_bytes)
     print(
         "MODEL FETCH STATUS: "
-        f"step={index}/{total} status=complete repo={repo_id} cache_dir={cache_path or 'unknown'} "
-        f"repo_cache_blobs={files} repo_cache_mb={bytes_now // (1024 * 1024)} "
-        f"downloaded_this_step_mb={downloaded // (1024 * 1024)} active_partial_files={partials}",
+        f"step {index}/{total} finished {repo_id} - "
+        f"{format_bytes(bytes_now)} cached, +{format_bytes(downloaded)} this step, "
+        f"{partials} active download files, {files} cache files.",
         flush=True,
     )
-    print(f"MODEL FETCH COMPLETE: step={index}/{total} status=complete repo={repo_id} root={root}", flush=True)
-print("MODEL FETCH COMPLETE: phase=all status=complete", flush=True)
+    print(f"MODEL FETCH COMPLETE: step {index}/{total} {repo_id} ready at {root}.", flush=True)
+print("MODEL FETCH COMPLETE: Pixal3D model fetch finished.", flush=True)
 print("Pixal3D model fetch complete.", flush=True)
 PY

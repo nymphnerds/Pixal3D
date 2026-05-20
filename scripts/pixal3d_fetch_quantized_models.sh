@@ -70,7 +70,7 @@ pixal3d_ensure_data_dirs
 fetch_lock="${PIXAL3D_CONFIG_DIR}/fetch_quantized_models.lock"
 exec 9>"${fetch_lock}"
 if ! flock -n 9; then
-  echo "QUANT FETCH STATUS: status=running waiting_on=existing_fetch lock=${fetch_lock}"
+  echo "MODEL FETCH STATUS: Pixal3D GGUF fetch is already running; using existing fetch lock at ${fetch_lock}."
   echo "Pixal3D quantized weight fetch is already running."
   exit 0
 fi
@@ -88,7 +88,7 @@ PIXAL3D_QUANT=${quant}
 PIXAL3D_QUANT_RUNTIME_SUPPORTED=0
 EOF
 
-echo "QUANT FETCH STARTED: repo=${PIXAL3D_QUANT_REPO} quant=${quant} shared_cache=${NYMPHS3D_HF_CACHE_DIR}"
+echo "MODEL FETCH STARTED: Pixal3D GGUF ${quant} from ${PIXAL3D_QUANT_REPO} into ${NYMPHS3D_HF_CACHE_DIR}."
 
 "$(pixal3d_python)" - "${quant}" <<'PY'
 import os
@@ -128,6 +128,18 @@ required_files = [
 ]
 
 
+def format_bytes(size: int) -> str:
+    units = ["B", "KiB", "MiB", "GiB", "TiB"]
+    value = float(max(0, size))
+    unit = 0
+    while value >= 1024 and unit < len(units) - 1:
+        value /= 1024
+        unit += 1
+    if unit == 0:
+        return f"{int(value)} {units[unit]}"
+    return f"{value:.2f} {units[unit]}"
+
+
 def repo_cache_dir(repo: str) -> Path | None:
     if not cache_dir:
         return None
@@ -158,10 +170,10 @@ def emit_status(path: Path | None, start_bytes: int) -> None:
     files, bytes_now, partials = cache_stats(path)
     downloaded = max(0, bytes_now - start_bytes)
     print(
-        "QUANT FETCH STATUS: "
-        f"status=downloading repo={repo_id} quant={quant} cache_dir={path or 'unknown'} "
-        f"repo_cache_blobs={files} repo_cache_mb={bytes_now // (1024 * 1024)} "
-        f"downloaded_this_step_mb={downloaded // (1024 * 1024)} active_partial_files={partials}",
+        "MODEL FETCH STATUS: "
+        f"Pixal3D GGUF {quant} downloading from {repo_id} - "
+        f"{format_bytes(bytes_now)} cached, +{format_bytes(downloaded)} this run, "
+        f"{partials} active download files, {files} cache files.",
         flush=True,
     )
 
@@ -192,20 +204,20 @@ root_path = Path(root)
 missing = [name for name in required_files if not (root_path / name).exists()]
 files, bytes_now, partials = cache_stats(cache_path)
 print(
-    "QUANT FETCH STATUS: "
-    f"status=complete repo={repo_id} quant={quant} root={root_path} "
-    f"repo_cache_blobs={files} repo_cache_mb={bytes_now // (1024 * 1024)} active_partial_files={partials}",
+    "MODEL FETCH STATUS: "
+    f"Pixal3D GGUF {quant} download complete - {format_bytes(bytes_now)} cached, "
+    f"{files} cache files, {partials} active download files.",
     flush=True,
 )
 if missing:
-    print("QUANT FETCH FAILED: status=missing_files")
+    print("MODEL FETCH FAILED: Pixal3D GGUF download finished but required files are missing.")
     for name in missing:
         print(f"missing={name}")
     raise SystemExit(1)
 
 print(
-    "QUANT FETCH COMPLETE: "
-    f"status=complete repo={repo_id} quant={quant} root={root_path} runtime_supported=false",
+    "MODEL FETCH COMPLETE: "
+    f"Pixal3D GGUF {quant} files are ready at {root_path}. Runtime support is still disabled.",
     flush=True,
 )
 print(
