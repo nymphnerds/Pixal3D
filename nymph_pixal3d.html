@@ -554,6 +554,10 @@
             <div>Drop an image here or click to choose</div>
           </div>
         </div>
+        <div class="toggle-row" style="margin-top:10px">
+          <span>Prepare source image</span>
+          <input id="prepare-source" type="checkbox" checked>
+        </div>
       </section>
 
       <section class="section">
@@ -740,6 +744,7 @@
     let warmupTimer = null;
     let busy = false;
     let preprocessing = false;
+    let prepGeneration = 0;
     let activeProfile = "low_vram_1024";
 
     const $ = (id) => document.getElementById(id);
@@ -764,9 +769,14 @@
       $("top-progress-bar").style.width = width;
     }
 
+    function shouldPrepareSource() {
+      const el = $("prepare-source");
+      return !el || el.checked;
+    }
+
     function setBusy(isBusy) {
       busy = isBusy;
-      $("generate").disabled = isBusy || preprocessing || !preparedFile;
+      $("generate").disabled = isBusy || preprocessing || !currentFile || (shouldPrepareSource() && !preparedFile);
       $("extract").disabled = isBusy || preprocessing || !generationResult;
     }
 
@@ -918,6 +928,7 @@
 
     async function preprocess(file) {
       preprocessing = true;
+      const prepId = ++prepGeneration;
       setBusy(false);
       preparedFile = null;
       setProgressUi("Preparing", "Preparing source image.", "8%");
@@ -930,7 +941,7 @@
           rembg_keep_gpu: $("rembg-keep-gpu").checked,
           session_id: sessionId,
         });
-        if (currentFile !== file) return;
+        if (currentFile !== file || prepId !== prepGeneration || !shouldPrepareSource()) return;
         preparedFile = result?.data?.[0] || null;
         const url = preparedFile?.url;
         if (url) {
@@ -942,7 +953,7 @@
         setStatus("Image ready", "ok");
       } catch (err) {
         console.warn("Preprocess failed.", err);
-        if (currentFile === file) {
+        if (currentFile === file && prepId === prepGeneration && shouldPrepareSource()) {
           stopProgress(false);
           preparedFile = null;
           setProgressUi("Prep failed", "Source preprocessing failed. Check Logs.", "0%");
@@ -959,7 +970,8 @@
     }
 
     async function generate() {
-      if (!preparedFile) {
+      const prepareSource = shouldPrepareSource();
+      if (prepareSource && !preparedFile) {
         toast("Wait for source preprocessing to finish first.");
         return;
       }
@@ -975,7 +987,9 @@
       startProgress();
 
       try {
-        const preparedInput = preparedFile.url ? handle_file(preparedFile.url) : preparedFile;
+        const preparedInput = prepareSource
+          ? (preparedFile.url ? handle_file(preparedFile.url) : preparedFile)
+          : handle_file(currentFile);
         const result = await client.predict("/generate_3d", {
           image: preparedInput,
           seed: parseInt($("seed").value || "42", 10),
@@ -994,6 +1008,7 @@
           tex_slat_rescale_t: parseFloat($("tex-rescale-t").value || "3.0"),
           manual_fov: selectedManualFov(),
           fov_unit: $("fov-unit").value,
+          source_preprocessed: prepareSource,
           session_id: sessionId,
         });
 
@@ -1072,6 +1087,21 @@
         $("fov").disabled = !manual;
         $("fov-unit").disabled = !manual;
       });
+      $("prepare-source").addEventListener("change", () => {
+        if (!currentFile) return;
+        prepGeneration += 1;
+        preparedFile = null;
+        if (shouldPrepareSource()) {
+          $("generate").disabled = true;
+          preprocess(currentFile);
+        } else {
+          preprocessing = false;
+          setProgressUi("Source ready", "Using original source image.", "0%");
+          $("state-label").textContent = "Image ready";
+          setStatus("Image ready", "ok");
+          setBusy(false);
+        }
+      });
 
       $("generate").onclick = generate;
       $("extract").onclick = extract;
@@ -1135,9 +1165,17 @@
       $("drop-hint").style.display = "none";
       const localUrl = URL.createObjectURL(file);
       $("source-preview").src = localUrl;
-      $("state-label").textContent = "Preparing source";
-      setStatus("Preparing source", "work");
-      preprocess(file);
+      if (shouldPrepareSource()) {
+        $("state-label").textContent = "Preparing source";
+        setStatus("Preparing source", "work");
+        preprocess(file);
+      } else {
+        prepGeneration += 1;
+        setProgressUi("Source ready", "Using original source image.", "0%");
+        $("state-label").textContent = "Image ready";
+        setStatus("Image ready", "ok");
+        setBusy(false);
+      }
     }
 
     init();

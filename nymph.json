@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.40",
+  "version": "0.1.41",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -355,6 +355,7 @@
     "v0.1.38 keeps the Nymphs Ui on the official-style source-prep flow, removes the separate NAF helper size control, and keeps texture NAF aligned with the visible texture path while retaining the low-VRAM CUDA/RMBG protections.",
     "v0.1.39 moves the mirrored run progress into a dedicated compact row directly under the result topbar so it remains visible at the default Manager WebView size.",
     "v0.1.40 keeps Nymphs Ui on the official preprocess-then-generate flow, removes the left progress card, and moves the activity icon, stage, detail text, and progress bar into the top-right result strip.",
+    "v0.1.41 adds a Prepare source image toggle. It defaults on for the official preprocess-then-generate path, while advanced users can turn it off to generate from the original source image without hidden preprocessing.",
     "Do not vendor model weights into this repo."
   ]
 }

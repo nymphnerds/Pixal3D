@@ -532,6 +532,7 @@ def generate_3d(
     tex_slat_rescale_t: float = 3.0,
     manual_fov: float = -1.0,
     fov_unit: str = "deg",
+    source_preprocessed: bool = True,
     session_id: str = "",
 ) -> Dict:
     _reset_progress(session_id)
@@ -541,7 +542,10 @@ def generate_3d(
     torch.manual_seed(seed)
     hr_resolution = int(resolution)
     
-    _update_progress("Using preprocessed source image", 1, 8)
+    if source_preprocessed:
+        _update_progress("Using preprocessed source image", 1, 8)
+    else:
+        _update_progress("Using original source image", 1, 8)
     image_preprocessed = Image.open(image["path"]).convert("RGBA")
     _update_progress("Saving prepared image", 2, 8)
     temp_processed_path = os.path.join(TMP_DIR, f"temp_proc_{session_id[:8]}_{int(time.time()*1000)}.png")
