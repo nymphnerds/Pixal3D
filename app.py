@@ -120,7 +120,7 @@ IMAGE_COND_CONFIGS = {
 def resolve_texture_naf_target_size(low_vram: bool) -> int:
     value = os.environ.get("PIXAL3D_TEXTURE_NAF_TARGET_SIZE")
     if value in (None, ""):
-        return 1024
+        return 768 if low_vram else 1024
     value = int(value)
     if value not in {512, 768, 1024}:
         raise ValueError(f"Unsupported PIXAL3D_TEXTURE_NAF_TARGET_SIZE: {value}")
@@ -172,6 +172,26 @@ def _warmup_snapshot():
     with warmup_lock:
         return dict(warmup_state)
 
+def configure_cuda_memory_limit():
+    value = os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", "0.92").strip()
+    if not value or value in {"0", "1", "1.0"}:
+        return
+    if not torch.cuda.is_available():
+        return
+    try:
+        fraction = float(value)
+    except ValueError:
+        print(f"[CUDA] Ignoring invalid PIXAL3D_CUDA_MEMORY_FRACTION={value!r}")
+        return
+    if not 0 < fraction <= 1:
+        print(f"[CUDA] Ignoring out-of-range PIXAL3D_CUDA_MEMORY_FRACTION={fraction}")
+        return
+    try:
+        torch.cuda.set_per_process_memory_fraction(fraction)
+        print(f"[CUDA] Per-process memory fraction capped at {fraction:.2f}")
+    except Exception as exc:
+        print(f"[CUDA] Could not set memory fraction: {exc}")
+
 def init_models():
     global pipeline, moge_model, envmap
     with init_lock:
@@ -181,6 +201,7 @@ def init_models():
 
         try:
             _set_warmup("loading", "Checking GPU", 0)
+            configure_cuda_memory_limit()
             # GPU / CUDA Diagnostics (runs when GPU is allocated)
             import subprocess as _sp
             print("=" * 60)
@@ -455,7 +476,8 @@ async def get_config():
         "weight_format": os.environ.get("PIXAL3D_WEIGHT_FORMAT", "safetensors"),
         "gguf_quant": os.environ.get("PIXAL3D_QUANT", "Q5_K_M"),
         "gguf_supported": os.environ.get("PIXAL3D_QUANT_RUNTIME_SUPPORTED", "0") == "1",
-        "rembg_keep_gpu": os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "1") == "1",
+        "rembg_keep_gpu": os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "0") == "1",
+        "cuda_memory_fraction": os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", "0.92"),
     })
 
 @app.get("/progress")
@@ -509,7 +531,7 @@ def generate_3d(
     tex_slat_rescale_t: float = 3.0,
     manual_fov: float = -1.0,
     fov_unit: str = "deg",
-    rembg_keep_gpu: bool = True,
+    rembg_keep_gpu: bool = False,
     session_id: str = "",
 ) -> Dict:
     _reset_progress(session_id)

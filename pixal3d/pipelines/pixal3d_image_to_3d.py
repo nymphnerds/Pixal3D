@@ -166,9 +166,10 @@ class Pixal3DImageTo3DPipeline(Pipeline):
         else:
             input = input.convert('RGB')
             if self.low_vram:
-                self.rembg_model.to(self.device)
+                keep_rembg_on_gpu = os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "0") == "1"
+                rembg_device = self.device if keep_rembg_on_gpu else "cpu"
+                self.rembg_model.to(rembg_device)
             output = self.rembg_model(input)
-            keep_rembg_on_gpu = os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "1") == "1"
             if self.low_vram and not keep_rembg_on_gpu:
                 try:
                     self.rembg_model.cpu()
