@@ -14,6 +14,11 @@ models_ready=unknown
 aux_models_ready=unknown
 quantized_models_ready=false
 quantized_runtime_supported=false
+weight_profile_selected="${PIXAL3D_QUANT}"
+weight_profiles_available="Q5_K_M,Q6_K,Q8_0"
+weight_profiles_downloaded="none"
+weight_profiles_missing="Q5_K_M,Q6_K,Q8_0"
+weight_profile_ready=false
 api_running=false
 gradio_running=false
 version=not-installed
@@ -111,16 +116,41 @@ else
   aux_models_ready=false
 fi
 
-if pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "Sparse/ss_flow_img_dit_1_3B_64_bf16_${PIXAL3D_QUANT}.gguf" &&
-   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_512_bf16_${PIXAL3D_QUANT}.gguf" &&
-   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_1024_bf16_${PIXAL3D_QUANT}.gguf" &&
-   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16_${PIXAL3D_QUANT}.gguf" &&
-   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/ss_dec_conv3d_16l8_fp16.safetensors" &&
-   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/shape_dec_next_dc_f16c32_fp16.safetensors" &&
-   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/tex_dec_next_dc_f16c32_fp16.safetensors"; then
+pixal3d_quant_ready() {
+  local quant="$1"
+  pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "Sparse/ss_flow_img_dit_1_3B_64_bf16_${quant}.gguf" &&
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_512_bf16_${quant}.gguf" &&
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_1024_bf16_${quant}.gguf" &&
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16_${quant}.gguf" &&
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/ss_dec_conv3d_16l8_fp16.safetensors" &&
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/shape_dec_next_dc_f16c32_fp16.safetensors" &&
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/tex_dec_next_dc_f16c32_fp16.safetensors"
+}
+
+downloaded_weight_profiles=()
+missing_weight_profiles=()
+for candidate_quant in Q5_K_M Q6_K Q8_0; do
+  if pixal3d_quant_ready "${candidate_quant}"; then
+    downloaded_weight_profiles+=("${candidate_quant}")
+  else
+    missing_weight_profiles+=("${candidate_quant}")
+  fi
+done
+if [[ "${#downloaded_weight_profiles[@]}" -gt 0 ]]; then
+  weight_profiles_downloaded="$(IFS=,; printf '%s' "${downloaded_weight_profiles[*]}")"
+fi
+if [[ "${#missing_weight_profiles[@]}" -gt 0 ]]; then
+  weight_profiles_missing="$(IFS=,; printf '%s' "${missing_weight_profiles[*]}")"
+else
+  weight_profiles_missing="none"
+fi
+
+if pixal3d_quant_ready "${PIXAL3D_QUANT}"; then
   quantized_models_ready=true
+  weight_profile_ready=true
 else
   quantized_models_ready=false
+  weight_profile_ready=false
 fi
 
 if [[ "${PIXAL3D_QUANT_RUNTIME_SUPPORTED}" == "1" ]]; then
@@ -201,6 +231,11 @@ quantized_repo=${PIXAL3D_QUANT_REPO}
 quantized_quant=${PIXAL3D_QUANT}
 quantized_models_ready=${quantized_models_ready}
 quantized_runtime_supported=${quantized_runtime_supported}
+weight_profile_selected=${weight_profile_selected}
+weight_profiles_available=${weight_profiles_available}
+weight_profiles_downloaded=${weight_profiles_downloaded}
+weight_profiles_missing=${weight_profiles_missing}
+weight_profile_ready=${weight_profile_ready}
 marker=${marker}
 detail=${detail}
 EOF

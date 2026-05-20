@@ -94,6 +94,7 @@ echo "MODEL FETCH STARTED: Pixal3D GGUF ${quant} from ${PIXAL3D_QUANT_REPO} into
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 
 from huggingface_hub import snapshot_download
@@ -184,13 +185,31 @@ def reporter(path: Path | None, start_bytes: int, stop_event: threading.Event) -
         emit_status(path, start_bytes)
 
 
+def snapshot_download_with_retries(**kwargs) -> str:
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        try:
+            return snapshot_download(**kwargs)
+        except Exception as exc:
+            if attempt >= attempts:
+                raise
+            print(
+                "MODEL FETCH STATUS: "
+                f"Pixal3D GGUF {quant} download was interrupted ({type(exc).__name__}). "
+                f"Retrying attempt {attempt + 1}/{attempts} using the existing cache.",
+                flush=True,
+            )
+            time.sleep(min(30, 5 * attempt))
+    raise RuntimeError("unreachable retry state")
+
+
 cache_path = repo_cache_dir(repo_id)
 _, start_bytes, _ = cache_stats(cache_path)
 stop_event = threading.Event()
 thread = threading.Thread(target=reporter, args=(cache_path, start_bytes, stop_event), daemon=True)
 thread.start()
 try:
-    root = snapshot_download(
+    root = snapshot_download_with_retries(
         repo_id=repo_id,
         cache_dir=cache_dir,
         token=token,

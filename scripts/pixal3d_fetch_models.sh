@@ -124,6 +124,7 @@ echo "MODEL FETCH STARTED: Pixal3D ${profile} model fetch into ${NYMPHS3D_HF_CAC
 "$(pixal3d_python)" - <<'PY'
 import os
 import threading
+import time
 from huggingface_hub import snapshot_download
 from pathlib import Path
 
@@ -188,6 +189,23 @@ def print_fetch_status(step, total, repo_id, path, start_bytes, stop_event):
     while not stop_event.wait(5):
         emit_fetch_status(step, total, repo_id, path, start_bytes)
 
+def snapshot_download_with_retries(step, total, repo_id, **kwargs):
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        try:
+            return snapshot_download(**kwargs)
+        except Exception as exc:
+            if attempt >= attempts:
+                raise
+            print(
+                "MODEL FETCH STATUS: "
+                f"step {step}/{total} {repo_id} download was interrupted ({type(exc).__name__}). "
+                f"Retrying attempt {attempt + 1}/{attempts} using the existing cache.",
+                flush=True,
+            )
+            time.sleep(min(30, 5 * attempt))
+    raise RuntimeError("unreachable retry state")
+
 for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
     total = len(repos)
     cache_path = repo_cache_dir(repo_id)
@@ -207,7 +225,7 @@ for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
     if allow_patterns:
         kwargs["allow_patterns"] = allow_patterns
     try:
-        root = snapshot_download(**kwargs)
+        root = snapshot_download_with_retries(index, total, repo_id, **kwargs)
     except Exception as exc:
         stop_event.set()
         reporter.join(timeout=1)
