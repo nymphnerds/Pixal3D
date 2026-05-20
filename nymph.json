@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Requires the TRELLIS.2 module runtime to be installed; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -98,6 +98,7 @@
     "stop": "scripts/pixal3d_stop.sh",
     "open": "scripts/pixal3d_open.sh",
     "open_gradio": "scripts/pixal3d_gradio.sh",
+    "open_trellis_runtime": "scripts/pixal3d_open_trellis_runtime.sh",
     "logs": "scripts/pixal3d_logs.sh",
     "fetch_models": "scripts/pixal3d_fetch_models.sh",
     "smoke_test": "scripts/pixal3d_smoke_test.sh",
@@ -198,6 +199,12 @@
         "label": "Open Gradio",
         "entrypoint": "open_gradio",
         "result": "open_in_manager"
+      },
+      {
+        "id": "open_trellis_runtime",
+        "label": "TRELLIS.2 Runtime",
+        "entrypoint": "open_trellis_runtime",
+        "result": "show_output"
       },
       {
         "id": "smoke_test",

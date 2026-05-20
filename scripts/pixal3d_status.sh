@@ -11,6 +11,7 @@ env_ready=false
 adapter_ready=false
 runtime_ready=false
 trellis_runtime_ready=false
+trellis_module_installed=false
 models_ready=unknown
 aux_models_ready=unknown
 quantized_models_ready=false
@@ -42,6 +43,10 @@ if [[ -f "${marker}" ]]; then
   detail="Source installed."
 fi
 
+if [[ -f "${PIXAL3D_TRELLIS_RUNTIME_ROOT}/.nymph-module-version" ]]; then
+  trellis_module_installed=true
+fi
+
 if [[ -d "${PIXAL3D_OUTPUT_DIR}" && -n "$(find "${PIXAL3D_OUTPUT_DIR}" -mindepth 1 -print -quit 2>/dev/null)" ]] ||
    [[ -d "${PIXAL3D_CONFIG_DIR}" && -n "$(find "${PIXAL3D_CONFIG_DIR}" -mindepth 1 -print -quit 2>/dev/null)" ]] ||
    [[ -d "${PIXAL3D_LOG_DIR}" && -n "$(find "${PIXAL3D_LOG_DIR}" -mindepth 1 -print -quit 2>/dev/null)" ]]; then
@@ -55,6 +60,12 @@ fi
 
 if pixal3d_validate_runtime_stack "${PIXAL3D_TRELLIS_VENV_DIR}/bin/python"; then
   trellis_runtime_ready=true
+fi
+
+if [[ "${installed}" == "true" && "${trellis_runtime_ready}" != "true" ]]; then
+  state=needs_trellis_runtime
+  health=degraded
+  detail="Install TRELLIS.2 runtime first. Pixal3D needs the TRELLIS.2 module installed or repaired for its CUDA/native runtime. You do not need to fetch TRELLIS model weights for Pixal3D."
 fi
 
 if [[ "${installed}" == "true" && -f "${PIXAL3D_INSTALL_ROOT}/scripts/api_server_pixal3d.py" ]]; then
@@ -272,5 +283,9 @@ weight_profiles_downloaded=${weight_profiles_downloaded}
 weight_profiles_missing=${weight_profiles_missing}
 weight_profile_ready=${weight_profile_ready}
 marker=${marker}
+trellis_module_installed=${trellis_module_installed}
+prerequisite_title=Install TRELLIS.2 runtime first
+prerequisite_detail=Pixal3D needs the TRELLIS.2 module installed or repaired for its CUDA/native runtime. You do not need to fetch TRELLIS model weights for Pixal3D.
+next_step=Open TRELLIS.2, run Install or Repair, then come back to Pixal3D and Open Gradio.
 detail=${detail}
 EOF
