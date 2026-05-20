@@ -4,6 +4,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_pixal3d_common.sh"
 
+module_version="$(
+  python3 - "${MODULE_ROOT}/nymph.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    manifest = json.load(handle)
+print(str(manifest.get("version", "unknown")).strip() or "unknown")
+PY
+)"
+
 if [[ -d "${PIXAL3D_INSTALL_ROOT}/.git" ]]; then
   git -C "${PIXAL3D_INSTALL_ROOT}" pull --ff-only
 elif [[ -d "${MODULE_ROOT}/pixal3d" ]]; then
@@ -24,5 +35,5 @@ else
   echo "Pixal3D source is missing from update root: ${MODULE_ROOT}" >&2
   exit 1
 fi
-printf '0.1.0\n' > "${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
-echo "installed_module_version=0.1.0"
+printf '%s\n' "${module_version}" > "${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
+echo "installed_module_version=${module_version}"

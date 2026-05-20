@@ -7,6 +7,17 @@ source "${SCRIPT_DIR}/_pixal3d_common.sh"
 profile="${PIXAL3D_RUNTIME_PROFILE:-cuda13}"
 pixal3d_ensure_data_dirs
 
+module_version="$(
+  python3 - "${MODULE_ROOT}/nymph.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "r", encoding="utf-8") as handle:
+    manifest = json.load(handle)
+print(str(manifest.get("version", "unknown")).strip() or "unknown")
+PY
+)"
+
 if [[ ! -d "${PIXAL3D_INSTALL_ROOT}/pixal3d" && -d "${MODULE_ROOT}/pixal3d" ]]; then
   echo "Syncing Pixal3D source into ${PIXAL3D_INSTALL_ROOT}..."
   mkdir -p "${PIXAL3D_INSTALL_ROOT}"
@@ -33,8 +44,8 @@ PIXAL3D_LOW_VRAM=${PIXAL3D_LOW_VRAM}
 PIXAL3D_RESOLUTION=${PIXAL3D_RESOLUTION}
 PIXAL3D_MODEL_REPO=${PIXAL3D_MODEL_REPO}
 EOF
-  printf '0.1.0\n' > "${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
-  echo "installed_module_version=0.1.0"
+  printf '%s\n' "${module_version}" > "${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
+  echo "installed_module_version=${module_version}"
   exit 0
 fi
 
@@ -66,6 +77,6 @@ PIXAL3D_MODEL_REPO=TencentARC/Pixal3D
 EOF
 
 "$(pixal3d_python)" -m py_compile "${PIXAL3D_INSTALL_ROOT}/scripts/api_server_pixal3d.py"
-printf '0.1.0\n' > "${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
-echo "installed_module_version=0.1.0"
+printf '%s\n' "${module_version}" > "${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
+echo "installed_module_version=${module_version}"
 echo "Pixal3D install finished. If native TRELLIS.2 extensions are missing, install/repair them before generation."

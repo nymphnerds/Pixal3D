@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module.",
   "category": "3d",
   "packaging": "repo",
