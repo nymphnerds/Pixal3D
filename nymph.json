@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -183,10 +183,10 @@
     "standard_lifecycle_rail": true,
     "manager_ui": {
       "type": "local_url",
-      "title": "Official Ui",
-      "url": "http://127.0.0.1:8097/official",
+      "title": "Nymphs Ui",
+      "url": "http://127.0.0.1:8097/nymph",
       "requires_running": true,
-      "start_action": "open_gradio",
+      "start_action": "open_nymph_ui",
       "stop_action": "stop_gradio"
     },
     "manager_action_groups": [
@@ -272,15 +272,15 @@
     ],
     "manager_actions": [
       {
-        "id": "open_gradio",
-        "label": "Official Ui",
-        "entrypoint": "open_gradio",
-        "result": "open_in_manager"
-      },
-      {
         "id": "open_nymph_ui",
         "label": "Nymphs Ui",
         "entrypoint": "open_nymph_ui",
+        "result": "open_in_manager"
+      },
+      {
+        "id": "open_gradio",
+        "label": "Official Ui",
+        "entrypoint": "open_gradio",
         "result": "open_in_manager"
       },
       {
@@ -342,6 +342,7 @@
     "Low-VRAM Gradio exposes Texture NAF Size and defaults the texture conditioning NAF pass to 512 to reduce 16 GB GPU pressure.",
     "Gradio is allowed to serve generated GLB files from the shared Pixal3D outputs directory.",
     "v0.1.27 republishes the dual Official Ui/Nymphs Ui manifest so installed 0.1.26 runtimes surface a normal Manager update.",
+    "v0.1.28 makes Nymphs Ui the primary Manager UI while keeping Official Ui as a separate action.",
     "Do not vendor model weights into this repo."
   ]
 }
