@@ -681,6 +681,7 @@
     let progressTimer = null;
     let warmupTimer = null;
     let busy = false;
+    let preprocessing = false;
     let activeProfile = "low_vram_1024";
 
     const $ = (id) => document.getElementById(id);
@@ -700,8 +701,8 @@
 
     function setBusy(isBusy) {
       busy = isBusy;
-      $("generate").disabled = isBusy || !currentFile;
-      $("extract").disabled = isBusy || !generationResult;
+      $("generate").disabled = isBusy || preprocessing || !currentFile;
+      $("extract").disabled = isBusy || preprocessing || !generationResult;
       $("progress-dot").className = `dot ${isBusy ? "work" : ""}`;
     }
 
@@ -859,14 +860,40 @@
     }
 
     async function preprocess(file) {
+      preprocessing = true;
+      setBusy(false);
+      $("progress-dot").className = "dot work";
+      $("progress-stage").textContent = "Preparing";
+      $("progress-detail").textContent = "Preparing source image.";
+      $("state-label").textContent = "Preparing source";
+      setStatus("Preparing source", "work");
+      startProgress();
       try {
         const result = await client.predict("/preprocess", { image: handle_file(file), session_id: sessionId });
+        if (currentFile !== file) return;
         const url = result?.data?.[0]?.url;
         if (url) {
           $("source-preview").src = url;
         }
+        stopProgress(true);
+        $("progress-stage").textContent = "Source ready";
+        $("progress-detail").textContent = "Source preprocessed. Ready to generate.";
+        $("state-label").textContent = "Image ready";
+        setStatus("Image ready", "ok");
       } catch (err) {
         console.warn("Preprocess failed, generation will preprocess server-side.", err);
+        if (currentFile === file) {
+          stopProgress(false);
+          $("progress-stage").textContent = "Source ready";
+          $("progress-detail").textContent = "Preprocess will run during Generate.";
+          $("state-label").textContent = "Image ready";
+          setStatus("Image ready", "ok");
+        }
+      } finally {
+        if (currentFile === file) {
+          preprocessing = false;
+          setBusy(false);
+        }
       }
     }
 
@@ -1033,7 +1060,8 @@
       generationResult = null;
       outputUrl = "";
       outputPath = "";
-      $("generate").disabled = false;
+      preprocessing = false;
+      $("generate").disabled = true;
       $("extract").disabled = true;
       $("open-output").disabled = true;
       $("filmstrip").innerHTML = "";
@@ -1042,8 +1070,8 @@
       $("drop-hint").style.display = "none";
       const localUrl = URL.createObjectURL(file);
       $("source-preview").src = localUrl;
-      $("state-label").textContent = "Image ready";
-      setStatus("Image ready", "ok");
+      $("state-label").textContent = "Preparing source";
+      setStatus("Preparing source", "work");
       preprocess(file);
     }
 

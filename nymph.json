@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -347,6 +347,7 @@
     "v0.1.30 exposes all current generation/export parameters in Nymphs Ui and keeps the background-removal model on GPU by default to avoid low-VRAM CPU unload failures.",
     "v0.1.31 compacts Nymphs Ui for the default Manager WebView size and removes the duplicate main reference preview.",
     "v0.1.32 adds detailed Nymphs Ui progress text under the run bar and reports model-loading, preprocess, camera, sampling, rendering, and export stages.",
+    "v0.1.33 copies the official source-prep flow in Nymphs Ui: image selection now shows preprocessing progress and enables Generate only after the source is ready.",
     "Do not vendor model weights into this repo."
   ]
 }
