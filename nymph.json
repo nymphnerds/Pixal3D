@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -323,6 +323,7 @@
   },
   "notes": [
     "The official upstream training code and data toolkit are preserved in the module repo, but v0.1 exposes inference and Gradio testing only.",
+    "Install/Repair pins utils3d and creates the utils3d.pt/np compatibility aliases required by MoGe camera estimation.",
     "Do not vendor model weights into this repo."
   ]
 }

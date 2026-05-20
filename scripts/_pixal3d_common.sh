@@ -10,7 +10,8 @@ PIXAL3D_TRELLIS_VENV_DIR="${PIXAL3D_TRELLIS_VENV_DIR:-$PIXAL3D_TRELLIS_RUNTIME_R
 PIXAL3D_TRELLIS_SOURCE_DIR="${PIXAL3D_TRELLIS_SOURCE_DIR:-$PIXAL3D_TRELLIS_RUNTIME_ROOT/runtime/TRELLIS.2-source}"
 PIXAL3D_TRELLIS_SOURCE_REPO="${PIXAL3D_TRELLIS_SOURCE_REPO:-https://github.com/microsoft/TRELLIS.2.git}"
 PIXAL3D_TRELLIS_SOURCE_REF="${PIXAL3D_TRELLIS_SOURCE_REF:-5565d240c4a494caaf9ece7a554542b76ffa36d3}"
-PIXAL3D_VENV_DIR="${PIXAL3D_VENV_DIR:-$PIXAL3D_INSTALL_ROOT/.venv}"
+PIXAL3D_SHARED_RUNTIME_LOCK="${PIXAL3D_SHARED_RUNTIME_LOCK:-$PIXAL3D_TRELLIS_RUNTIME_ROOT/runtime/.shared-runtime.lock}"
+PIXAL3D_VENV_DIR="${PIXAL3D_VENV_DIR:-$PIXAL3D_TRELLIS_VENV_DIR}"
 NYMPHS_DATA_ROOT="${NYMPHS_DATA_ROOT:-$HOME/NymphsData}"
 PIXAL3D_CONFIG_DIR="${PIXAL3D_CONFIG_DIR:-$NYMPHS_DATA_ROOT/config/pixal3d}"
 PIXAL3D_PROFILE_FILE="${PIXAL3D_PROFILE_FILE:-$PIXAL3D_CONFIG_DIR/profile.env}"
@@ -31,6 +32,7 @@ PIXAL3D_WEIGHT_FORMAT="${PIXAL3D_WEIGHT_FORMAT:-safetensors}"
 PIXAL3D_QUANT_REPO="${PIXAL3D_QUANT_REPO:-Aero-Ex/Pixal3D-GGUF}"
 PIXAL3D_QUANT="${PIXAL3D_QUANT:-Q5_K_M}"
 PIXAL3D_QUANT_RUNTIME_SUPPORTED="${PIXAL3D_QUANT_RUNTIME_SUPPORTED:-0}"
+PIXAL3D_UTILS3D_REF="${PIXAL3D_UTILS3D_REF:-3fab839f0be9931dac7c8488eb0e1600c236e183}"
 
 if [[ -f "${PIXAL3D_PROFILE_FILE}" ]]; then
   # shellcheck disable=SC1090
@@ -68,6 +70,38 @@ pixal3d_python() {
 
 pixal3d_pip() {
   printf '%s\n' "${PIXAL3D_VENV_DIR}/bin/pip"
+}
+
+pixal3d_repair_utils3d_compat() {
+  local python_bin="${1:-$(pixal3d_python)}"
+  [[ -x "${python_bin}" ]] || return 1
+
+  "${python_bin}" - <<'PY'
+import importlib
+from pathlib import Path
+
+import utils3d
+
+missing = []
+for alias_name in ("pt", "np"):
+    try:
+        importlib.import_module(f"utils3d.{alias_name}")
+    except ModuleNotFoundError:
+        missing.append(alias_name)
+
+if missing:
+    importlib.import_module("utils3d.torch")
+    importlib.import_module("utils3d.numpy")
+    package_root = Path(utils3d.__file__).resolve().parent
+    if "pt" in missing:
+        (package_root / "pt.py").write_text("from .torch import *\n", encoding="utf-8")
+    if "np" in missing:
+        (package_root / "np.py").write_text("from .numpy import *\n", encoding="utf-8")
+    importlib.invalidate_caches()
+
+importlib.import_module("utils3d.pt")
+importlib.import_module("utils3d.np")
+PY
 }
 
 pixal3d_load_hf_token() {
@@ -168,6 +202,7 @@ for module_name in (
     "nvdiffrast.torch",
     "moge",
     "utils3d",
+    "utils3d.pt",
 ):
     importlib.import_module(module_name)
 PY

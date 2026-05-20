@@ -207,7 +207,13 @@ pixal3d_install_shared_trellis_runtime() {
   local detected_cc=""
 
   echo "Ensuring shared TRELLIS.2/Pixal3D runtime venv at ${PIXAL3D_TRELLIS_VENV_DIR}"
-  mkdir -p "${PIXAL3D_TRELLIS_RUNTIME_ROOT}"
+  mkdir -p "${PIXAL3D_TRELLIS_RUNTIME_ROOT}" "$(dirname "${PIXAL3D_SHARED_RUNTIME_LOCK}")"
+  exec 9>"${PIXAL3D_SHARED_RUNTIME_LOCK}"
+  if ! flock -n 9; then
+    echo "Another TRELLIS.2/Pixal3D shared runtime install or repair is already running." >&2
+    echo "Wait for it to finish, then retry Pixal3D Install/Repair." >&2
+    exit 1
+  fi
   PIXAL3D_VENV_DIR="${PIXAL3D_TRELLIS_VENV_DIR}"
 
   if [[ -d "${PIXAL3D_VENV_DIR}" ]] && {
@@ -240,7 +246,8 @@ pixal3d_install_shared_trellis_runtime() {
 
   "$(pixal3d_pip)" install -r "${PIXAL3D_INSTALL_ROOT}/requirements.txt"
   "$(pixal3d_pip)" install fastapi uvicorn pillow plyfile packaging psutil ninja
-  "$(pixal3d_pip)" install "git+https://github.com/EasternJournalist/utils3d.git@${PIXAL3D_UTILS3D_REF:-9a4eb15e4021b67b12c460c7057d642626897ec8}"
+  "$(pixal3d_pip)" install --force-reinstall --no-deps "git+https://github.com/EasternJournalist/utils3d.git@${PIXAL3D_UTILS3D_REF}"
+  pixal3d_repair_utils3d_compat "$(pixal3d_python)"
 
   if [[ -n "${TRELLIS_CUDA_ARCH_LIST:-${NYMPHS3D_TRELLIS_CUDA_ARCH_LIST:-}}" ]]; then
     export TORCH_CUDA_ARCH_LIST="${TRELLIS_CUDA_ARCH_LIST:-${NYMPHS3D_TRELLIS_CUDA_ARCH_LIST:-}}"
@@ -304,21 +311,6 @@ if [[ ! -d "${PIXAL3D_INSTALL_ROOT}/pixal3d" && -d "${MODULE_ROOT}/pixal3d" ]]; 
   )
 fi
 
-if [[ "${profile}" == "manual" ]]; then
-  echo "Manual profile selected. Creating module folders and marker only."
-  mkdir -p "${PIXAL3D_INSTALL_ROOT}" "${PIXAL3D_VENV_DIR}"
-  cat > "${PIXAL3D_PROFILE_FILE}" <<EOF
-PIXAL3D_PROFILE=manual
-PIXAL3D_VENV_DIR=${PIXAL3D_VENV_DIR}
-PIXAL3D_LOW_VRAM=${PIXAL3D_LOW_VRAM}
-PIXAL3D_RESOLUTION=${PIXAL3D_RESOLUTION}
-PIXAL3D_MODEL_REPO=${PIXAL3D_MODEL_REPO}
-EOF
-  printf '%s\n' "${module_version}" > "${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
-  echo "installed_module_version=${module_version}"
-  exit 0
-fi
-
 if [[ ! -d "${PIXAL3D_INSTALL_ROOT}/pixal3d" ]]; then
   echo "Pixal3D source is missing at ${PIXAL3D_INSTALL_ROOT}." >&2
   echo "The Manager should clone nymphnerds/Pixal3D into this install root before running this script." >&2
@@ -347,43 +339,6 @@ EOF
   exit 0
 fi
 
-if [[ -d "${PIXAL3D_VENV_DIR}" ]] && {
-  [[ ! -x "$(pixal3d_python)" ]] ||
-  [[ ! -x "$(pixal3d_pip)" ]] ||
-  ! "$(pixal3d_python)" -m pip --version >/dev/null 2>&1
-}; then
-  echo "Removing incomplete Pixal3D venv at ${PIXAL3D_VENV_DIR}"
-  rm -rf "${PIXAL3D_VENV_DIR}"
-fi
-
-if [[ ! -x "$(pixal3d_python)" ]]; then
-  echo "Creating Pixal3D venv at ${PIXAL3D_VENV_DIR}"
-  python3.10 -m venv "${PIXAL3D_VENV_DIR}"
-fi
-
-if [[ ! -x "$(pixal3d_python)" ]] || ! "$(pixal3d_python)" -m pip --version >/dev/null 2>&1; then
-  echo "Pixal3D venv was created, but Python/pip is missing. Repair Python 3.10 venv tooling and retry." >&2
-  exit 1
-fi
-
-"$(pixal3d_python)" -m pip install --upgrade pip setuptools wheel
-
-if [[ "${profile}" == "cuda13" ]]; then
-  echo "Pixal3D dedicated CUDA 13 runtime is experimental. The supported user path is the TRELLIS.2 module runtime profile." >&2
-  "$(pixal3d_pip)" install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu130
-fi
-
-"$(pixal3d_pip)" install -r "${PIXAL3D_INSTALL_ROOT}/requirements.txt"
-"$(pixal3d_pip)" install fastapi uvicorn pillow plyfile
-
-cat > "${PIXAL3D_PROFILE_FILE}" <<EOF
-PIXAL3D_PROFILE=low_vram_1024
-PIXAL3D_LOW_VRAM=1
-PIXAL3D_RESOLUTION=1024
-PIXAL3D_MODEL_REPO=TencentARC/Pixal3D
-EOF
-
-"$(pixal3d_python)" -m py_compile "${PIXAL3D_INSTALL_ROOT}/scripts/api_server_pixal3d.py"
-printf '%s\n' "${module_version}" > "${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
-echo "installed_module_version=${module_version}"
-echo "Pixal3D install finished. If native TRELLIS.2 extensions are missing, install/repair them before generation."
+echo "Unsupported Pixal3D runtime profile: ${profile}" >&2
+echo "Pixal3D only supports the shared TRELLIS.2/Pixal3D runtime profile: trellis_runtime." >&2
+exit 1

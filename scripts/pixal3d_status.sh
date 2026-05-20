@@ -87,9 +87,9 @@ fi
 
 if [[ "${env_ready}" == "true" && "${adapter_ready}" == "true" ]]; then
   if (
-    cd "${PIXAL3D_INSTALL_ROOT}"
-    "$(pixal3d_python)" -m py_compile scripts/api_server_pixal3d.py >/dev/null 2>&1
-    pixal3d_validate_runtime_stack
+    cd "${PIXAL3D_INSTALL_ROOT}" &&
+    "$(pixal3d_python)" -m py_compile scripts/api_server_pixal3d.py >/dev/null 2>&1 &&
+    pixal3d_validate_runtime_stack &&
     "$(pixal3d_python)" - <<'PY' >/dev/null 2>&1
 import importlib
 
@@ -217,9 +217,7 @@ if [[ "${api_running}" == "true" || "${gradio_running}" == "true" ]]; then
   service_running=true
 fi
 
-if [[ "${installed}" == "true" && "${service_running}" == "true" ]]; then
-  state=running
-elif [[ "${installed}" == "true" && "${env_ready}" != "true" ]]; then
+if [[ "${installed}" == "true" && "${env_ready}" != "true" ]]; then
   state=needs_attention
   health=degraded
   detail="Pixal3D source is installed, but the Python runtime is missing."
@@ -231,6 +229,8 @@ elif [[ "${installed}" == "true" && "${runtime_ready}" != "true" ]]; then
   state=needs_attention
   health=degraded
   detail="Pixal3D shared runtime imports are incomplete. Run Repair to rebuild the shared TRELLIS.2/Pixal3D runtime venv."
+elif [[ "${installed}" == "true" && "${service_running}" == "true" ]]; then
+  state=running
 elif [[ "${installed}" == "true" && ( "${models_ready}" != "true" || "${aux_models_ready}" != "true" ) ]]; then
   state=model_download_needed
   health=model-download-needed
