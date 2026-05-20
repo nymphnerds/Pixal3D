@@ -31,6 +31,7 @@ def _generate(
     seed: int,
     manual_fov: float,
     texture_size: int,
+    texture_naf_target_size: int,
     decimation_target: int,
     ss_steps: int,
     shape_steps: int,
@@ -60,12 +61,14 @@ def _generate(
         resolution=int(resolution),
         decimation_target=int(decimation_target),
         texture_size=int(texture_size),
+        texture_naf_target_size=int(texture_naf_target_size),
         extension_webp=False,
     )
     return str(output_path), str(output_path)
 
 
 def build_ui(default_low_vram: bool, default_resolution: int) -> gr.Blocks:
+    default_texture_naf_target_size = 512 if default_low_vram else 1024
     with gr.Blocks(title="Pixal3D") as demo:
         gr.Markdown("# Pixal3D")
         gr.Markdown("Generate a textured GLB from one image. The model loads when you click Generate.")
@@ -83,6 +86,11 @@ def build_ui(default_low_vram: bool, default_resolution: int) -> gr.Blocks:
                 manual_fov = gr.Number(label="Manual FOV radians (-1 for MoGe)", value=-1.0)
                 with gr.Accordion("Advanced", open=False):
                     texture_size = gr.Dropdown(label="Texture Size", choices=[1024, 2048, 4096], value=4096)
+                    texture_naf_target_size = gr.Dropdown(
+                        label="Texture NAF Size",
+                        choices=[512, 768, 1024],
+                        value=default_texture_naf_target_size,
+                    )
                     decimation_target = gr.Number(label="Face Target", value=1000000, precision=0)
                     ss_steps = gr.Slider(label="Structure Steps", minimum=4, maximum=32, value=12, step=1)
                     shape_steps = gr.Slider(label="Shape Steps", minimum=4, maximum=32, value=12, step=1)
@@ -101,6 +109,7 @@ def build_ui(default_low_vram: bool, default_resolution: int) -> gr.Blocks:
                 seed,
                 manual_fov,
                 texture_size,
+                texture_naf_target_size,
                 decimation_target,
                 ss_steps,
                 shape_steps,

@@ -1,5 +1,6 @@
 import os
 import argparse
+import copy
 import math
 import time
 import torch
@@ -52,6 +53,17 @@ IMAGE_COND_CONFIGS = {
     },
 }
 
+
+def _resolve_texture_naf_target_size(value=None, *, low_vram: bool = False) -> int:
+    if value is None:
+        value = os.environ.get("PIXAL3D_TEXTURE_NAF_TARGET_SIZE")
+    if value in (None, ""):
+        return 512 if low_vram else 1024
+    value = int(value)
+    if value not in {512, 768, 1024}:
+        raise ValueError(f"Unsupported texture NAF target size: {value}")
+    return value
+
 # ============================================================================
 # Model Loading
 # ============================================================================
@@ -71,15 +83,19 @@ def load_moge_model(device="cuda", model_name=MOGE_MODEL_NAME):
     return moge_model
 
 
-def init_pipeline(model_path=MODEL_PATH, device="cuda", low_vram=False):
+def init_pipeline(model_path=MODEL_PATH, device="cuda", low_vram=False, texture_naf_target_size=None):
     print(f"[Pipeline] Loading from {model_path}...")
     pipeline = Pixal3DImageTo3DPipeline.from_pretrained(model_path)
+    image_cond_configs = copy.deepcopy(IMAGE_COND_CONFIGS)
+    tex_naf_target = _resolve_texture_naf_target_size(texture_naf_target_size, low_vram=low_vram)
+    image_cond_configs["tex_1024"]["naf_target_size"] = tex_naf_target
 
     print("[ImageCond] Building DinoV3ProjFeatureExtractor models...")
-    pipeline.image_cond_model_ss = build_image_cond_model(IMAGE_COND_CONFIGS["ss"])
-    pipeline.image_cond_model_shape_512 = build_image_cond_model(IMAGE_COND_CONFIGS["shape_512"])
-    pipeline.image_cond_model_shape_1024 = build_image_cond_model(IMAGE_COND_CONFIGS["shape_1024"])
-    pipeline.image_cond_model_tex_1024 = build_image_cond_model(IMAGE_COND_CONFIGS["tex_1024"])
+    print(f"[ImageCond] Texture NAF target size: {tex_naf_target}")
+    pipeline.image_cond_model_ss = build_image_cond_model(image_cond_configs["ss"])
+    pipeline.image_cond_model_shape_512 = build_image_cond_model(image_cond_configs["shape_512"])
+    pipeline.image_cond_model_shape_1024 = build_image_cond_model(image_cond_configs["shape_1024"])
+    pipeline.image_cond_model_tex_1024 = build_image_cond_model(image_cond_configs["tex_1024"])
 
     if low_vram:
         # Low-VRAM mode: models stay on CPU, loaded to GPU on-demand per stage.
@@ -184,10 +200,15 @@ def run_inference(
     resolution: int = -1,
     decimation_target: int = 1000000,
     texture_size: int = 4096,
+    texture_naf_target_size: int | None = None,
     extension_webp: bool = False,
 ):
     # Load models
-    pipeline = init_pipeline(model_path, low_vram=low_vram)
+    pipeline = init_pipeline(
+        model_path,
+        low_vram=low_vram,
+        texture_naf_target_size=texture_naf_target_size,
+    )
 
     # Preprocess image first — rembg loads to GPU for this call, then offloads.
     # MoGe is loaded afterwards so both never occupy VRAM at the same time.

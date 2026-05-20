@@ -126,6 +126,7 @@ def server_info() -> dict[str, Any]:
         "quant_repo": os.environ.get("PIXAL3D_QUANT_REPO", "Aero-Ex/Pixal3D-GGUF"),
         "quant": os.environ.get("PIXAL3D_QUANT", "Q5_K_M"),
         "quant_runtime_supported": _bool_env("PIXAL3D_QUANT_RUNTIME_SUPPORTED", False),
+        "texture_naf_target_size": _as_int(os.environ.get("PIXAL3D_TEXTURE_NAF_TARGET_SIZE"), 512 if low_vram else 1024),
         "attention_backend": os.environ.get("ATTN_BACKEND", "flash_attn"),
         "sparse_conv_backend": "flex_gemm",
         "model_ready": None,
@@ -214,6 +215,15 @@ async def generate(request: Request) -> Response:
             resolution=resolution,
             decimation_target=_as_int(payload.get("decimation_target"), 1000000),
             texture_size=_as_int(payload.get("texture_size"), 4096),
+            texture_naf_target_size=(
+                _as_int(
+                    payload.get("pixal3d_texture_naf_target_size")
+                    or payload.get("texture_naf_target_size")
+                    or os.environ.get("PIXAL3D_TEXTURE_NAF_TARGET_SIZE"),
+                    0,
+                )
+                or None
+            ),
             extension_webp=False,
         )
         data = output_path.read_bytes()

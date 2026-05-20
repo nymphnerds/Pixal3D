@@ -5,9 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_pixal3d_common.sh"
 
 if pixal3d_gradio_is_running; then
-  echo "Pixal3D Gradio is already running at ${PIXAL3D_GRADIO_URL}"
-  echo "url=${PIXAL3D_GRADIO_URL}"
-  echo "module_ui_url=${PIXAL3D_GRADIO_URL}"
+  echo "Pixal3D Gradio is running; stopping Pixal3D services."
+  "${SCRIPT_DIR}/pixal3d_stop.sh"
+  echo "Pixal3D stopped."
   exit 0
 fi
 
@@ -23,6 +23,12 @@ fi
 
 pixal3d_ensure_data_dirs
 pixal3d_load_hf_token
+
+if ! pixal3d_api_is_running; then
+  echo "Pixal3D API is not running; starting it before Gradio."
+  "${SCRIPT_DIR}/pixal3d_start.sh"
+fi
+
 log_file="${PIXAL3D_LOG_DIR}/pixal3d-gradio.log"
 echo "Starting Pixal3D Gradio at ${PIXAL3D_GRADIO_URL}"
 (

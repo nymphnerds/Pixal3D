@@ -1,4 +1,5 @@
 from typing import *
+import gc
 import torch
 import torch.nn as nn
 import numpy as np
@@ -756,7 +757,10 @@ class Pixal3DImageTo3DPipeline(Pipeline):
         mean = torch.tensor(self.shape_slat_normalization['mean'])[None].to(hr_slat.device)
         shape_slat = hr_slat * std + mean
         del cond_shape_hr, noise_hr, hr_slat, hr_coords_unique
+        gc.collect()
         torch.cuda.empty_cache()
+        torch.cuda.ipc_collect()
+        torch.cuda.synchronize()
 
         # ---- Stage 4: Texture (proj) ----
         tex_grid_res = actual_hr_resolution // 16
