@@ -134,8 +134,17 @@ def main() -> None:
     os.environ["PIXAL3D_RESOLUTION"] = str(args.resolution)
     os.environ.setdefault("ATTN_BACKEND", "flash_attn")
 
+    output_dir = Path(os.environ.get("PIXAL3D_OUTPUT_DIR") or Path.home() / "NymphsData" / "outputs" / "pixal3d")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     demo = build_ui(args.low_vram, args.resolution)
-    demo.launch(server_name=args.host, server_port=args.port, share=args.share, show_error=True)
+    demo.launch(
+        server_name=args.host,
+        server_port=args.port,
+        share=args.share,
+        show_error=True,
+        allowed_paths=[str(output_dir)],
+    )
     try:
         while True:
             time.sleep(3600)
