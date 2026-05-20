@@ -12,6 +12,8 @@ adapter_ready=false
 runtime_ready=false
 models_ready=unknown
 aux_models_ready=unknown
+quantized_models_ready=false
+quantized_runtime_supported=false
 api_running=false
 gradio_running=false
 version=not-installed
@@ -19,6 +21,12 @@ health=unavailable
 state=available
 marker="${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
 detail="Not installed."
+quantized_profile_file="${PIXAL3D_CONFIG_DIR}/quantized.env"
+
+if [[ -f "${quantized_profile_file}" ]]; then
+  # shellcheck disable=SC1090
+  source "${quantized_profile_file}"
+fi
 
 if [[ -f "${marker}" ]]; then
   installed=true
@@ -82,6 +90,13 @@ pixal3d_cache_repo_present() {
     [[ -n "$(find "${NYMPHS3D_HF_CACHE_DIR}/${cache_name}/snapshots" -mindepth 1 -maxdepth 1 -type d -print -quit 2>/dev/null)" ]]
 }
 
+pixal3d_cache_snapshot_file_present() {
+  local cache_name="$1"
+  local relative_path="$2"
+  [[ -d "${NYMPHS3D_HF_CACHE_DIR}/${cache_name}/snapshots" ]] &&
+    [[ -n "$(find "${NYMPHS3D_HF_CACHE_DIR}/${cache_name}/snapshots" -path "*/${relative_path}" -print -quit 2>/dev/null)" ]]
+}
+
 if pixal3d_cache_repo_present "models--TencentARC--Pixal3D"; then
   models_ready=true
 else
@@ -94,6 +109,22 @@ if pixal3d_cache_repo_present "models--Ruicheng--moge-2-vitl" &&
   aux_models_ready=true
 else
   aux_models_ready=false
+fi
+
+if pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "Sparse/ss_flow_img_dit_1_3B_64_bf16_${PIXAL3D_QUANT}.gguf" &&
+   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_512_bf16_${PIXAL3D_QUANT}.gguf" &&
+   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_1024_bf16_${PIXAL3D_QUANT}.gguf" &&
+   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16_${PIXAL3D_QUANT}.gguf" &&
+   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/ss_dec_conv3d_16l8_fp16.safetensors" &&
+   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/shape_dec_next_dc_f16c32_fp16.safetensors" &&
+   pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/tex_dec_next_dc_f16c32_fp16.safetensors"; then
+  quantized_models_ready=true
+else
+  quantized_models_ready=false
+fi
+
+if [[ "${PIXAL3D_QUANT_RUNTIME_SUPPORTED}" == "1" ]]; then
+  quantized_runtime_supported=true
 fi
 
 if [[ "${installed}" == "true" && "${env_ready}" == "true" &&
@@ -165,6 +196,11 @@ profile_file=${PIXAL3D_PROFILE_FILE}
 profile=${PIXAL3D_PROFILE:-low_vram_1024}
 low_vram=${PIXAL3D_LOW_VRAM}
 resolution=${PIXAL3D_RESOLUTION}
+weight_format=${PIXAL3D_WEIGHT_FORMAT}
+quantized_repo=${PIXAL3D_QUANT_REPO}
+quantized_quant=${PIXAL3D_QUANT}
+quantized_models_ready=${quantized_models_ready}
+quantized_runtime_supported=${quantized_runtime_supported}
 marker=${marker}
 detail=${detail}
 EOF

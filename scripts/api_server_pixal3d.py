@@ -8,9 +8,11 @@ answer even while the model cache is still being prepared.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import base64
 import json
 import os
+import sys
 import tempfile
 import threading
 import time
@@ -20,6 +22,10 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 APP = FastAPI(title="Pixal3D Nymph API")
 ACTIVE_TASK: dict[str, Any] = {
@@ -102,6 +108,7 @@ def server_info() -> dict[str, Any]:
     low_vram = _bool_env("PIXAL3D_LOW_VRAM", True)
     resolution = _as_int(os.environ.get("PIXAL3D_RESOLUTION"), 1024 if low_vram else 1536)
     model_path = os.environ.get("PIXAL3D_MODEL_REPO", "TencentARC/Pixal3D")
+    weight_format = os.environ.get("PIXAL3D_WEIGHT_FORMAT", "safetensors")
     return {
         "status": "ready",
         "backend": "Pixal3D",
@@ -115,6 +122,10 @@ def server_info() -> dict[str, Any]:
         "low_vram": low_vram,
         "resolution": resolution,
         "supported_resolutions": [1024, 1536],
+        "weight_format": weight_format,
+        "quant_repo": os.environ.get("PIXAL3D_QUANT_REPO", "Aero-Ex/Pixal3D-GGUF"),
+        "quant": os.environ.get("PIXAL3D_QUANT", "Q5_K_M"),
+        "quant_runtime_supported": _bool_env("PIXAL3D_QUANT_RUNTIME_SUPPORTED", False),
         "attention_backend": os.environ.get("ATTN_BACKEND", "flash_attn"),
         "sparse_conv_backend": "flex_gemm",
         "model_ready": None,
@@ -137,6 +148,16 @@ async def generate(request: Request) -> Response:
     payload = await request.json()
     if payload.get("mesh"):
         raise HTTPException(status_code=400, detail="Pixal3D v1 does not support selected-mesh retexture.")
+
+    weight_format = str(payload.get("weight_format") or os.environ.get("PIXAL3D_WEIGHT_FORMAT") or "safetensors")
+    if weight_format != "safetensors":
+        raise HTTPException(
+            status_code=501,
+            detail=(
+                "Pixal3D GGUF weights can be fetched for adapter testing, but the current "
+                "runtime still uses safetensors. GGUF loader support is not implemented yet."
+            ),
+        )
 
     image_bytes = _decode_image_payload(str(payload.get("image") or ""))
     low_vram = bool(payload.get("pixal3d_low_vram", _bool_env("PIXAL3D_LOW_VRAM", True)))
@@ -166,7 +187,8 @@ async def generate(request: Request) -> Response:
         _set_task(stage="generate", detail=f"Running Pixal3D {resolution} cascade")
         from inference import run_inference
 
-        run_inference(
+        await asyncio.to_thread(
+            run_inference,
             image_path=image_path,
             output_path=str(output_path),
             seed=_as_int(payload.get("seed"), 42),
@@ -218,12 +240,14 @@ def main() -> None:
     parser.add_argument("--resolution", type=int, default=int(os.environ.get("PIXAL3D_RESOLUTION", "1024")))
     parser.add_argument("--low-vram", action="store_true", default=_bool_env("PIXAL3D_LOW_VRAM", True))
     parser.add_argument("--no-low-vram", action="store_false", dest="low_vram")
+    parser.add_argument("--weight-format", default=os.environ.get("PIXAL3D_WEIGHT_FORMAT", "safetensors"))
     parser.add_argument("--python-path", default="")
     args = parser.parse_args()
 
     os.environ["PIXAL3D_MODEL_REPO"] = args.model_path
     os.environ["PIXAL3D_RESOLUTION"] = str(args.resolution)
     os.environ["PIXAL3D_LOW_VRAM"] = "1" if args.low_vram else "0"
+    os.environ["PIXAL3D_WEIGHT_FORMAT"] = str(args.weight_format or "safetensors")
     os.environ.setdefault("ATTN_BACKEND", "flash_attn")
 
     import uvicorn

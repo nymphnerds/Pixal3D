@@ -61,6 +61,15 @@ case "${profile}" in
     PIXAL3D_LOW_VRAM=0
     PIXAL3D_RESOLUTION=1536
     ;;
+  gguf_q5_k_m)
+    exec "${SCRIPT_DIR}/pixal3d_fetch_quantized_models.sh" --quant Q5_K_M --license-ack "${license_ack}"
+    ;;
+  gguf_q6_k)
+    exec "${SCRIPT_DIR}/pixal3d_fetch_quantized_models.sh" --quant Q6_K --license-ack "${license_ack}"
+    ;;
+  gguf_q8_0)
+    exec "${SCRIPT_DIR}/pixal3d_fetch_quantized_models.sh" --quant Q8_0 --license-ack "${license_ack}"
+    ;;
   *)
     echo "Unsupported Pixal3D profile: ${profile}" >&2
     exit 2

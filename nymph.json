@@ -118,7 +118,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Fetch Pixal3D checkpoints and auxiliary camera/background/projection models into shared NymphsData caches. The BRIA RMBG-2.0 access form must be accepted on Hugging Face before gated background-removal weights can be downloaded.",
+        "description": "Fetch Pixal3D checkpoints and auxiliary camera/background/projection models into shared NymphsData caches. The standard profiles keep the current safetensors runtime. The GGUF profiles fetch community quantized weights for adapter testing only; the runtime is not switched until the GGUF loader bridge is implemented. The BRIA RMBG-2.0 access form must be accepted on Hugging Face before gated background-removal weights can be downloaded.",
         "links": [
           {
             "label": "Pixal3D models",
@@ -146,6 +146,21 @@
                 "label": "Standard 1536",
                 "value": "standard_1536",
                 "description": "Heavier profile for high VRAM systems"
+              },
+              {
+                "label": "GGUF Q5_K_M (experimental)",
+                "value": "gguf_q5_k_m",
+                "description": "Fetch community Pixal3D GGUF Q5 weights for adapter testing; current runtime remains safetensors"
+              },
+              {
+                "label": "GGUF Q6_K (experimental)",
+                "value": "gguf_q6_k",
+                "description": "Fetch community Pixal3D GGUF Q6 weights for adapter testing; current runtime remains safetensors"
+              },
+              {
+                "label": "GGUF Q8_0 (experimental)",
+                "value": "gguf_q8_0",
+                "description": "Fetch community Pixal3D GGUF Q8 weights for adapter testing; current runtime remains safetensors"
               }
             ]
           },

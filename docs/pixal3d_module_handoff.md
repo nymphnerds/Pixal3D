@@ -93,6 +93,25 @@ resolution=1024
 venv=/home/nymph/TRELLIS.2/.venv
 ```
 
+Update 2026-05-20:
+
+- The existing safetensors runtime remains the default and is still the only
+  supported generation path.
+- `Fetch Models` now includes experimental GGUF profile choices in the same
+  profile dropdown: `GGUF Q5_K_M`, `GGUF Q6_K`, and `GGUF Q8_0`.
+- These profiles fetch community quantized weights from
+  `Aero-Ex/Pixal3D-GGUF` into the shared Hugging Face cache and record
+  `NymphsData/config/pixal3d/quantized.env`.
+- The Pixal3D API reports `weight_format`, `quant_repo`, `quant`, and
+  `quant_runtime_supported` through `/server_info`.
+- `quant_runtime_supported=false` is intentional. The current Pixal3D model
+  loader still expects `.safetensors` via `pixal3d/models/__init__.py`; GGUF
+  generation requires a loader bridge/adaptation before it can replace any flow
+  model stage.
+- If `PIXAL3D_WEIGHT_FORMAT` is manually set away from `safetensors`, `/generate`
+  now returns HTTP 501 with an explicit "GGUF loader support is not implemented
+  yet" message instead of failing obscurely inside model loading.
+
 The local validation profile reuses the existing TRELLIS.2 venv because it
 already contains the heavy native runtime stack. The production module contract
 still defaults to `$HOME/Pixal3D/.venv`; keep that as the clean install target
