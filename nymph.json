@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -325,6 +325,7 @@
     "The official upstream training code and data toolkit are preserved in the module repo, but v0.1 exposes inference and Gradio testing only.",
     "Install/Repair pins utils3d and creates the utils3d.pt/np compatibility aliases required by MoGe camera estimation.",
     "Open Gradio now starts the Pixal3D API before launching Gradio, and pressing it again while Gradio is running stops Pixal3D services.",
+    "Open Gradio no longer prints the API URL during API pre-start, and status reports the Gradio URL while the Gradio UI is running.",
     "Low-VRAM Gradio exposes Texture NAF Size and defaults the texture conditioning NAF pass to 512 to reduce 16 GB GPU pressure.",
     "Do not vendor model weights into this repo."
   ]

@@ -25,8 +25,13 @@ pixal3d_ensure_data_dirs
 pixal3d_load_hf_token
 
 if ! pixal3d_api_is_running; then
-  echo "Pixal3D API is not running; starting it before Gradio."
-  "${SCRIPT_DIR}/pixal3d_start.sh"
+  echo "Starting Pixal3D API before Gradio."
+  api_start_log="${PIXAL3D_LOG_DIR}/pixal3d-api-start-from-gradio.log"
+  if ! "${SCRIPT_DIR}/pixal3d_start.sh" >"${api_start_log}" 2>&1; then
+    echo "Pixal3D API did not start cleanly. Check ${api_start_log}" >&2
+    tail -n 40 "${api_start_log}" >&2 || true
+    exit 1
+  fi
 fi
 
 log_file="${PIXAL3D_LOG_DIR}/pixal3d-gradio.log"

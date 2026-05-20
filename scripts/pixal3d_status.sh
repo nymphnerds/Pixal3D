@@ -21,6 +21,7 @@ weight_profiles_available="Low VRAM 1024,Standard 1536,Q5_K_M,Q6_K,Q8_0"
 weight_profiles_downloaded="none"
 weight_profiles_missing="Low VRAM 1024,Standard 1536,Q5_K_M,Q6_K,Q8_0"
 weight_profile_ready=false
+display_url="${PIXAL3D_SERVER_URL}"
 api_running=false
 gradio_running=false
 version=not-installed
@@ -216,6 +217,9 @@ service_running=false
 if [[ "${api_running}" == "true" || "${gradio_running}" == "true" ]]; then
   service_running=true
 fi
+if [[ "${gradio_running}" == "true" ]]; then
+  display_url="${PIXAL3D_GRADIO_URL}"
+fi
 
 if [[ "${installed}" == "true" && "${env_ready}" != "true" ]]; then
   state=needs_attention
@@ -259,7 +263,8 @@ api_running=${api_running}
 gradio_running=${gradio_running}
 state=${state}
 health=${health}
-url=${PIXAL3D_SERVER_URL}
+url=${display_url}
+api_url=${PIXAL3D_SERVER_URL}
 frontend_url=${PIXAL3D_GRADIO_URL}
 install_root=${PIXAL3D_INSTALL_ROOT}
 venv=${PIXAL3D_VENV_DIR}
