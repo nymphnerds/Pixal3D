@@ -172,11 +172,10 @@ PY
 
 pixal3d_print_trellis_runtime_prerequisite() {
   cat <<'EOF'
-Install TRELLIS.2 runtime first.
+Install or repair Pixal3D first.
 
-Pixal3D needs the TRELLIS.2 module installed or repaired for its CUDA/native runtime.
+Pixal3D uses the shared TRELLIS.2/Pixal3D runtime venv.
+Install or Repair Pixal3D creates that runtime automatically if it is missing.
 You do not need to fetch TRELLIS model weights for Pixal3D.
-
-Next step: open TRELLIS.2, run Install or Repair, then come back to Pixal3D and Open Gradio.
 EOF
 }

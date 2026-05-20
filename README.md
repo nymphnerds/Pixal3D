@@ -52,6 +52,20 @@ You can try Pixal3D directly in your browser without any installation via our Hu
 
 ## 🚀 Getting Started
 
+### NymphsCore Module Runtime
+
+The NymphsCore module installer uses one shared native runtime venv for
+TRELLIS.2 and Pixal3D:
+
+```text
+$HOME/TRELLIS.2/.venv
+```
+
+Installing Pixal3D creates or repairs that shared venv automatically if it is
+missing. Installing TRELLIS.2 uses the same venv and also leaves it
+Pixal3D-ready. Pixal3D does not require TRELLIS model weights; Pixal3D model
+files are fetched separately into the shared `NymphsData` cache.
+
 ### Installation
 
 #### Step 1: Follow TRELLIS.2 Installation
@@ -284,4 +298,3 @@ If you find this work useful, please consider citing:
     year={2026}
 }
 ```
-

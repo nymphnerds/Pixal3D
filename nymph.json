@@ -3,8 +3,8 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.11",
-  "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Requires the TRELLIS.2 module runtime to be installed; TRELLIS model weights are not required.",
+  "version": "0.1.12",
+  "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
   "repo": {
@@ -17,7 +17,7 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D generates textured 3D assets from a single image using a TRELLIS.2-style backbone and Pixal3D projection pipeline.\n\nInstall requires the TRELLIS.2 module runtime to be installed first. Pixal3D uses the TRELLIS.2 runtime/native dependencies, but it does not require TRELLIS model weights. Install/repair TRELLIS.2 first, then install Pixal3D. Fetch Models downloads Pixal3D model assets into shared NymphsData caches. Start launches the addon API server for Blender. Open Gradio launches the Pixal3D Gradio app and opens it inside the NymphsCore module details WebView.\n\nLicense and access notice:\n- Pixal3D is for academic use only under its local LICENSE. It is not licensed for commercial or production use.\n- Pixal3D's local LICENSE says it is not intended for use within the European Union.\n- The official Pixal3D pipeline uses briaai/RMBG-2.0 for background removal. That model is gated on Hugging Face and released for non-commercial use.\n- Before Fetch Models, open the BRIA RMBG-2.0 access form with the same Hugging Face account as your token, complete BRIA's form, and agree to BRIA's terms: https://huggingface.co/briaai/RMBG-2.0\n- The user is responsible for confirming their intended use is allowed by Pixal3D, BRIA RMBG, Hugging Face, and dependency licenses.",
+    "body": "Pixal3D generates textured 3D assets from a single image using a TRELLIS.2-style backbone and Pixal3D projection pipeline.\n\nInstall sets up Pixal3D and provisions the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv if it is missing. TRELLIS model weights are not required for Pixal3D. Fetch Models downloads Pixal3D model assets into shared NymphsData caches. Start launches the addon API server for Blender. Open Gradio launches the Pixal3D Gradio app and opens it inside the NymphsCore module details WebView.\n\nLicense and access notice:\n- Pixal3D is for academic use only under its local LICENSE. It is not licensed for commercial or production use.\n- Pixal3D's local LICENSE says it is not intended for use within the European Union.\n- The official Pixal3D pipeline uses briaai/RMBG-2.0 for background removal. That model is gated on Hugging Face and released for non-commercial use.\n- Before Fetch Models, open the BRIA RMBG-2.0 access form with the same Hugging Face account as your token, complete BRIA's form, and agree to BRIA's terms: https://huggingface.co/briaai/RMBG-2.0\n- The user is responsible for confirming their intended use is allowed by Pixal3D, BRIA RMBG, Hugging Face, and dependency licenses.",
     "links": [
       {
         "label": "Pixal3D source",
@@ -36,42 +36,16 @@
       "Managed NymphsCore WSL distro",
       "CUDA-capable NVIDIA GPU",
       "Python 3.10 with venv",
-      "TRELLIS.2 module installed/repaired for runtime only; TRELLIS model weights are not required"
+      "Shared TRELLIS.2/Pixal3D runtime venv; installed automatically if missing"
     ]
   },
   "install": {
-    "title": "PIXAL3D RUNTIME OPTIONS",
+    "title": "PIXAL3D INSTALL",
     "root": "$HOME/Pixal3D",
     "entrypoint": "scripts/install_pixal3d.sh",
     "version_marker": "$HOME/Pixal3D/.nymph-module-version",
     "installed_markers": [
       "$HOME/Pixal3D/.nymph-module-version"
-    ],
-    "fields": [
-      {
-        "name": "runtime_profile",
-        "type": "select",
-        "label": "Runtime",
-        "env": "PIXAL3D_RUNTIME_PROFILE",
-        "default": "trellis_runtime",
-        "options": [
-          {
-            "label": "TRELLIS.2 runtime",
-            "value": "trellis_runtime",
-            "description": "Recommended. Requires the TRELLIS.2 module runtime only; TRELLIS model weights are not required"
-          },
-          {
-            "label": "Dedicated CUDA 13 (experimental)",
-            "value": "cuda13",
-            "description": "Experimental standalone Pixal3D venv; use TRELLIS.2 runtime for normal installs"
-          },
-          {
-            "label": "Manual",
-            "value": "manual",
-            "description": "Create folders and marker only; install heavy deps manually"
-          }
-        ]
-      }
     ]
   },
   "runtime": {
@@ -98,7 +72,6 @@
     "stop": "scripts/pixal3d_stop.sh",
     "open": "scripts/pixal3d_open.sh",
     "open_gradio": "scripts/pixal3d_gradio.sh",
-    "open_trellis_runtime": "scripts/pixal3d_open_trellis_runtime.sh",
     "logs": "scripts/pixal3d_logs.sh",
     "fetch_models": "scripts/pixal3d_fetch_models.sh",
     "smoke_test": "scripts/pixal3d_smoke_test.sh",
@@ -199,12 +172,6 @@
         "label": "Open Gradio",
         "entrypoint": "open_gradio",
         "result": "open_in_manager"
-      },
-      {
-        "id": "open_trellis_runtime",
-        "label": "TRELLIS.2 Runtime",
-        "entrypoint": "open_trellis_runtime",
-        "result": "show_output"
       },
       {
         "id": "smoke_test",

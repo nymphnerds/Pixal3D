@@ -112,11 +112,10 @@ Update 2026-05-20:
   now returns HTTP 501 with an explicit "GGUF loader support is not implemented
   yet" message instead of failing obscurely inside model loading.
 
-The local validation profile reuses the existing TRELLIS.2 venv because it
-already contains the heavy native runtime stack. The production module contract
-still defaults to `$HOME/Pixal3D/.venv`; keep that as the clean install target
-unless intentionally using the manual/shared-venv profile for a workstation
-smoke test.
+The production module contract now intentionally uses the shared
+`$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
+same native CUDA/runtime venv, so whichever module is installed first prepares
+the runtime for both modules. Pixal3D does not require TRELLIS model weights.
 
 Manager/registry status:
 
@@ -147,22 +146,22 @@ Build Pixal3D as a separate Nymph module:
 ```text
 module id:        pixal3d
 install root:     $HOME/Pixal3D
-venv:             $HOME/Pixal3D/.venv
+venv:             $HOME/TRELLIS.2/.venv
 port:             8096
 api script:       scripts/api_server_pixal3d.py
 model repo:       TencentARC/Pixal3D
 default profile:  low_vram_1024
-runtime profile:  Python 3.10 + Torch 2.6/cu124 + CUDA Toolkit 12.4 first
+runtime profile:  shared TRELLIS.2/Pixal3D Python 3.10 + CUDA runtime
 output format:    binary GLB response from POST /generate
 ```
 
 Use the official TRELLIS.2 runtime install surface as the base recipe, but keep
-Pixal3D independent from the TRELLIS GGUF module service and venv.
+Pixal3D independent from TRELLIS model weights and from the TRELLIS GGUF service.
 
 Do this:
 
 - Vendor or sync the upstream `TencentARC/Pixal3D` repo into `$HOME/Pixal3D`.
-- Build a dedicated Pixal3D venv.
+- Create or reuse the shared `$HOME/TRELLIS.2/.venv` runtime.
 - Use a tested CUDA/Torch stack. The conservative upstream/HF-demo profile is
   Python 3.10, Torch 2.6.0/cu124, torchvision 0.21.0, CUDA Toolkit 12.4. Local
   validation on 2026-05-17 also proved the Nymph CUDA 13 profile works:
@@ -413,8 +412,8 @@ $HOME/Pixal3D/pixal3d/
 $HOME/Pixal3D/inference.py
 $HOME/Pixal3D/app.py
 $HOME/Pixal3D/requirements.txt
-$HOME/Pixal3D/.venv/
 $HOME/Pixal3D/.nymph-module-version
+$HOME/TRELLIS.2/.venv/
 ```
 
 ### Data And Cache Layout
@@ -631,7 +630,7 @@ Use native action groups for model/profile fetch:
 2. Sync module/upstream source into `$HOME/Pixal3D`.
 3. Ensure the official `o-voxel/third_party/eigen` submodule or equivalent
    source exists for building `o_voxel`.
-4. Create `$HOME/Pixal3D/.venv` with Python 3.10.
+4. Create or repair `$HOME/TRELLIS.2/.venv` with Python 3.10.
 5. Install PyTorch. Two profiles are now known:
    - Conservative upstream/HF-demo profile:
      `torch==2.6.0 torchvision==0.21.0 --index-url cu124`, native extensions
@@ -692,7 +691,7 @@ state=available|installed|running|needs_attention
 health=ok|unknown|degraded|model-download-needed|unreachable
 url=http://127.0.0.1:8096
 install_root=/home/nymph/Pixal3D
-venv=/home/nymph/Pixal3D/.venv
+venv=/home/nymph/TRELLIS.2/.venv
 logs_dir=/home/nymph/NymphsData/logs/pixal3d
 outputs_dir=/home/nymph/NymphsData/outputs/pixal3d
 config_dir=/home/nymph/NymphsData/config/pixal3d
@@ -932,7 +931,7 @@ Add constants:
 
 ```python
 DEFAULT_REPO_PIXAL3D_PATH = "~/Pixal3D"
-DEFAULT_PIXAL3D_PYTHON_PATH = "~/Pixal3D/.venv/bin/python"
+DEFAULT_PIXAL3D_PYTHON_PATH = "~/TRELLIS.2/.venv/bin/python"
 DEFAULT_PIXAL3D_PORT = "8096"
 DEFAULT_PIXAL3D_RESOLUTION = "1024"
 ```
@@ -1008,7 +1007,7 @@ Extend `_compose_wsl_launch` with a Pixal3D branch:
 
 ```text
 repo_path:     state.repo_pixal3d_path or ~/Pixal3D
-python_path:   state.pixal3d_python_path or ~/Pixal3D/.venv/bin/python
+python_path:   state.pixal3d_python_path or ~/TRELLIS.2/.venv/bin/python
 script:        scripts/api_server_pixal3d.py
 host/port:     0.0.0.0:<service_pixal3d_port>
 log:           $HOME/NymphsData/logs/pixal3d/pixal3d-server.log
@@ -1753,7 +1752,7 @@ Add Pixal3D as a separate service:
 ```python
 DEFAULT_PIXAL3D_PORT = "8096"
 DEFAULT_REPO_PIXAL3D_PATH = "~/Pixal3D"
-DEFAULT_PIXAL3D_PYTHON_PATH = "~/Pixal3D/.venv/bin/python"
+DEFAULT_PIXAL3D_PYTHON_PATH = "~/TRELLIS.2/.venv/bin/python"
 
 SERVICE_LABELS["pixal3d"] = "Pixal3D"
 SERVICE_PROP_PREFIXES["pixal3d"] = "service_pixal3d"
@@ -1818,7 +1817,7 @@ Extend `_compose_wsl_launch` with a Pixal3D branch:
 
 ```text
 repo_path = state.repo_pixal3d_path or ~/Pixal3D
-python_path = state.pixal3d_python_path or ~/Pixal3D/.venv/bin/python
+python_path = state.pixal3d_python_path or ~/TRELLIS.2/.venv/bin/python
 script_name = scripts/api_server_pixal3d.py
 PIXAL3D_OUTPUT_DIR=$HOME/NymphsData/outputs/pixal3d
 PIXAL3D_LOG_DIR=$HOME/NymphsData/logs/pixal3d
@@ -2407,7 +2406,7 @@ state=needs_attention
 health=model-download-needed
 url=http://127.0.0.1:8096
 install_root=/home/nymph/Pixal3D
-venv=/home/nymph/Pixal3D/.venv
+venv=/home/nymph/TRELLIS.2/.venv
 logs_dir=/home/nymph/NymphsData/logs/pixal3d
 outputs_dir=/home/nymph/NymphsData/outputs/pixal3d
 config_dir=/home/nymph/NymphsData/config/pixal3d
@@ -2683,7 +2682,7 @@ The install script should be conservative and separate from TRELLIS GGUF:
 
 2. Sync module/upstream source into $HOME/Pixal3D.
 
-3. Create $HOME/Pixal3D/.venv with Python 3.10.
+3. Create or repair $HOME/TRELLIS.2/.venv with Python 3.10.
 
 4. Install/upgrade pip, setuptools, wheel, ninja.
 
@@ -2715,13 +2714,14 @@ The install script should be conservative and separate from TRELLIS GGUF:
 Critical install decision:
 
 ```text
-Do not rely on $HOME/TRELLIS.2/.venv.
-Do not import packages from the TRELLIS GGUF module.
+Do rely on $HOME/TRELLIS.2/.venv for the shared native runtime.
+Do not require TRELLIS model weights for Pixal3D.
+Do not require the TRELLIS GGUF service to be running for Pixal3D.
 ```
 
-Why: module installs should be independently repairable and uninstallable. Also,
-Pixal3D may need different versions of `natten`, `MoGe`, `diffusers`, and DINOv3
-dependencies than the GGUF adapter.
+Why: Pixal3D and TRELLIS.2 share the heavy CUDA/native Python stack. Each module
+installer must be able to create or repair the shared venv so the user does not
+have to discover a hidden prerequisite.
 
 Native package source choices:
 
@@ -3022,7 +3022,7 @@ Add constants near current TRELLIS constants:
 
 ```python
 DEFAULT_REPO_PIXAL3D_PATH = "~/Pixal3D"
-DEFAULT_PIXAL3D_PYTHON_PATH = "~/Pixal3D/.venv/bin/python"
+DEFAULT_PIXAL3D_PYTHON_PATH = "~/TRELLIS.2/.venv/bin/python"
 DEFAULT_PIXAL3D_PORT = "8096"
 DEFAULT_PIXAL3D_RESOLUTION = "1024"
 ```
@@ -3107,7 +3107,7 @@ Extend `_compose_wsl_launch` with a Pixal3D branch:
 
 ```text
 repo_path: state.repo_pixal3d_path or ~/Pixal3D
-python_path: state.pixal3d_python_path or ~/Pixal3D/.venv/bin/python
+python_path: state.pixal3d_python_path or ~/TRELLIS.2/.venv/bin/python
 script: scripts/api_server_pixal3d.py
 env:
   PIXAL3D_OUTPUT_DIR=$HOME/NymphsData/outputs/pixal3d
@@ -3223,7 +3223,7 @@ More detail:
 Module acceptance:
 
 - `pixal3d_status.sh` completes under Manager status timeout.
-- Install creates `$HOME/Pixal3D/.venv` and writes `.nymph-module-version`.
+- Install creates or repairs `$HOME/TRELLIS.2/.venv` and writes `.nymph-module-version`.
 - Status reports `models_ready=false` before model fetch, without crashing.
 - Fetch Models downloads main and auxiliary models into `NymphsData` caches.
 - Start launches `http://127.0.0.1:8096`.

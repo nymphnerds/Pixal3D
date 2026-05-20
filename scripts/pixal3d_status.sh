@@ -65,7 +65,7 @@ fi
 if [[ "${installed}" == "true" && "${trellis_runtime_ready}" != "true" ]]; then
   state=needs_trellis_runtime
   health=degraded
-  detail="Install TRELLIS.2 runtime first. Pixal3D needs the TRELLIS.2 module installed or repaired for its CUDA/native runtime. You do not need to fetch TRELLIS model weights for Pixal3D."
+  detail="Pixal3D uses the shared TRELLIS.2/Pixal3D runtime venv. Run Install or Repair to create it automatically. TRELLIS model weights are not required."
 fi
 
 if [[ "${installed}" == "true" && -f "${PIXAL3D_INSTALL_ROOT}/scripts/api_server_pixal3d.py" ]]; then
@@ -100,9 +100,9 @@ PY
     runtime_ready=true
     [[ "${health}" != "unreachable" ]] && health=ok
     detail="API wrapper imports are ready."
-  else
+else
     health=degraded
-    detail="Pixal3D needs the TRELLIS.2 module runtime installed/repaired first. TRELLIS model weights are not required."
+    detail="Pixal3D shared runtime imports are incomplete. Run Repair to rebuild the shared TRELLIS.2/Pixal3D runtime venv."
   fi
 fi
 
@@ -230,7 +230,7 @@ elif [[ "${installed}" == "true" && "${adapter_ready}" != "true" ]]; then
 elif [[ "${installed}" == "true" && "${runtime_ready}" != "true" ]]; then
   state=needs_attention
   health=degraded
-  detail="Pixal3D needs the TRELLIS.2 module runtime installed/repaired first. TRELLIS model weights are not required."
+  detail="Pixal3D shared runtime imports are incomplete. Run Repair to rebuild the shared TRELLIS.2/Pixal3D runtime venv."
 elif [[ "${installed}" == "true" && ( "${models_ready}" != "true" || "${aux_models_ready}" != "true" ) ]]; then
   state=model_download_needed
   health=model-download-needed
@@ -284,8 +284,5 @@ weight_profiles_missing=${weight_profiles_missing}
 weight_profile_ready=${weight_profile_ready}
 marker=${marker}
 trellis_module_installed=${trellis_module_installed}
-prerequisite_title=Install TRELLIS.2 runtime first
-prerequisite_detail=Pixal3D needs the TRELLIS.2 module installed or repaired for its CUDA/native runtime. You do not need to fetch TRELLIS model weights for Pixal3D.
-next_step=Open TRELLIS.2, run Install or Repair, then come back to Pixal3D and Open Gradio.
 detail=${detail}
 EOF
