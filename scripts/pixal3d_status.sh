@@ -99,7 +99,7 @@ pixal3d_cache_snapshot_file_present() {
   local cache_name="$1"
   local relative_path="$2"
   [[ -d "${NYMPHS3D_HF_CACHE_DIR}/${cache_name}/snapshots" ]] &&
-    [[ -n "$(find "${NYMPHS3D_HF_CACHE_DIR}/${cache_name}/snapshots" -path "*/${relative_path}" -print -quit 2>/dev/null)" ]]
+    [[ -n "$(find -L "${NYMPHS3D_HF_CACHE_DIR}/${cache_name}/snapshots" -path "*/${relative_path}" -type f -print -quit 2>/dev/null)" ]]
 }
 
 if pixal3d_cache_repo_present "models--TencentARC--Pixal3D"; then
