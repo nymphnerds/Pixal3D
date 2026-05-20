@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.26",
+  "version": "0.1.27",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -341,6 +341,7 @@
     "The API running check now also accepts a healthy /server_info probe so the Gradio launcher does not spawn a duplicate API on an occupied port.",
     "Low-VRAM Gradio exposes Texture NAF Size and defaults the texture conditioning NAF pass to 512 to reduce 16 GB GPU pressure.",
     "Gradio is allowed to serve generated GLB files from the shared Pixal3D outputs directory.",
+    "v0.1.27 republishes the dual Official Ui/Nymphs Ui manifest so installed 0.1.26 runtimes surface a normal Manager update.",
     "Do not vendor model weights into this repo."
   ]
 }
