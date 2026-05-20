@@ -288,17 +288,23 @@
     .dot.err { background: var(--danger); }
 
     .top-progress {
-      height: 30px;
+      min-height: 40px;
       min-width: 0;
       display: grid;
-      grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
+      grid-template-columns: auto minmax(86px, max-content) minmax(160px, 0.9fr);
       align-items: center;
-      gap: 12px;
-      padding: 0 16px;
+      gap: 10px;
+      padding: 6px 16px;
       border-bottom: 1px solid var(--line);
       background: #0b1413;
       color: var(--muted);
       font-size: 11px;
+    }
+
+    .top-progress-copy {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
     }
 
     .top-progress-text {
@@ -306,6 +312,27 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .top-progress-stage {
+      color: var(--text);
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .top-progress-extra {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .top-progress-icon {
+      width: 20px;
+      height: 20px;
+      color: #bdebe4;
     }
 
     .top-progress .bar {
@@ -646,16 +673,7 @@
       </section>
 
       <section class="section">
-        <div class="section-title"><i data-lucide="activity"></i> Run</div>
-        <div class="progress-box">
-          <div class="status">
-            <span class="dot" id="progress-dot"></span>
-            <span id="progress-stage">Idle</span>
-          </div>
-          <div class="bar"><span id="progress-bar"></span></div>
-          <div class="progress-detail" id="progress-detail">Waiting for a run.</div>
-        </div>
-
+        <div class="section-title"><i data-lucide="info"></i> Status</div>
         <div class="meta">
           <div><strong>State</strong> <span id="state-label">No run yet</span></div>
           <div><strong>Camera</strong> <span id="camera-label">Auto</span></div>
@@ -676,7 +694,12 @@
         <div class="status" id="runtime-text">runtime</div>
       </header>
       <div class="top-progress">
-        <span class="top-progress-text" id="top-progress-text">Idle</span>
+        <i class="top-progress-icon" data-lucide="activity"></i>
+        <span class="top-progress-stage" id="progress-stage">Idle</span>
+        <div class="top-progress-copy">
+          <span class="top-progress-text" id="top-progress-text">Idle</span>
+          <span class="top-progress-extra" id="top-progress-extra">Waiting for source image.</span>
+        </div>
         <div class="bar"><span id="top-progress-bar"></span></div>
       </div>
 
@@ -709,6 +732,7 @@
     const sessionId = crypto.randomUUID();
     let client = null;
     let currentFile = null;
+    let preparedFile = null;
     let generationResult = null;
     let outputUrl = "";
     let outputPath = "";
@@ -735,17 +759,15 @@
 
     function setProgressUi(label, detail, width) {
       $("progress-stage").textContent = label;
-      $("progress-detail").textContent = detail;
-      $("progress-bar").style.width = width;
       $("top-progress-text").textContent = detail;
+      $("top-progress-extra").textContent = label === detail ? "" : label;
       $("top-progress-bar").style.width = width;
     }
 
     function setBusy(isBusy) {
       busy = isBusy;
-      $("generate").disabled = isBusy || preprocessing || !currentFile;
+      $("generate").disabled = isBusy || preprocessing || !preparedFile;
       $("extract").disabled = isBusy || preprocessing || !generationResult;
-      $("progress-dot").className = `dot ${isBusy ? "work" : ""}`;
     }
 
     function updateSliderLabels() {
@@ -835,8 +857,6 @@
     function startProgress() {
       clearInterval(progressTimer);
       $("progress-stage").textContent = "Starting";
-      $("progress-detail").textContent = "Queued for Pixal3D worker.";
-      $("progress-bar").style.width = "0%";
       $("top-progress-text").textContent = "Queued for Pixal3D worker.";
       $("top-progress-bar").style.width = "0%";
       progressTimer = setInterval(async () => {
@@ -873,18 +893,15 @@
         const total = Number(data.total || 0);
         const step = Number(data.step || 0);
         if (data.status === "loading") {
-          $("progress-dot").className = "dot work";
           const stage = data.stage || "Loading model";
           const width = total > 0 ? `${Math.min(100, (step / total) * 100)}%` : "12%";
           setProgressUi(stage, stage, width);
           if (!currentFile) setStatus("Preloading model", "work");
         } else if (data.status === "ready") {
-          $("progress-dot").className = "dot ok";
           setProgressUi("Model ready", "Model is loaded and ready.", "100%");
           if (!currentFile) setStatus("Model ready", "ok");
           clearInterval(warmupTimer);
         } else if (data.status === "error") {
-          $("progress-dot").className = "dot err";
           const error = data.error || "Model preload failed.";
           setProgressUi("Model preload failed", error, "0%");
           if (!currentFile) setStatus("Preload failed", "err");
@@ -902,15 +919,20 @@
     async function preprocess(file) {
       preprocessing = true;
       setBusy(false);
-      $("progress-dot").className = "dot work";
+      preparedFile = null;
       setProgressUi("Preparing", "Preparing source image.", "8%");
       $("state-label").textContent = "Preparing source";
       setStatus("Preparing source", "work");
       startProgress();
       try {
-        const result = await client.predict("/preprocess", { image: handle_file(file), session_id: sessionId });
+        const result = await client.predict("/preprocess", {
+          image: handle_file(file),
+          rembg_keep_gpu: $("rembg-keep-gpu").checked,
+          session_id: sessionId,
+        });
         if (currentFile !== file) return;
-        const url = result?.data?.[0]?.url;
+        preparedFile = result?.data?.[0] || null;
+        const url = preparedFile?.url;
         if (url) {
           $("source-preview").src = url;
         }
@@ -919,12 +941,14 @@
         $("state-label").textContent = "Image ready";
         setStatus("Image ready", "ok");
       } catch (err) {
-        console.warn("Preprocess failed, generation will preprocess server-side.", err);
+        console.warn("Preprocess failed.", err);
         if (currentFile === file) {
           stopProgress(false);
-          setProgressUi("Source ready", "Preprocess will run during Generate.", "0%");
-          $("state-label").textContent = "Image ready";
-          setStatus("Image ready", "ok");
+          preparedFile = null;
+          setProgressUi("Prep failed", "Source preprocessing failed. Check Logs.", "0%");
+          $("state-label").textContent = "Source prep failed";
+          setStatus("Source prep failed", "err");
+          toast("Source preprocessing failed. Check Logs.");
         }
       } finally {
         if (currentFile === file) {
@@ -935,7 +959,10 @@
     }
 
     async function generate() {
-      if (!currentFile) return;
+      if (!preparedFile) {
+        toast("Wait for source preprocessing to finish first.");
+        return;
+      }
       setBusy(true);
       setStatus("Generating preview", "work");
       $("state-label").textContent = "Generating";
@@ -948,8 +975,9 @@
       startProgress();
 
       try {
+        const preparedInput = preparedFile.url ? handle_file(preparedFile.url) : preparedFile;
         const result = await client.predict("/generate_3d", {
-          image: handle_file(currentFile),
+          image: preparedInput,
           seed: parseInt($("seed").value || "42", 10),
           resolution: parseInt($("resolution").value || "1024", 10),
           ss_guidance_strength: parseFloat($("ss-guidance").value || "7.5"),
@@ -966,7 +994,6 @@
           tex_slat_rescale_t: parseFloat($("tex-rescale-t").value || "3.0"),
           manual_fov: selectedManualFov(),
           fov_unit: $("fov-unit").value,
-          rembg_keep_gpu: $("rembg-keep-gpu").checked,
           session_id: sessionId,
         });
 
@@ -1094,6 +1121,7 @@
 
     function useFile(file) {
       currentFile = file;
+      preparedFile = null;
       generationResult = null;
       outputUrl = "";
       outputPath = "";

@@ -498,12 +498,13 @@ async def warmup_status():
 
 @app.api()
 @spaces.GPU(duration=30)
-def preprocess(image: FileData, session_id: str = "") -> FileData:
+def preprocess(image: FileData, rembg_keep_gpu: bool = False, session_id: str = "") -> FileData:
     _reset_progress(session_id)
     _update_progress("Loading Pixal3D models", 0, 3)
     init_models()
     _update_progress("Preprocessing source image", 1, 3)
     img = Image.open(image["path"])
+    os.environ["PIXAL3D_REMBG_KEEP_GPU"] = "1" if rembg_keep_gpu else "0"
     processed = pipeline.preprocess_image(img)
     _update_progress("Saving preprocessed image", 2, 3)
     out_path = _preprocessed_file(session_id) if session_id else os.path.join(TMP_DIR, f"preprocessed_{int(time.time()*1000)}.png")
@@ -531,7 +532,6 @@ def generate_3d(
     tex_slat_rescale_t: float = 3.0,
     manual_fov: float = -1.0,
     fov_unit: str = "deg",
-    rembg_keep_gpu: bool = False,
     session_id: str = "",
 ) -> Dict:
     _reset_progress(session_id)
@@ -541,15 +541,8 @@ def generate_3d(
     torch.manual_seed(seed)
     hr_resolution = int(resolution)
     
-    cached_preprocessed_path = _preprocessed_file(session_id)
-    if session_id and os.path.exists(cached_preprocessed_path):
-        _update_progress("Using cached preprocessed image", 1, 8)
-        image_preprocessed = Image.open(cached_preprocessed_path).convert("RGBA")
-    else:
-        _update_progress("Removing background and framing image", 1, 8)
-        img = Image.open(image["path"])
-        os.environ["PIXAL3D_REMBG_KEEP_GPU"] = "1" if rembg_keep_gpu else "0"
-        image_preprocessed = pipeline.preprocess_image(img)
+    _update_progress("Using preprocessed source image", 1, 8)
+    image_preprocessed = Image.open(image["path"]).convert("RGBA")
     _update_progress("Saving prepared image", 2, 8)
     temp_processed_path = os.path.join(TMP_DIR, f"temp_proc_{session_id[:8]}_{int(time.time()*1000)}.png")
     image_preprocessed.save(temp_processed_path)
