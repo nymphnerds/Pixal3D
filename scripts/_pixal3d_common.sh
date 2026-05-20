@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODULE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 PIXAL3D_INSTALL_ROOT="${PIXAL3D_INSTALL_ROOT:-$HOME/Pixal3D}"
+PIXAL3D_TRELLIS_RUNTIME_ROOT="${PIXAL3D_TRELLIS_RUNTIME_ROOT:-$HOME/TRELLIS.2}"
+PIXAL3D_TRELLIS_VENV_DIR="${PIXAL3D_TRELLIS_VENV_DIR:-$PIXAL3D_TRELLIS_RUNTIME_ROOT/.venv}"
 PIXAL3D_VENV_DIR="${PIXAL3D_VENV_DIR:-$PIXAL3D_INSTALL_ROOT/.venv}"
 NYMPHS_DATA_ROOT="${NYMPHS_DATA_ROOT:-$HOME/NymphsData}"
 PIXAL3D_CONFIG_DIR="${PIXAL3D_CONFIG_DIR:-$NYMPHS_DATA_ROOT/config/pixal3d}"
@@ -144,5 +146,26 @@ try:
         print(response.read().decode("utf-8", errors="replace"))
 except Exception as exc:
     raise SystemExit(str(exc))
+PY
+}
+
+pixal3d_validate_runtime_stack() {
+  local python_bin="${1:-$(pixal3d_python)}"
+  [[ -x "${python_bin}" ]] || return 1
+  "${python_bin}" - <<'PY' >/dev/null 2>&1
+import importlib
+
+for module_name in (
+    "torch",
+    "natten",
+    "flash_attn",
+    "cumesh",
+    "flex_gemm",
+    "o_voxel",
+    "nvdiffrast.torch",
+    "moge",
+    "utils3d",
+):
+    importlib.import_module(module_name)
 PY
 }

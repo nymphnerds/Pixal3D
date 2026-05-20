@@ -9,6 +9,12 @@ if [[ ! -x "$(pixal3d_python)" ]]; then
   exit 1
 fi
 
+if ! pixal3d_validate_runtime_stack; then
+  echo "Pixal3D needs the TRELLIS.2 module runtime installed/repaired first." >&2
+  echo "TRELLIS.2 model weights are not required for Pixal3D; only the TRELLIS.2 runtime/native dependencies are needed." >&2
+  exit 1
+fi
+
 (
   cd "${PIXAL3D_INSTALL_ROOT}"
   "$(pixal3d_python)" -m py_compile scripts/api_server_pixal3d.py inference.py app.py

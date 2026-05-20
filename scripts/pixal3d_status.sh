@@ -10,6 +10,7 @@ data_present=false
 env_ready=false
 adapter_ready=false
 runtime_ready=false
+trellis_runtime_ready=false
 models_ready=unknown
 aux_models_ready=unknown
 quantized_models_ready=false
@@ -52,6 +53,10 @@ if [[ "${installed}" == "true" && -x "$(pixal3d_python)" ]]; then
   detail="Runtime environment present."
 fi
 
+if pixal3d_validate_runtime_stack "${PIXAL3D_TRELLIS_VENV_DIR}/bin/python"; then
+  trellis_runtime_ready=true
+fi
+
 if [[ "${installed}" == "true" && -f "${PIXAL3D_INSTALL_ROOT}/scripts/api_server_pixal3d.py" ]]; then
   adapter_ready=true
 fi
@@ -73,6 +78,7 @@ if [[ "${env_ready}" == "true" && "${adapter_ready}" == "true" ]]; then
   if (
     cd "${PIXAL3D_INSTALL_ROOT}"
     "$(pixal3d_python)" -m py_compile scripts/api_server_pixal3d.py >/dev/null 2>&1
+    pixal3d_validate_runtime_stack
     "$(pixal3d_python)" - <<'PY' >/dev/null 2>&1
 import importlib
 
@@ -85,7 +91,7 @@ PY
     detail="API wrapper imports are ready."
   else
     health=degraded
-    detail="Runtime exists, but API wrapper dependencies are missing."
+    detail="Pixal3D needs the TRELLIS.2 module runtime installed/repaired first. TRELLIS model weights are not required."
   fi
 fi
 
@@ -212,6 +218,8 @@ elif [[ "${installed}" == "true" && "${adapter_ready}" != "true" ]]; then
   detail="Pixal3D source is installed, but the API server wrapper is missing."
 elif [[ "${installed}" == "true" && "${runtime_ready}" != "true" ]]; then
   state=needs_attention
+  health=degraded
+  detail="Pixal3D needs the TRELLIS.2 module runtime installed/repaired first. TRELLIS model weights are not required."
 elif [[ "${installed}" == "true" && ( "${models_ready}" != "true" || "${aux_models_ready}" != "true" ) ]]; then
   state=model_download_needed
   health=model-download-needed
@@ -232,6 +240,7 @@ version=${version}
 env_ready=${env_ready}
 adapter_ready=${adapter_ready}
 runtime_ready=${runtime_ready}
+trellis_runtime_ready=${trellis_runtime_ready}
 models_ready=${models_ready}
 aux_models_ready=${aux_models_ready}
 running=${service_running}
