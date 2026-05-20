@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -40,12 +40,101 @@
     ]
   },
   "install": {
-    "title": "PIXAL3D INSTALL",
+    "title": "FLASH ATTENTION OPTIONS",
     "root": "$HOME/Pixal3D",
     "entrypoint": "scripts/install_pixal3d.sh",
     "version_marker": "$HOME/Pixal3D/.nymph-module-version",
     "installed_markers": [
       "$HOME/Pixal3D/.nymph-module-version"
+    ],
+    "fields": [
+      {
+        "name": "flash_attn_cuda_archs",
+        "type": "select",
+        "label": "GPU",
+        "env": "TRELLIS_FLASH_ATTN_CUDA_ARCHS",
+        "default": "auto",
+        "options": [
+          {
+            "label": "Auto-detect",
+            "value": "auto",
+            "description": "Read the NVIDIA compute capability and select the flash-attn target arch"
+          },
+          {
+            "label": "SM80 / RTX 30+40",
+            "value": "sm80",
+            "description": "8.x GPUs: RTX 30/40, A100/A30/A10/A40, L4/L40, RTX A/Ada"
+          },
+          {
+            "label": "SM90 / H100/H200",
+            "value": "sm90",
+            "description": "Hopper GPUs: GH200, H200, H100, H800"
+          },
+          {
+            "label": "SM100 / B200",
+            "value": "sm100",
+            "description": "Datacenter Blackwell: GB200, B200, GB300, B300"
+          },
+          {
+            "label": "SM110 / Jetson Thor",
+            "value": "sm110",
+            "description": "Jetson Thor targets: T5000 and T4000"
+          },
+          {
+            "label": "SM120 / RTX 50",
+            "value": "sm120",
+            "description": "RTX 50-series and RTX PRO Blackwell workstation/server GPUs"
+          }
+        ]
+      },
+      {
+        "name": "flash_attn_jobs",
+        "type": "select",
+        "label": "Max jobs",
+        "env": "TRELLIS_FLASH_ATTN_MAX_JOBS",
+        "default": "4",
+        "options": [
+          {
+            "label": "MAX_JOBS=2",
+            "value": "2",
+            "description": "Lowest RAM pressure for the flash-attn source build"
+          },
+          {
+            "label": "MAX_JOBS=4",
+            "value": "4",
+            "description": "Recommended flash-attn build cap for 32GB RAM"
+          },
+          {
+            "label": "MAX_JOBS=8",
+            "value": "8",
+            "description": "More CPU and RAM use during the flash-attn source build"
+          }
+        ]
+      },
+      {
+        "name": "flash_attn_nvcc_threads",
+        "type": "select",
+        "label": "NVCC threads",
+        "env": "TRELLIS_FLASH_ATTN_NVCC_THREADS",
+        "default": "2",
+        "options": [
+          {
+            "label": "NVCC_THREADS=1",
+            "value": "1",
+            "description": "Safest compiler thread setting for lower RAM pressure"
+          },
+          {
+            "label": "NVCC_THREADS=2",
+            "value": "2",
+            "description": "Moderate compiler threading if the machine has RAM headroom"
+          },
+          {
+            "label": "NVCC_THREADS=4",
+            "value": "4",
+            "description": "Aggressive compiler threading; can multiply memory pressure with Max jobs"
+          }
+        ]
+      }
     ]
   },
   "runtime": {

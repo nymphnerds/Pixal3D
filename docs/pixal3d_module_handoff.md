@@ -127,6 +127,9 @@ Install repair note:
 - Do not run `git submodule update o-voxel/...` inside the Pixal3D checkout;
   Pixal3D has no such submodule. The shared runtime source owns that native
   build input.
+- Pixal3D exposes the same install-time FlashAttention options as TRELLIS.2:
+  GPU arch, `MAX_JOBS`, and `NVCC_THREADS`. These feed the shared runtime build
+  through the same `TRELLIS_FLASH_ATTN_*` environment variables.
 
 Manager/registry status:
 

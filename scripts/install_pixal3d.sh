@@ -33,6 +33,66 @@ pixal3d_detect_compute_cap() {
   fi
 }
 
+pixal3d_resolve_flash_attn_cuda_archs() {
+  local detected_caps=""
+  local compute_cap=""
+  local arch=""
+
+  if ! command -v nvidia-smi >/dev/null 2>&1; then
+    return 0
+  fi
+
+  detected_caps="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null || true)"
+  while IFS= read -r compute_cap; do
+    compute_cap="$(tr -d '[:space:]' <<< "${compute_cap}")"
+    if [[ ! "${compute_cap}" =~ ^[0-9]+\.[0-9]+$ ]]; then
+      continue
+    fi
+
+    arch="$(pixal3d_map_flash_attn_cuda_arch "${compute_cap}")"
+    if [[ -z "${arch}" ]]; then
+      continue
+    fi
+
+    echo "${arch}"
+    return 0
+  done <<< "${detected_caps}"
+}
+
+pixal3d_normalize_flash_attn_cuda_archs() {
+  local raw="$1"
+  local arch=""
+  local selected_arch=""
+
+  raw="$(tr ', ' ';;' <<< "${raw}")"
+  while IFS= read -r arch; do
+    arch="$(tr -d '[:space:]' <<< "${arch}")"
+    arch="${arch,,}"
+    arch="${arch#sm}"
+    [[ -z "${arch}" ]] && continue
+
+    case "${arch}" in
+      80|90|100|110|120)
+        ;;
+      *)
+        echo "Invalid TRELLIS_FLASH_ATTN_CUDA_ARCHS value: ${arch}" >&2
+        echo "Use auto or one of: sm80, sm90, sm100, sm110, sm120." >&2
+        return 1
+        ;;
+    esac
+
+    if [[ -n "${selected_arch}" && "${selected_arch}" != "${arch}" ]]; then
+      echo "TRELLIS_FLASH_ATTN_CUDA_ARCHS accepts one target arch for this install, not '${raw}'." >&2
+      echo "Choose one GPU target in the Manager dropdown so flash-attn does not compile multiple arch families." >&2
+      return 1
+    fi
+
+    selected_arch="${arch}"
+  done < <(tr ';' '\n' <<< "${raw}")
+
+  echo "${selected_arch}"
+}
+
 pixal3d_sync_trellis_runtime_source() {
   local source_dir="${PIXAL3D_TRELLIS_SOURCE_DIR}"
   local eigen_dir="${source_dir}/o-voxel/third_party/eigen"
@@ -65,32 +125,61 @@ pixal3d_sync_trellis_runtime_source() {
 pixal3d_install_flash_attn() {
   local flash_attn_jobs="${TRELLIS_FLASH_ATTN_MAX_JOBS:-${NYMPHS3D_TRELLIS_FLASH_ATTN_MAX_JOBS:-4}}"
   local flash_attn_nvcc_threads="${TRELLIS_FLASH_ATTN_NVCC_THREADS:-${NYMPHS3D_TRELLIS_FLASH_ATTN_NVCC_THREADS:-2}}"
-  local compute_cap
-  local flash_attn_arch
+  local requested_flash_attn_archs="${TRELLIS_FLASH_ATTN_CUDA_ARCHS:-${NYMPHS3D_TRELLIS_FLASH_ATTN_CUDA_ARCHS:-${FLASH_ATTN_CUDA_ARCHS:-}}}"
+  local flash_attn_archs=""
+  local -a flash_attn_env=()
 
   if "$(pixal3d_python)" -c 'import flash_attn' >/dev/null 2>&1; then
     echo "flash-attn already available in shared TRELLIS runtime."
     return 0
   fi
 
-  compute_cap="$(pixal3d_detect_compute_cap)"
-  flash_attn_arch="$(pixal3d_map_flash_attn_cuda_arch "${compute_cap}")"
-  if [[ -z "${flash_attn_arch}" ]]; then
+  echo "Installing required flash-attn into shared TRELLIS.2/Pixal3D runtime."
+  echo "flash-attn install command: pip install flash-attn --no-build-isolation"
+
+  if [[ -n "${requested_flash_attn_archs}" &&
+        "${requested_flash_attn_archs,,}" != "auto" ]]; then
+    flash_attn_archs="$(pixal3d_normalize_flash_attn_cuda_archs "${requested_flash_attn_archs}")"
+  fi
+  if [[ -z "${flash_attn_archs}" ]]; then
+    flash_attn_archs="$(pixal3d_resolve_flash_attn_cuda_archs)"
+  fi
+  if [[ -n "${flash_attn_archs}" ]]; then
+    if [[ -n "${requested_flash_attn_archs}" && "${requested_flash_attn_archs,,}" != "auto" ]]; then
+      echo "Using explicit flash-attn CUDA arch list: ${flash_attn_archs}"
+    else
+      echo "Auto-selected flash-attn CUDA arch list: ${flash_attn_archs}"
+    fi
+    echo "Set TRELLIS_FLASH_ATTN_CUDA_ARCHS to override this GPU arch selection."
+    flash_attn_env+=("FLASH_ATTN_CUDA_ARCHS=${flash_attn_archs}")
+  else
     echo "Could not select one flash-attn CUDA arch target." >&2
-    echo "Set TRELLIS_CUDA_ARCH_LIST to a supported NVIDIA compute capability, then retry." >&2
+    echo "Choose a GPU target manually in the Manager so flash-attn does not compile its broad package default arch list." >&2
     exit 1
   fi
 
-  echo "Installing flash-attn into shared TRELLIS runtime for SM${flash_attn_arch}."
   "$(pixal3d_pip)" install packaging psutil ninja
-  env \
-    "FLASH_ATTN_CUDA_ARCHS=${flash_attn_arch}" \
-    "MAX_JOBS=${flash_attn_jobs}" \
-    "CMAKE_BUILD_PARALLEL_LEVEL=${flash_attn_jobs}" \
-    "MAKEFLAGS=-j${flash_attn_jobs}" \
-    "NINJAFLAGS=-j${flash_attn_jobs}" \
-    "NVCC_THREADS=${flash_attn_nvcc_threads}" \
-    "$(pixal3d_pip)" install --no-build-isolation flash-attn
+
+  if [[ ! "${flash_attn_jobs}" =~ ^[0-9]+$ || "${flash_attn_jobs}" -lt 1 ]]; then
+    echo "Invalid TRELLIS_FLASH_ATTN_MAX_JOBS value: ${flash_attn_jobs}" >&2
+    exit 1
+  fi
+  echo "Limiting flash-attn build parallelism with MAX_JOBS=${flash_attn_jobs}."
+  flash_attn_env+=("MAX_JOBS=${flash_attn_jobs}")
+  flash_attn_env+=("CMAKE_BUILD_PARALLEL_LEVEL=${flash_attn_jobs}")
+  flash_attn_env+=("MAKEFLAGS=-j${flash_attn_jobs}")
+  flash_attn_env+=("NINJAFLAGS=-j${flash_attn_jobs}")
+
+  if [[ -n "${flash_attn_nvcc_threads}" ]]; then
+    if [[ ! "${flash_attn_nvcc_threads}" =~ ^[0-9]+$ || "${flash_attn_nvcc_threads}" -lt 1 ]]; then
+      echo "Invalid TRELLIS_FLASH_ATTN_NVCC_THREADS value: ${flash_attn_nvcc_threads}" >&2
+      exit 1
+    fi
+    echo "Using NVCC_THREADS=${flash_attn_nvcc_threads} for flash-attn."
+    flash_attn_env+=("NVCC_THREADS=${flash_attn_nvcc_threads}")
+  fi
+
+  env "${flash_attn_env[@]}" "$(pixal3d_pip)" install --no-build-isolation flash-attn
 }
 
 pixal3d_install_natten() {
