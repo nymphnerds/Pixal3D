@@ -248,7 +248,7 @@
 
     .stage {
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto auto minmax(0, 1fr);
       min-width: 0;
       min-height: 0;
       height: 100%;
@@ -258,7 +258,7 @@
     .topbar {
       height: 44px;
       display: grid;
-      grid-template-columns: minmax(170px, auto) minmax(180px, 1fr) auto;
+      grid-template-columns: minmax(170px, 1fr) auto;
       align-items: center;
       gap: 14px;
       padding: 0 16px;
@@ -288,11 +288,15 @@
     .dot.err { background: var(--danger); }
 
     .top-progress {
+      height: 30px;
       min-width: 0;
       display: grid;
-      grid-template-columns: minmax(90px, 150px) minmax(0, 1fr);
+      grid-template-columns: minmax(120px, max-content) minmax(0, 1fr);
       align-items: center;
-      gap: 10px;
+      gap: 12px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: #0b1413;
       color: var(--muted);
       font-size: 11px;
     }
@@ -305,7 +309,7 @@
     }
 
     .top-progress .bar {
-      height: 5px;
+      height: 6px;
       margin-top: 0;
     }
 
@@ -669,12 +673,12 @@
           <span class="dot" id="dot"></span>
           <span id="status-text">Waiting for image</span>
         </div>
-        <div class="top-progress">
-          <span class="top-progress-text" id="top-progress-text">Idle</span>
-          <div class="bar"><span id="top-progress-bar"></span></div>
-        </div>
         <div class="status" id="runtime-text">runtime</div>
       </header>
+      <div class="top-progress">
+        <span class="top-progress-text" id="top-progress-text">Idle</span>
+        <div class="bar"><span id="top-progress-bar"></span></div>
+      </div>
 
       <div class="workspace">
         <div class="preview">
