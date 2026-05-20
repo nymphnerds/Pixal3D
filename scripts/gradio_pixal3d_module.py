@@ -5,11 +5,16 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 import tempfile
 import time
 from pathlib import Path
 
 import gradio as gr
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 
 def _bool_env(name: str, default: bool) -> bool:
