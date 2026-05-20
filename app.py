@@ -56,7 +56,14 @@ import o_voxel
 # ============================================================================
 
 MAX_SEED = np.iinfo(np.int32).max
-TMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp')
+OUTPUT_DIR = os.path.abspath(os.path.expanduser(
+    os.environ.get("PIXAL3D_OUTPUT_DIR", os.path.join("~", "NymphsData", "outputs", "pixal3d"))
+))
+TMP_DIR = os.path.abspath(os.path.expanduser(
+    os.environ.get("PIXAL3D_TMP_DIR", os.path.join(OUTPUT_DIR, "tmp"))
+))
+DEFAULT_TEXTURE_SIZE = int(os.environ.get("PIXAL3D_TEXTURE_SIZE", "1024"))
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(TMP_DIR, exist_ok=True)
 
 MODES = [
@@ -108,6 +115,15 @@ IMAGE_COND_CONFIGS = {
         "naf_target_size": 1024,
     },
 }
+
+def resolve_texture_naf_target_size(low_vram: bool) -> int:
+    value = os.environ.get("PIXAL3D_TEXTURE_NAF_TARGET_SIZE")
+    if value in (None, ""):
+        return 1024
+    value = int(value)
+    if value not in {512, 768, 1024}:
+        raise ValueError(f"Unsupported PIXAL3D_TEXTURE_NAF_TARGET_SIZE: {value}")
+    return value
 
 # ============================================================================
 # Model Loading
@@ -162,6 +178,9 @@ def init_models():
         pipeline = Pixal3DImageTo3DPipeline.from_pretrained(model_path)
         
         print("[ImageCond] Building DinoV3ProjFeatureExtractor models...")
+        tex_naf_target = resolve_texture_naf_target_size(LOW_VRAM)
+        IMAGE_COND_CONFIGS["tex_1024"]["naf_target_size"] = tex_naf_target
+        print(f"[ImageCond] Texture NAF target size: {tex_naf_target}")
         pipeline.image_cond_model_ss = build_image_cond_model(IMAGE_COND_CONFIGS["ss"])
         pipeline.image_cond_model_shape_512 = build_image_cond_model(IMAGE_COND_CONFIGS["shape_512"])
         pipeline.image_cond_model_shape_1024 = build_image_cond_model(IMAGE_COND_CONFIGS["shape_1024"])
@@ -363,7 +382,11 @@ async def homepage():
 @app.get("/app_config")
 async def get_config():
     """Return server configuration for frontend (e.g. LOW_VRAM mode)."""
-    return JSONResponse({"low_vram": LOW_VRAM})
+    return JSONResponse({
+        "low_vram": LOW_VRAM,
+        "output_dir": OUTPUT_DIR,
+        "texture_size": DEFAULT_TEXTURE_SIZE,
+    })
 
 @app.get("/progress")
 async def progress_poll(request: Request):
@@ -538,7 +561,7 @@ def extract_glb_api(state_path: str, decimation_target: int, texture_size: int, 
     ], dtype=np.float64)
     glb.apply_transform(rot)
     
-    out_glb = os.path.join(TMP_DIR, f"result_{int(time.time()*1000)}.glb")
+    out_glb = os.path.join(OUTPUT_DIR, f"pixal3d_app_{int(time.time()*1000)}.glb")
     glb.export(out_glb, extension_webp=True)
     _finish_progress()
     return FileData(path=out_glb)
@@ -546,20 +569,23 @@ def extract_glb_api(state_path: str, decimation_target: int, texture_size: int, 
 # Mount assets and tmp for direct access
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/tmp", StaticFiles(directory=TMP_DIR), name="tmp")
+app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
 if __name__ == "__main__":
     import sys
     parser = argparse.ArgumentParser(description="Pixal3D Demo Server")
-    parser.add_argument("--low_vram", action="store_true",
+    parser.add_argument("--low_vram", "--low-vram", action="store_true", default=None,
                         help="Enable low-VRAM mode: models lazy-load to GPU per stage.")
+    parser.add_argument("--no-low-vram", action="store_false", dest="low_vram")
     parser.add_argument("--host", default=os.environ.get("GRADIO_SERVER_NAME", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("GRADIO_SERVER_PORT", "8097")))
     parser.add_argument("--share", action="store_true", help="Enable Gradio share link.")
     parser.add_argument("--lazy-load", action="store_true", help="Start the UI before loading models.")
+    parser.add_argument("--warm-on-start", action="store_true", help="Start the UI immediately and initialize models in the background.")
     parser.add_argument("--reinstall-utils3d", action="store_true", help="Reinstall upstream utils3d wheel before launch.")
     args, remaining = parser.parse_known_args()
-    if args.low_vram:
-        LOW_VRAM = True
+    if args.low_vram is not None:
+        LOW_VRAM = bool(args.low_vram)
 
     if args.reinstall_utils3d or os.environ.get("PIXAL3D_REINSTALL_UTILS3D") == "1":
         subprocess.run([
@@ -567,7 +593,15 @@ if __name__ == "__main__":
             "https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl"
         ], check=True)
     
-    if not args.lazy_load:
+    if args.warm_on_start:
+        threading.Thread(target=init_models, name="pixal3d-model-warmup", daemon=True).start()
+    elif not args.lazy_load:
         init_models()
     
-    app.launch(show_error=True, share=args.share, server_name=args.host, server_port=args.port)
+    app.launch(
+        show_error=True,
+        share=args.share,
+        server_name=args.host,
+        server_port=args.port,
+        allowed_paths=[TMP_DIR, OUTPUT_DIR],
+    )

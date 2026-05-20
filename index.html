@@ -869,6 +869,7 @@
         let currentFrame = 0;
         const sessionId = crypto.randomUUID();
         let currentStep = 1;
+        let textureSize = 1024;
 
         const MODES = [
             { name: "Normal", key: "normal" },
@@ -886,8 +887,10 @@
                 const cfgResp = await fetch('/app_config');
                 const cfg = await cfgResp.json();
                 document.getElementById('resolution').value = cfg.low_vram ? '1024' : '1536';
+                textureSize = parseInt(cfg.texture_size || 1024);
             } catch (e) {
                 document.getElementById('resolution').value = '1536';
+                textureSize = 1024;
             }
             try {
                 client = await Client.connect(window.location.origin);
@@ -1265,7 +1268,7 @@
                 const params = {
                     state_path: generationResult.state_path,
                     decimation_target: parseInt(document.getElementById('decimation').value),
-                    texture_size: 4096,
+                    texture_size: textureSize,
                     session_id: sessionId
                 };
 

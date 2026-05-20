@@ -24,16 +24,6 @@ fi
 pixal3d_ensure_data_dirs
 pixal3d_load_hf_token
 
-if ! pixal3d_api_is_running; then
-  echo "Starting Pixal3D API before Gradio."
-  api_start_log="${PIXAL3D_LOG_DIR}/pixal3d-api-start-from-gradio.log"
-  if ! "${SCRIPT_DIR}/pixal3d_start.sh" >"${api_start_log}" 2>&1; then
-    echo "Pixal3D API did not start cleanly. Check ${api_start_log}" >&2
-    tail -n 40 "${api_start_log}" >&2 || true
-    exit 1
-  fi
-fi
-
 log_file="${PIXAL3D_LOG_DIR}/pixal3d-gradio.log"
 echo "Starting Pixal3D Gradio at ${PIXAL3D_GRADIO_URL}"
 (
@@ -41,10 +31,12 @@ echo "Starting Pixal3D Gradio at ${PIXAL3D_GRADIO_URL}"
   export GRADIO_SERVER_NAME="${PIXAL3D_GRADIO_HOST}"
   export GRADIO_SERVER_PORT="${PIXAL3D_GRADIO_PORT}"
   export LOW_VRAM="${PIXAL3D_LOW_VRAM}"
-  setsid "$(pixal3d_python)" -u scripts/gradio_pixal3d_module.py \
+  export PIXAL3D_OUTPUT_DIR PIXAL3D_TEXTURE_SIZE PIXAL3D_TEXTURE_NAF_TARGET_SIZE
+  setsid "$(pixal3d_python)" -u app.py \
     --host "${PIXAL3D_GRADIO_HOST}" \
     --port "${PIXAL3D_GRADIO_PORT}" \
-    --resolution "${PIXAL3D_RESOLUTION}" \
+    --lazy-load \
+    --warm-on-start \
     $([[ "${PIXAL3D_LOW_VRAM}" == "1" ]] && printf '%s' "--low-vram" || printf '%s' "--no-low-vram") \
     >"${log_file}" 2>&1 < /dev/null &
   echo $! > "${PIXAL3D_GRADIO_PID_FILE}"

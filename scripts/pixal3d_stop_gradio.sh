@@ -20,4 +20,5 @@ fi
 
 (command -v fuser >/dev/null 2>&1 && fuser -k "${PIXAL3D_GRADIO_PORT}/tcp" >/dev/null 2>&1) || true
 pkill -f "scripts/gradio_pixal3d_module.py" >/dev/null 2>&1 || true
+pkill -f "app.py .*--port ${PIXAL3D_GRADIO_PORT}" >/dev/null 2>&1 || true
 echo "Pixal3D Gradio stopped."

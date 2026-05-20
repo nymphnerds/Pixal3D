@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -17,11 +17,19 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D generates textured 3D assets from a single image using a TRELLIS.2-style backbone and Pixal3D projection pipeline.\n\nInstall sets up Pixal3D and provisions the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv if it is missing. TRELLIS model weights are not required for Pixal3D. Fetch Models downloads Pixal3D model assets into shared NymphsData caches. Start launches the addon API server for Blender. Open Gradio launches the Pixal3D Gradio app and opens it inside the NymphsCore module details WebView.\n\nLicense and access notice:\n- Pixal3D is for academic use only under its local LICENSE. It is not licensed for commercial or production use.\n- Pixal3D's local LICENSE says it is not intended for use within the European Union.\n- The official Pixal3D pipeline uses briaai/RMBG-2.0 for background removal. That model is gated on Hugging Face and released for non-commercial use.\n- Before Fetch Models, open the BRIA RMBG-2.0 access form with the same Hugging Face account as your token, complete BRIA's form, and agree to BRIA's terms: https://huggingface.co/briaai/RMBG-2.0\n- The user is responsible for confirming their intended use is allowed by Pixal3D, BRIA RMBG, Hugging Face, and dependency licenses.",
+    "body": "Pixal3D generates textured 3D assets from a single image using a TRELLIS.2-style backbone and Pixal3D projection pipeline.\n\nInstall sets up Pixal3D and provisions the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv if it is missing. TRELLIS model weights are not required for Pixal3D. Fetch Models downloads Pixal3D model assets into shared NymphsData caches. Start launches the addon API server for Blender. Open Gradio launches the official Pixal3D app and opens it inside the NymphsCore module details WebView.\n\nLicense and access notice:\n- Tencent's current Pixal3D release is MIT licensed for Tencent-published code, parameters, weights, and documentation; see LICENSE and NOTICE.\n- Third-party components keep their original licenses, including dinov2 under Apache-2.0 and TRELLIS.2, Direct3D-S2, and MoGe under MIT.\n- The official Pixal3D pipeline uses briaai/RMBG-2.0 for background removal. That model is gated on Hugging Face and may carry separate non-commercial/access terms.\n- Before Fetch Models, open the BRIA RMBG-2.0 access form with the same Hugging Face account as your token, complete BRIA's form, and agree to BRIA's terms: https://huggingface.co/briaai/RMBG-2.0\n- The user is responsible for confirming their intended use is allowed by Pixal3D, BRIA RMBG, Hugging Face, and dependency licenses.",
     "links": [
       {
         "label": "Pixal3D source",
         "url": "https://github.com/TencentARC/Pixal3D"
+      },
+      {
+        "label": "Pixal3D MIT license",
+        "url": "https://github.com/TencentARC/Pixal3D/blob/master/LICENSE"
+      },
+      {
+        "label": "Pixal3D notice",
+        "url": "https://github.com/TencentARC/Pixal3D/blob/master/NOTICE"
       },
       {
         "label": "Pixal3D models",
@@ -188,7 +196,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Fetch Pixal3D checkpoints and auxiliary camera/background/projection models into shared NymphsData caches. The standard profiles keep the current safetensors runtime. The GGUF profiles fetch community quantized weights for adapter testing only; the runtime is not switched until the GGUF loader bridge is implemented. The BRIA RMBG-2.0 access form must be accepted on Hugging Face before gated background-removal weights can be downloaded.",
+        "description": "Fetch Pixal3D checkpoints and auxiliary camera/background/projection models into shared NymphsData caches. Tencent's current Pixal3D release is MIT licensed; third-party and gated model terms still apply. The standard profiles keep the current safetensors runtime. The GGUF profiles fetch community quantized weights for adapter testing only; the runtime is not switched until the GGUF loader bridge is implemented. The BRIA RMBG-2.0 access form must be accepted on Hugging Face before gated background-removal weights can be downloaded.",
         "links": [
           {
             "label": "Pixal3D models",

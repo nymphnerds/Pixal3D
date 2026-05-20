@@ -43,8 +43,9 @@ done
 if [[ "${license_ack}" != "yes" ]]; then
   cat >&2 <<'EOF'
 LICENSE ACK REQUIRED:
-Pixal3D is academic-only, not licensed for commercial or production use, and
-its LICENSE says it is not intended for use within the European Union.
+Pixal3D is currently released under the MIT License for Tencent-published code,
+parameters, weights, and documentation. Third-party components keep their
+original licenses.
 BRIA RMBG-2.0 is gated/non-commercial and requires the Hugging Face access form:
 https://huggingface.co/briaai/RMBG-2.0
 Rerun Fetch Models after selecting "I acknowledge" in the module action form.

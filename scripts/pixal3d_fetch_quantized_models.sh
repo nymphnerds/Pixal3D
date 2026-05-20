@@ -44,8 +44,9 @@ if [[ "${license_ack}" != "yes" ]]; then
   cat >&2 <<'EOF'
 LICENSE ACK REQUIRED:
 This experimental fetch downloads community GGUF conversions of Pixal3D weights.
-Pixal3D remains academic-only, not licensed for commercial or production use,
-and its LICENSE says it is not intended for use within the European Union.
+Pixal3D is currently released under the MIT License for Tencent-published code,
+parameters, weights, and documentation. Community GGUF conversions may carry
+their own repository terms.
 Rerun after selecting the license/access acknowledgement in the action form.
 EOF
   exit 2
