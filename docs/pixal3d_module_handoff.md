@@ -3344,9 +3344,8 @@ Current conclusion:
 
 ## 2026-05-20 Update: NymphsCore App Shell
 
-The Manager WebView should no longer default to the upstream Pixal3D app. Keep
-the upstream UI available at `/official`, but serve the NymphsCore-owned app at
-`/`.
+Keep the upstream Pixal3D app available at `/official` and the NymphsCore-owned
+app available at `/nymph`.
 
 Current app shell direction:
 
@@ -3367,3 +3366,16 @@ GGUF fetch/status now includes `Q4_K_M` and accepts both the nested repo layout
 and the root-level GGUF files published by the community Pixal3D GGUF repo.
 GGUF remains experimental and must stay behind safetensors until a real
 end-to-end GLB smoke test passes.
+
+## 2026-05-20 Update: Official Ui + Nymphs Ui Buttons
+
+Correction to the app shell routing:
+
+- The upstream Pixal3D UI is a custom official HTML app, not the stock Gradio
+  interface. It is served by the Gradio server and uses Gradio API endpoints.
+- Manager should expose it as `Official Ui`.
+- Manager should expose the NymphsCore custom app as `Nymphs Ui`.
+- Both actions start the same local server on port 8097; only the opened path
+  differs:
+  - `Official Ui` -> `/official`
+  - `Nymphs Ui` -> `/nymph`

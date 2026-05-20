@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.25",
+  "version": "0.1.26",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -17,7 +17,7 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D generates textured GLB assets from a single image.\n\nOpen Gradio launches the NymphsCore Pixal3D app in the Manager WebView, with the upstream app still available at /official. Fetch Models downloads the Pixal3D checkpoints and required helper models into NymphsData. The module uses the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv, so TRELLIS.2 and Pixal3D do not build separate native stacks.\n\nLicense and access:\n- Pixal3D is MIT licensed for Tencent-published code, parameters, weights, and documentation.\n- Third-party components keep their own licenses.\n- BRIA RMBG-2.0 is gated on Hugging Face and may have separate access terms. Use the same Hugging Face account for the access form and module token.",
+    "body": "Pixal3D generates textured GLB assets from a single image.\n\nOfficial Ui launches the upstream Pixal3D custom web UI in the Manager WebView. Nymphs Ui launches the NymphsCore Pixal3D app on the same local Gradio server/API. Fetch Models downloads the Pixal3D checkpoints and required helper models into NymphsData. The module uses the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv, so TRELLIS.2 and Pixal3D do not build separate native stacks.\n\nLicense and access:\n- Pixal3D is MIT licensed for Tencent-published code, parameters, weights, and documentation.\n- Third-party components keep their own licenses.\n- BRIA RMBG-2.0 is gated on Hugging Face and may have separate access terms. Use the same Hugging Face account for the access form and module token.",
     "links": [
       {
         "label": "Pixal3D source",
@@ -170,6 +170,7 @@
     "stop_gradio": "scripts/pixal3d_stop_gradio.sh",
     "open": "scripts/pixal3d_open.sh",
     "open_gradio": "scripts/pixal3d_gradio.sh",
+    "open_nymph_ui": "scripts/pixal3d_nymph_ui.sh",
     "logs": "scripts/pixal3d_logs.sh",
     "fetch_models": "scripts/pixal3d_fetch_models.sh",
     "smoke_test": "scripts/pixal3d_smoke_test.sh",
@@ -182,8 +183,8 @@
     "standard_lifecycle_rail": true,
     "manager_ui": {
       "type": "local_url",
-      "title": "Pixal3D Gradio",
-      "url": "http://127.0.0.1:8097",
+      "title": "Official Ui",
+      "url": "http://127.0.0.1:8097/official",
       "requires_running": true,
       "start_action": "open_gradio",
       "stop_action": "stop_gradio"
@@ -272,8 +273,14 @@
     "manager_actions": [
       {
         "id": "open_gradio",
-        "label": "Open Gradio",
+        "label": "Official Ui",
         "entrypoint": "open_gradio",
+        "result": "open_in_manager"
+      },
+      {
+        "id": "open_nymph_ui",
+        "label": "Nymphs Ui",
+        "entrypoint": "open_nymph_ui",
         "result": "open_in_manager"
       },
       {
@@ -326,11 +333,12 @@
   "notes": [
     "The official upstream training code and data toolkit are preserved in the module repo, but v0.1 exposes inference and Gradio testing only.",
     "Install/Repair pins utils3d and creates the utils3d.pt/np compatibility aliases required by MoGe camera estimation.",
-    "Open Gradio starts the Pixal3D API behind the scenes before launching Gradio.",
+    "Official Ui starts the local Gradio server/API and opens the upstream Pixal3D custom UI.",
     "Close Gradio stops only the embedded Gradio UI; the full stop entrypoint remains available internally for module lifecycle cleanup.",
     "Pixal3D hides separate Start API and Stop buttons from the module action strip because normal Gradio use does not require them.",
-    "Open Gradio no longer prints the API URL during API pre-start, and status reports the Gradio URL while the Gradio UI is running.",
-    "The API running check now also accepts a healthy /server_info probe so Open Gradio does not spawn a duplicate API on an occupied port.",
+    "Nymphs Ui starts the same local Gradio server/API and opens the NymphsCore custom UI.",
+    "The Gradio launcher no longer prints the API URL during API pre-start, and status reports the Gradio URL while the Gradio UI is running.",
+    "The API running check now also accepts a healthy /server_info probe so the Gradio launcher does not spawn a duplicate API on an occupied port.",
     "Low-VRAM Gradio exposes Texture NAF Size and defaults the texture conditioning NAF pass to 512 to reduce 16 GB GPU pressure.",
     "Gradio is allowed to serve generated GLB files from the shared Pixal3D outputs directory.",
     "Do not vendor model weights into this repo."

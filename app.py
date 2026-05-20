@@ -427,9 +427,13 @@ app = Server()
 
 @app.get("/")
 async def homepage():
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    with open(html_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+
+@app.get("/nymph")
+async def nymph_homepage():
     html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nymph_pixal3d.html")
-    if not os.path.exists(html_path):
-        html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
     with open(html_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 

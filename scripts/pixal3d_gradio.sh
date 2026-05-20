@@ -4,10 +4,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_pixal3d_common.sh"
 
+open_path="${PIXAL3D_GRADIO_OPEN_PATH:-/official}"
+open_url="${PIXAL3D_GRADIO_URL}${open_path}"
+
 if pixal3d_gradio_is_running; then
   echo "Pixal3D Gradio is already running."
-  echo "url=${PIXAL3D_GRADIO_URL}"
-  echo "module_ui_url=${PIXAL3D_GRADIO_URL}"
+  echo "url=${open_url}"
+  echo "module_ui_url=${open_url}"
   exit 0
 fi
 
@@ -52,10 +55,10 @@ for _ in $(seq 1 60); do
     exit 1
   fi
   if [[ -n "${gradio_pid}" ]] && kill -0 "${gradio_pid}" 2>/dev/null &&
-     pixal3d_probe_url "${PIXAL3D_GRADIO_URL}" >/dev/null 2>&1; then
+    pixal3d_probe_url "${PIXAL3D_GRADIO_URL}" >/dev/null 2>&1; then
     echo "Pixal3D Gradio started."
-    echo "url=${PIXAL3D_GRADIO_URL}"
-    echo "module_ui_url=${PIXAL3D_GRADIO_URL}"
+    echo "url=${open_url}"
+    echo "module_ui_url=${open_url}"
     exit 0
   fi
   sleep 1
