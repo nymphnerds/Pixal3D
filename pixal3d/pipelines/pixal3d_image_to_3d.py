@@ -1,5 +1,6 @@
 from typing import *
 import gc
+import os
 import torch
 import torch.nn as nn
 import numpy as np
@@ -167,8 +168,14 @@ class Pixal3DImageTo3DPipeline(Pipeline):
             if self.low_vram:
                 self.rembg_model.to(self.device)
             output = self.rembg_model(input)
-            if self.low_vram:
-                self.rembg_model.cpu()
+            keep_rembg_on_gpu = os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "1") == "1"
+            if self.low_vram and not keep_rembg_on_gpu:
+                try:
+                    self.rembg_model.cpu()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception as exc:
+                    print(f"[LowVRAM] Warning: could not unload background-removal model to CPU: {exc}")
         output_np = np.array(output)
         alpha = output_np[:, :, 3]
         bbox = np.argwhere(alpha > 0.8 * 255)

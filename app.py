@@ -450,9 +450,12 @@ async def get_config():
         "low_vram": LOW_VRAM,
         "output_dir": OUTPUT_DIR,
         "texture_size": DEFAULT_TEXTURE_SIZE,
+        "texture_naf_target_size": resolve_texture_naf_target_size(LOW_VRAM),
+        "profile": os.environ.get("PIXAL3D_PROFILE", "low_vram_1024"),
         "weight_format": os.environ.get("PIXAL3D_WEIGHT_FORMAT", "safetensors"),
         "gguf_quant": os.environ.get("PIXAL3D_QUANT", "Q5_K_M"),
         "gguf_supported": os.environ.get("PIXAL3D_QUANT_RUNTIME_SUPPORTED", "0") == "1",
+        "rembg_keep_gpu": os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "1") == "1",
     })
 
 @app.get("/progress")
@@ -501,6 +504,7 @@ def generate_3d(
     tex_slat_rescale_t: float = 3.0,
     manual_fov: float = -1.0,
     fov_unit: str = "deg",
+    rembg_keep_gpu: bool = True,
     session_id: str = "",
 ) -> Dict:
     init_models()
@@ -515,6 +519,7 @@ def generate_3d(
         image_preprocessed = Image.open(cached_preprocessed_path).convert("RGBA")
     else:
         img = Image.open(image["path"])
+        os.environ["PIXAL3D_REMBG_KEEP_GPU"] = "1" if rembg_keep_gpu else "0"
         image_preprocessed = pipeline.preprocess_image(img)
     temp_processed_path = os.path.join(TMP_DIR, f"temp_proc_{session_id[:8]}_{int(time.time()*1000)}.png")
     image_preprocessed.save(temp_processed_path)

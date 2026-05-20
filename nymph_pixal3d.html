@@ -516,6 +516,17 @@
             </select>
           </div>
           <div class="field">
+            <label for="weight-profile">Weight Profile</label>
+            <select id="weight-profile">
+              <option value="low_vram_1024">Low VRAM 1024</option>
+              <option value="standard_1536">Standard 1536</option>
+              <option value="gguf_q4_k_m">GGUF Q4_K_M</option>
+              <option value="gguf_q5_k_m">GGUF Q5_K_M</option>
+              <option value="gguf_q6_k">GGUF Q6_K</option>
+              <option value="gguf_q8_0">GGUF Q8_0</option>
+            </select>
+          </div>
+          <div class="field">
             <label for="seed">Seed</label>
             <input id="seed" type="number" value="42">
           </div>
@@ -529,19 +540,54 @@
           </div>
           <div class="field">
             <label for="faces">Faces</label>
-            <select id="faces">
-              <option value="500000">500k</option>
-              <option value="1000000" selected>1M</option>
-              <option value="1500000">1.5M</option>
-            </select>
+            <input id="faces" type="number" min="100000" max="2000000" step="10000" value="1000000">
+          </div>
+
+          <div class="field">
+            <label for="ss-guidance">SS Guidance</label>
+            <input id="ss-guidance" type="number" min="0" max="20" step="0.1" value="7.5">
+          </div>
+          <div class="field">
+            <label for="ss-rescale">SS Rescale</label>
+            <input id="ss-rescale" type="number" min="0" max="1" step="0.05" value="0.7">
+          </div>
+          <div class="field">
+            <label for="ss-rescale-t">SS Rescale T</label>
+            <input id="ss-rescale-t" type="number" min="0" max="10" step="0.1" value="5.0">
           </div>
           <div class="field wide">
             <label for="ss-steps">Structure Steps <span class="value" id="ss-steps-value">12</span></label>
             <input id="ss-steps" type="range" min="4" max="32" step="1" value="12">
           </div>
+
+          <div class="field">
+            <label for="shape-guidance">Shape Guidance</label>
+            <input id="shape-guidance" type="number" min="0" max="20" step="0.1" value="7.5">
+          </div>
+          <div class="field">
+            <label for="shape-rescale">Shape Rescale</label>
+            <input id="shape-rescale" type="number" min="0" max="1" step="0.05" value="0.5">
+          </div>
+          <div class="field">
+            <label for="shape-rescale-t">Shape Rescale T</label>
+            <input id="shape-rescale-t" type="number" min="0" max="10" step="0.1" value="3.0">
+          </div>
           <div class="field wide">
             <label for="shape-steps">Shape Steps <span class="value" id="shape-steps-value">12</span></label>
             <input id="shape-steps" type="range" min="4" max="32" step="1" value="12">
+          </div>
+
+          <div class="field">
+            <label for="tex-guidance">Texture Guidance</label>
+            <input id="tex-guidance" type="number" min="0" max="20" step="0.1" value="1.0">
+          </div>
+          <div class="field">
+            <label for="tex-rescale">Texture Rescale</label>
+            <input id="tex-rescale" type="number" min="0" max="1" step="0.05" value="0.0">
+          </div>
+          <div class="field">
+            <label for="tex-rescale-t">Texture Rescale T</label>
+            <input id="tex-rescale-t" type="number" min="0" max="10" step="0.1" value="3.0">
           </div>
           <div class="field wide">
             <label for="tex-steps">Texture Steps <span class="value" id="tex-steps-value">12</span></label>
@@ -561,6 +607,10 @@
           <div class="toggle-row wide">
             <span>Auto camera with MoGe</span>
             <input id="auto-fov" type="checkbox" checked>
+          </div>
+          <div class="toggle-row wide">
+            <span>Keep RMBG on GPU</span>
+            <input id="rembg-keep-gpu" type="checkbox" checked>
           </div>
         </div>
       </section>
@@ -640,6 +690,7 @@
     let progressTimer = null;
     let warmupTimer = null;
     let busy = false;
+    let activeProfile = "low_vram_1024";
 
     const $ = (id) => document.getElementById(id);
 
@@ -675,6 +726,30 @@
       return $("fov-unit").value === "rad" ? value : value;
     }
 
+    function quantToProfile(quant) {
+      const normalized = String(quant || "").toLowerCase();
+      if (normalized === "q4_k_m") return "gguf_q4_k_m";
+      if (normalized === "q5_k_m") return "gguf_q5_k_m";
+      if (normalized === "q6_k") return "gguf_q6_k";
+      if (normalized === "q8_0") return "gguf_q8_0";
+      return "gguf_q5_k_m";
+    }
+
+    function profileLabel(value) {
+      const option = [...$("weight-profile").options].find((item) => item.value === value);
+      return option ? option.textContent : value;
+    }
+
+    function setWeightProfileUi(cfg) {
+      activeProfile = cfg.weight_format === "gguf-experimental"
+        ? quantToProfile(cfg.gguf_quant)
+        : (cfg.profile || (cfg.low_vram ? "low_vram_1024" : "standard_1536"));
+      $("weight-profile").value = activeProfile;
+      for (const option of $("weight-profile").options) {
+        option.disabled = option.value.startsWith("gguf_") && !cfg.gguf_supported;
+      }
+    }
+
     function renderFrame(url, active = true) {
       if (active) {
         $("empty").style.display = "none";
@@ -682,6 +757,15 @@
         $("hero-image").src = url;
         $("hero-image").style.display = "block";
       }
+    }
+
+    function setResultEmpty(message) {
+      $("hero-image").removeAttribute("src");
+      $("hero-image").style.display = "none";
+      $("model").removeAttribute("src");
+      $("model").style.display = "none";
+      $("empty").querySelector("div").textContent = message;
+      $("empty").style.display = "flex";
     }
 
     function normalizeFileUrl(file) {
@@ -797,8 +881,7 @@
       outputPath = "";
       generationResult = null;
       $("open-output").disabled = true;
-      $("model").removeAttribute("src");
-      $("model").style.display = "none";
+      setResultEmpty("Generating preview...");
       startProgress();
 
       try {
@@ -806,11 +889,21 @@
           image: handle_file(currentFile),
           seed: parseInt($("seed").value || "42", 10),
           resolution: parseInt($("resolution").value || "1024", 10),
+          ss_guidance_strength: parseFloat($("ss-guidance").value || "7.5"),
+          ss_guidance_rescale: parseFloat($("ss-rescale").value || "0.7"),
           ss_sampling_steps: parseInt($("ss-steps").value || "12", 10),
+          ss_rescale_t: parseFloat($("ss-rescale-t").value || "5.0"),
+          shape_slat_guidance_strength: parseFloat($("shape-guidance").value || "7.5"),
+          shape_slat_guidance_rescale: parseFloat($("shape-rescale").value || "0.5"),
           shape_slat_sampling_steps: parseInt($("shape-steps").value || "12", 10),
+          shape_slat_rescale_t: parseFloat($("shape-rescale-t").value || "3.0"),
+          tex_slat_guidance_strength: parseFloat($("tex-guidance").value || "1.0"),
+          tex_slat_guidance_rescale: parseFloat($("tex-rescale").value || "0.0"),
           tex_slat_sampling_steps: parseInt($("tex-steps").value || "12", 10),
+          tex_slat_rescale_t: parseFloat($("tex-rescale-t").value || "3.0"),
           manual_fov: selectedManualFov(),
           fov_unit: $("fov-unit").value,
+          rembg_keep_gpu: $("rembg-keep-gpu").checked,
           session_id: sessionId,
         });
 
@@ -876,6 +969,13 @@
       for (const id of ["ss-steps", "shape-steps", "tex-steps"]) {
         $(id).addEventListener("input", updateSliderLabels);
       }
+      $("weight-profile").addEventListener("change", () => {
+        const selected = $("weight-profile").value;
+        if (selected !== activeProfile) {
+          $("weight-profile").value = activeProfile;
+          toast(`${profileLabel(selected)} needs Fetch Models/Update and a UI restart. Current session: ${profileLabel(activeProfile)}.`);
+        }
+      });
 
       $("auto-fov").addEventListener("change", () => {
         const manual = !$("auto-fov").checked;
@@ -912,12 +1012,14 @@
         const cfg = await response.json();
         $("resolution").value = cfg.low_vram ? "1024" : "1536";
         $("texture-size").value = String(cfg.texture_size || 1024);
+        $("rembg-keep-gpu").checked = cfg.rembg_keep_gpu !== false;
+        setWeightProfileUi(cfg);
         $("runtime-text").textContent = cfg.weight_format === "gguf-experimental"
           ? `GGUF ${cfg.gguf_quant}${cfg.gguf_supported ? "" : " fetched"}`
           : "safetensors";
         $("runtime-note").textContent = cfg.gguf_supported
           ? "GGUF runtime is available for this session."
-          : "Safetensors are active. GGUF weights can be fetched now and will become selectable after the runtime bridge is verified.";
+          : `Safetensors are active. Texture NAF ${cfg.texture_naf_target_size || 1024}. GGUF weights can be fetched now and will become selectable after the runtime bridge is verified.`;
         setStatus("Waiting for image");
         startWarmupPolling();
       } catch (err) {
@@ -936,9 +1038,7 @@
       $("extract").disabled = true;
       $("open-output").disabled = true;
       $("filmstrip").innerHTML = "";
-      $("model").style.display = "none";
-      $("model").removeAttribute("src");
-      $("empty").style.display = "none";
+      setResultEmpty("Waiting for generated preview.");
       $("source-preview").style.display = "block";
       $("drop-hint").style.display = "none";
       const localUrl = URL.createObjectURL(file);
@@ -946,8 +1046,6 @@
       $("reference-large").src = localUrl;
       $("reference-large").style.display = "block";
       $("ref-empty").style.display = "none";
-      $("hero-image").src = localUrl;
-      $("hero-image").style.display = "block";
       $("state-label").textContent = "Image ready";
       setStatus("Image ready", "ok");
       preprocess(file);
