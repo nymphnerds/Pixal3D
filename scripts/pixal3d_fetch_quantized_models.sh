@@ -169,12 +169,11 @@ def cache_stats(path: Path | None) -> tuple[int, int, int]:
 
 def emit_status(path: Path | None, start_bytes: int) -> None:
     files, bytes_now, partials = cache_stats(path)
-    downloaded = max(0, bytes_now - start_bytes)
     print(
         "MODEL FETCH STATUS: "
-        f"Pixal3D GGUF {quant} downloading from {repo_id} - "
-        f"{format_bytes(bytes_now)} cached, +{format_bytes(downloaded)} this run, "
-        f"{partials} active download files, {files} cache files.",
+        f"repo={repo_id} status=downloading quant={quant} "
+        f"this_repo_cache={format_bytes(bytes_now)} "
+        f"active_download_files={partials}",
         flush=True,
     )
 
@@ -224,8 +223,9 @@ missing = [name for name in required_files if not (root_path / name).exists()]
 files, bytes_now, partials = cache_stats(cache_path)
 print(
     "MODEL FETCH STATUS: "
-    f"Pixal3D GGUF {quant} download complete - {format_bytes(bytes_now)} cached, "
-    f"{files} cache files, {partials} active download files.",
+    f"repo={repo_id} status=complete quant={quant} "
+    f"this_repo_cache={format_bytes(bytes_now)} "
+    f"active_download_files={partials}",
     flush=True,
 )
 if missing:

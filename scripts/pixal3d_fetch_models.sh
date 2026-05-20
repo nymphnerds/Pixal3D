@@ -175,12 +175,11 @@ def cache_stats(path):
 
 def emit_fetch_status(step, total, repo_id, path, start_bytes):
     files, bytes_now, partials = cache_stats(path)
-    downloaded = max(0, bytes_now - start_bytes)
     print(
         "MODEL FETCH STATUS: "
-        f"step {step}/{total} downloading {repo_id} - "
-        f"{format_bytes(bytes_now)} cached, +{format_bytes(downloaded)} this step, "
-        f"{partials} active download files, {files} cache files.",
+        f"step={step}/{total} repo={repo_id} status=downloading "
+        f"this_repo_cache={format_bytes(bytes_now)} "
+        f"active_download_files={partials}",
         flush=True,
     )
 
@@ -240,12 +239,11 @@ for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
     stop_event.set()
     reporter.join(timeout=1)
     files, bytes_now, partials = cache_stats(cache_path)
-    downloaded = max(0, bytes_now - start_bytes)
     print(
         "MODEL FETCH STATUS: "
-        f"step {index}/{total} finished {repo_id} - "
-        f"{format_bytes(bytes_now)} cached, +{format_bytes(downloaded)} this step, "
-        f"{partials} active download files, {files} cache files.",
+        f"step={index}/{total} repo={repo_id} status=complete "
+        f"this_repo_cache={format_bytes(bytes_now)} "
+        f"active_download_files={partials}",
         flush=True,
     )
     print(f"MODEL FETCH COMPLETE: step {index}/{total} {repo_id} ready at {root}.", flush=True)
