@@ -367,7 +367,7 @@ def _progress_file(session_id: str) -> str:
 
 def _reset_progress(session_id: str):
     _thread_local.active_session = session_id
-    _write_progress_file(session_id, {"stage": "Initializing...", "step": 0, "total": 0, "done": False})
+    _write_progress_file(session_id, {"stage": "Queued for Pixal3D worker", "step": 0, "total": 0, "done": False})
 
 def _update_progress(stage: str, step: int, total: int):
     session_id = getattr(_thread_local, 'active_session', '')
@@ -468,7 +468,7 @@ async def progress_poll(request: Request):
             data = json.load(f)
         return JSONResponse(data)
     except (FileNotFoundError, json.JSONDecodeError):
-        return JSONResponse({"stage": "Waiting...", "step": 0, "total": 0, "done": False})
+        return JSONResponse({"stage": "Queued for Pixal3D worker", "step": 0, "total": 0, "done": False})
 
 @app.get("/warmup_status")
 async def warmup_status():
@@ -477,11 +477,16 @@ async def warmup_status():
 @app.api()
 @spaces.GPU(duration=30)
 def preprocess(image: FileData, session_id: str = "") -> FileData:
+    _reset_progress(session_id)
+    _update_progress("Loading Pixal3D models", 0, 3)
     init_models()
+    _update_progress("Preprocessing source image", 1, 3)
     img = Image.open(image["path"])
     processed = pipeline.preprocess_image(img)
+    _update_progress("Saving preprocessed image", 2, 3)
     out_path = _preprocessed_file(session_id) if session_id else os.path.join(TMP_DIR, f"preprocessed_{int(time.time()*1000)}.png")
     processed.save(out_path)
+    _finish_progress()
     return FileData(path=out_path)
 
 @app.api()
@@ -507,24 +512,28 @@ def generate_3d(
     rembg_keep_gpu: bool = True,
     session_id: str = "",
 ) -> Dict:
-    init_models()
     _reset_progress(session_id)
-    _update_progress("Preprocessing & Camera Estimation", 0, 1)
+    _update_progress("Loading Pixal3D models", 0, 8)
+    init_models()
     
     torch.manual_seed(seed)
     hr_resolution = int(resolution)
     
     cached_preprocessed_path = _preprocessed_file(session_id)
     if session_id and os.path.exists(cached_preprocessed_path):
+        _update_progress("Using cached preprocessed image", 1, 8)
         image_preprocessed = Image.open(cached_preprocessed_path).convert("RGBA")
     else:
+        _update_progress("Removing background and framing image", 1, 8)
         img = Image.open(image["path"])
         os.environ["PIXAL3D_REMBG_KEEP_GPU"] = "1" if rembg_keep_gpu else "0"
         image_preprocessed = pipeline.preprocess_image(img)
+    _update_progress("Saving prepared image", 2, 8)
     temp_processed_path = os.path.join(TMP_DIR, f"temp_proc_{session_id[:8]}_{int(time.time()*1000)}.png")
     image_preprocessed.save(temp_processed_path)
     
     if manual_fov > 0:
+        _update_progress("Using manual camera FOV", 3, 8)
         # Convert to radians based on unit
         if fov_unit == "rad":
             camera_angle_x = float(manual_fov)
@@ -541,12 +550,13 @@ def generate_3d(
         camera_params = {'camera_angle_x': camera_angle_x, 'distance': distance, 'mesh_scale': WILD_MESH_SCALE}
         print(f"[Camera] Using manual FOV: {fov_deg:.2f}° ({camera_angle_x:.4f} rad), distance: {distance:.4f}")
     else:
+        _update_progress("Estimating camera with MoGe", 3, 8)
         camera_params = get_camera_params_wild_moge(
             temp_processed_path, device="cuda",
             mesh_scale=WILD_MESH_SCALE, extend_pixel=WILD_EXTEND_PIXEL,
             image_resolution=WILD_IMAGE_RESOLUTION,
         )
-    _update_progress("Preprocessing & Camera Estimation", 1, 1)
+    _update_progress("Camera ready", 4, 8)
     
     ss_sampler_override = {"steps": ss_sampling_steps, "guidance_strength": ss_guidance_strength,
                            "guidance_rescale": ss_guidance_rescale, "rescale_t": ss_rescale_t}
@@ -556,6 +566,7 @@ def generate_3d(
                             "guidance_rescale": tex_slat_guidance_rescale, "rescale_t": tex_slat_rescale_t}
 
     pipeline_type = f"{hr_resolution}_cascade"
+    _update_progress("Sampling structure, shape, and texture", 5, 8)
     mesh_list, (shape_slat, tex_slat, res) = pipeline.run(
         image_preprocessed,
         camera_params=camera_params,
@@ -570,9 +581,10 @@ def generate_3d(
     )
     
     mesh = mesh_list[0]
+    _update_progress("Packing latent preview state", 6, 8)
     state_path = pack_state(shape_slat, tex_slat, res)
     
-    _update_progress("Rendering views", 0, 1)
+    _update_progress("Rendering preview frames", 7, 8)
     mesh.simplify(16777216)
     cam_dist = camera_params['distance']
     near = max(0.01, cam_dist - 2.0)
@@ -594,7 +606,7 @@ def generate_3d(
                 del v._nvdiffrec_envlight
             v.image = v.image.cpu()
         torch.cuda.empty_cache()
-    _update_progress("Rendering views", 1, 1)
+    _update_progress("Saving preview frames", 8, 8)
     
     # Save renders and return paths
     render_files = {}
@@ -617,13 +629,14 @@ def generate_3d(
 @app.api()
 @spaces.GPU(duration=240)
 def extract_glb_api(state_path: str, decimation_target: int, texture_size: int, session_id: str = "") -> FileData:
-    init_models()
     _reset_progress(session_id)
-    _update_progress("Decoding latent", 0, 1)
+    _update_progress("Loading Pixal3D models", 0, 4)
+    init_models()
+    _update_progress("Decoding latent mesh", 1, 4)
     
     shape_slat, tex_slat, res = unpack_state(state_path)
     mesh = pipeline.decode_latent(shape_slat, tex_slat, res)[0]
-    _update_progress("Decoding latent", 1, 1)
+    _update_progress("Building GLB mesh and textures", 2, 4)
     
     glb = o_voxel.postprocess.to_glb(
         vertices=mesh.vertices, faces=mesh.faces, attr_volume=mesh.attrs,
@@ -640,6 +653,7 @@ def extract_glb_api(state_path: str, decimation_target: int, texture_size: int, 
     ], dtype=np.float64)
     glb.apply_transform(rot)
     
+    _update_progress("Exporting GLB file", 3, 4)
     out_glb = os.path.join(OUTPUT_DIR, f"pixal3d_app_{int(time.time()*1000)}.glb")
     glb.export(out_glb, extension_webp=True)
     _finish_progress()

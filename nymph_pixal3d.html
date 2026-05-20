@@ -416,6 +416,14 @@
       transition: width 160ms ease;
     }
 
+    .progress-detail {
+      min-height: 18px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
     .meta {
       display: grid;
       gap: 7px;
@@ -615,6 +623,7 @@
             <span id="progress-stage">Idle</span>
           </div>
           <div class="bar"><span id="progress-bar"></span></div>
+          <div class="progress-detail" id="progress-detail">Waiting for a run.</div>
         </div>
 
         <div class="meta">
@@ -783,6 +792,7 @@
     function startProgress() {
       clearInterval(progressTimer);
       $("progress-stage").textContent = "Starting";
+      $("progress-detail").textContent = "Queued for Pixal3D worker.";
       $("progress-bar").style.width = "0%";
       progressTimer = setInterval(async () => {
         try {
@@ -792,7 +802,9 @@
           if (data.done) return;
           const total = Number(data.total || 0);
           const step = Number(data.step || 0);
-          $("progress-stage").textContent = data.stage || "Processing";
+          const stage = data.stage || "Processing";
+          $("progress-stage").textContent = total > 0 ? `${step}/${total}` : "Working";
+          $("progress-detail").textContent = stage;
           $("progress-bar").style.width = total > 0 ? `${Math.min(100, (step / total) * 100)}%` : "14%";
         } catch {}
       }, 500);
@@ -801,7 +813,10 @@
     function stopProgress(done = false) {
       clearInterval(progressTimer);
       progressTimer = null;
-      if (done) $("progress-bar").style.width = "100%";
+      if (done) {
+        $("progress-bar").style.width = "100%";
+        $("progress-detail").textContent = "Complete.";
+      }
     }
 
     async function pollWarmup() {
@@ -816,17 +831,20 @@
         if (data.status === "loading") {
           $("progress-dot").className = "dot work";
           $("progress-stage").textContent = data.stage || "Loading model";
+          $("progress-detail").textContent = data.stage || "Loading model.";
           $("progress-bar").style.width = total > 0 ? `${Math.min(100, (step / total) * 100)}%` : "12%";
           if (!currentFile) setStatus("Preloading model", "work");
         } else if (data.status === "ready") {
           $("progress-dot").className = "dot ok";
           $("progress-stage").textContent = "Model ready";
+          $("progress-detail").textContent = "Model is loaded and ready.";
           $("progress-bar").style.width = "100%";
           if (!currentFile) setStatus("Model ready", "ok");
           clearInterval(warmupTimer);
         } else if (data.status === "error") {
           $("progress-dot").className = "dot err";
           $("progress-stage").textContent = data.error || "Model preload failed";
+          $("progress-detail").textContent = data.error || "Model preload failed.";
           $("progress-bar").style.width = "0%";
           if (!currentFile) setStatus("Preload failed", "err");
           clearInterval(warmupTimer);
