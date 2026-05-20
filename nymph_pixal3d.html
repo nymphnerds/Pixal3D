@@ -397,9 +397,14 @@
     .progress-box {
       border: 1px solid #2b4b46;
       border-radius: 8px;
-      padding: 14px;
+      padding: 12px;
       background: #101817;
       margin-bottom: 14px;
+    }
+
+    .progress-box .status {
+      font-size: 12px;
+      line-height: 1.35;
     }
 
     .bar {
@@ -633,6 +638,8 @@
     let outputUrl = "";
     let outputPath = "";
     let progressTimer = null;
+    let warmupTimer = null;
+    let busy = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -650,6 +657,7 @@
     }
 
     function setBusy(isBusy) {
+      busy = isBusy;
       $("generate").disabled = isBusy || !currentFile;
       $("extract").disabled = isBusy || !generationResult;
       $("progress-dot").className = `dot ${isBusy ? "work" : ""}`;
@@ -728,6 +736,42 @@
       clearInterval(progressTimer);
       progressTimer = null;
       if (done) $("progress-bar").style.width = "100%";
+    }
+
+    async function pollWarmup() {
+      try {
+        const response = await fetch("/warmup_status");
+        if (!response.ok) return;
+        const data = await response.json();
+        if (busy) return;
+
+        const total = Number(data.total || 0);
+        const step = Number(data.step || 0);
+        if (data.status === "loading") {
+          $("progress-dot").className = "dot work";
+          $("progress-stage").textContent = data.stage || "Loading model";
+          $("progress-bar").style.width = total > 0 ? `${Math.min(100, (step / total) * 100)}%` : "12%";
+          if (!currentFile) setStatus("Preloading model", "work");
+        } else if (data.status === "ready") {
+          $("progress-dot").className = "dot ok";
+          $("progress-stage").textContent = "Model ready";
+          $("progress-bar").style.width = "100%";
+          if (!currentFile) setStatus("Model ready", "ok");
+          clearInterval(warmupTimer);
+        } else if (data.status === "error") {
+          $("progress-dot").className = "dot err";
+          $("progress-stage").textContent = data.error || "Model preload failed";
+          $("progress-bar").style.width = "0%";
+          if (!currentFile) setStatus("Preload failed", "err");
+          clearInterval(warmupTimer);
+        }
+      } catch {}
+    }
+
+    function startWarmupPolling() {
+      clearInterval(warmupTimer);
+      pollWarmup();
+      warmupTimer = setInterval(pollWarmup, 1000);
     }
 
     async function preprocess(file) {
@@ -875,6 +919,7 @@
           ? "GGUF runtime is available for this session."
           : "Safetensors are active. GGUF weights can be fetched now and will become selectable after the runtime bridge is verified.";
         setStatus("Waiting for image");
+        startWarmupPolling();
       } catch (err) {
         console.error(err);
         setStatus("Connection failed", "err");

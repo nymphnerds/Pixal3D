@@ -147,88 +147,130 @@ pipeline = None
 moge_model = None
 envmap = None
 LOW_VRAM = os.environ.get("LOW_VRAM", "0") == "1"
+warmup_lock = threading.Lock()
+warmup_state = {
+    "status": "idle",
+    "stage": "Waiting",
+    "step": 0,
+    "total": 5,
+    "done": False,
+    "error": "",
+}
+
+def _set_warmup(status: str, stage: str, step: int, total: int = 5, *, done: bool = False, error: str = ""):
+    with warmup_lock:
+        warmup_state.update({
+            "status": status,
+            "stage": stage,
+            "step": step,
+            "total": total,
+            "done": done,
+            "error": error,
+        })
+
+def _warmup_snapshot():
+    with warmup_lock:
+        return dict(warmup_state)
 
 def init_models():
     global pipeline, moge_model, envmap
     with init_lock:
         if pipeline is not None:
+            _set_warmup("ready", "Model ready", 5, done=True)
             return
 
-        # GPU / CUDA Diagnostics (runs when GPU is allocated)
-        import subprocess as _sp
-        print("=" * 60)
-        print("[Diagnostics] PyTorch version:", torch.__version__)
-        print("[Diagnostics] CUDA available:", torch.cuda.is_available())
-        if torch.cuda.is_available():
-            print("[Diagnostics] CUDA version:", torch.version.cuda)
-            print("[Diagnostics] cuDNN version:", torch.backends.cudnn.version())
-            for i in range(torch.cuda.device_count()):
-                name = torch.cuda.get_device_name(i)
-                cap = torch.cuda.get_device_capability(i)
-                mem = torch.cuda.get_device_properties(i).total_memory / 1024**3
-                print(f"[Diagnostics] GPU {i}: {name}, sm_{cap[0]}{cap[1]}, {mem:.1f} GB")
         try:
-            res = _sp.run(["nvidia-smi", "--query-gpu=name,compute_cap,memory.total", "--format=csv,noheader"], capture_output=True, text=True, timeout=10)
-            print("[Diagnostics] nvidia-smi:", res.stdout.strip())
-        except Exception as e:
-            print(f"[Diagnostics] nvidia-smi failed: {e}")
-        print("=" * 60)
+            _set_warmup("loading", "Checking GPU", 0)
+            # GPU / CUDA Diagnostics (runs when GPU is allocated)
+            import subprocess as _sp
+            print("=" * 60)
+            print("[Diagnostics] PyTorch version:", torch.__version__)
+            print("[Diagnostics] CUDA available:", torch.cuda.is_available())
+            if torch.cuda.is_available():
+                print("[Diagnostics] CUDA version:", torch.version.cuda)
+                print("[Diagnostics] cuDNN version:", torch.backends.cudnn.version())
+                for i in range(torch.cuda.device_count()):
+                    name = torch.cuda.get_device_name(i)
+                    cap = torch.cuda.get_device_capability(i)
+                    mem = torch.cuda.get_device_properties(i).total_memory / 1024**3
+                    print(f"[Diagnostics] GPU {i}: {name}, sm_{cap[0]}{cap[1]}, {mem:.1f} GB")
+            try:
+                res = _sp.run(["nvidia-smi", "--query-gpu=name,compute_cap,memory.total", "--format=csv,noheader"], capture_output=True, text=True, timeout=10)
+                print("[Diagnostics] nvidia-smi:", res.stdout.strip())
+            except Exception as e:
+                print(f"[Diagnostics] nvidia-smi failed: {e}")
+            print("=" * 60)
 
-        model_path = "TencentARC/Pixal3D"
-        print(f"[Pipeline] Loading from {model_path}...")
-        pipeline = Pixal3DImageTo3DPipeline.from_pretrained(model_path)
-        
-        print("[ImageCond] Building DinoV3ProjFeatureExtractor models...")
-        tex_naf_target = resolve_texture_naf_target_size(LOW_VRAM)
-        IMAGE_COND_CONFIGS["tex_1024"]["naf_target_size"] = tex_naf_target
-        print(f"[ImageCond] Texture NAF target size: {tex_naf_target}")
-        pipeline.image_cond_model_ss = build_image_cond_model(IMAGE_COND_CONFIGS["ss"])
-        pipeline.image_cond_model_shape_512 = build_image_cond_model(IMAGE_COND_CONFIGS["shape_512"])
-        pipeline.image_cond_model_shape_1024 = build_image_cond_model(IMAGE_COND_CONFIGS["shape_1024"])
-        pipeline.image_cond_model_tex_1024 = build_image_cond_model(IMAGE_COND_CONFIGS["tex_1024"])
-        
-        if LOW_VRAM:
-            # Low-VRAM mode: models stay on CPU, loaded to GPU on-demand per stage.
-            print("[NAF] Pre-downloading NAF upsampler weights (CPU only)...")
-            for attr in ['image_cond_model_ss', 'image_cond_model_shape_512',
-                         'image_cond_model_shape_1024', 'image_cond_model_tex_1024']:
-                m = getattr(pipeline, attr, None)
-                if m is not None and getattr(m, 'use_naf_upsample', False):
-                    m._load_naf()
-            pipeline._device = torch.device("cuda")
-            pipeline.low_vram = True
-            print("[Pipeline] Low-VRAM mode enabled.")
-        else:
-            # Standard mode: all models loaded to GPU at once.
-            pipeline.low_vram = False
-            pipeline.cuda()
-            pipeline.image_cond_model_ss.cuda()
-            pipeline.image_cond_model_shape_512.cuda()
-            pipeline.image_cond_model_shape_1024.cuda()
-            pipeline.image_cond_model_tex_1024.cuda()
-            print("[NAF] Pre-loading NAF upsampler model...")
-            for attr in ['image_cond_model_ss', 'image_cond_model_shape_512',
-                         'image_cond_model_shape_1024', 'image_cond_model_tex_1024']:
-                m = getattr(pipeline, attr, None)
-                if m is not None and getattr(m, 'use_naf_upsample', False):
-                    m._load_naf()
-                
-        print("[MoGe-2] Loading model for camera estimation...")
-        if LOW_VRAM:
-            # Low-VRAM: load MoGe to CPU, move to GPU on-demand per request.
-            moge_model = load_moge_model(device="cpu")
-            print("[MoGe-2] Low-VRAM mode: MoGe stays on CPU, loaded to GPU on-demand.")
-        else:
-            moge_model = load_moge_model(device="cuda")
-        
-        print("[EnvMap] Loading environment maps...")
-        _base = os.path.dirname(os.path.abspath(__file__))
-        _envmap_device = 'cpu' if LOW_VRAM else 'cuda'
-        envmap = {
-            'forest': EnvMap(torch.tensor(cv2.cvtColor(cv2.imread(os.path.join(_base, 'assets/hdri/forest.exr'), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB), dtype=torch.float32, device=_envmap_device)),
-            'sunset': EnvMap(torch.tensor(cv2.cvtColor(cv2.imread(os.path.join(_base, 'assets/hdri/sunset.exr'), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB), dtype=torch.float32, device=_envmap_device)),
-            'courtyard': EnvMap(torch.tensor(cv2.cvtColor(cv2.imread(os.path.join(_base, 'assets/hdri/courtyard.exr'), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB), dtype=torch.float32, device=_envmap_device)),
-        }
+            model_path = "TencentARC/Pixal3D"
+            _set_warmup("loading", "Loading Pixal3D pipeline", 1)
+            print(f"[Pipeline] Loading from {model_path}...")
+            pipeline = Pixal3DImageTo3DPipeline.from_pretrained(model_path)
+
+            _set_warmup("loading", "Building image conditioners", 2)
+            print("[ImageCond] Building DinoV3ProjFeatureExtractor models...")
+            tex_naf_target = resolve_texture_naf_target_size(LOW_VRAM)
+            IMAGE_COND_CONFIGS["tex_1024"]["naf_target_size"] = tex_naf_target
+            print(f"[ImageCond] Texture NAF target size: {tex_naf_target}")
+            pipeline.image_cond_model_ss = build_image_cond_model(IMAGE_COND_CONFIGS["ss"])
+            pipeline.image_cond_model_shape_512 = build_image_cond_model(IMAGE_COND_CONFIGS["shape_512"])
+            pipeline.image_cond_model_shape_1024 = build_image_cond_model(IMAGE_COND_CONFIGS["shape_1024"])
+            pipeline.image_cond_model_tex_1024 = build_image_cond_model(IMAGE_COND_CONFIGS["tex_1024"])
+
+            _set_warmup("loading", "Preparing NAF upsamplers", 3)
+            if LOW_VRAM:
+                # Low-VRAM mode: models stay on CPU, loaded to GPU on-demand per stage.
+                print("[NAF] Pre-downloading NAF upsampler weights (CPU only)...")
+                for attr in ['image_cond_model_ss', 'image_cond_model_shape_512',
+                             'image_cond_model_shape_1024', 'image_cond_model_tex_1024']:
+                    m = getattr(pipeline, attr, None)
+                    if m is not None and getattr(m, 'use_naf_upsample', False):
+                        m._load_naf()
+                pipeline._device = torch.device("cuda")
+                pipeline.low_vram = True
+                print("[Pipeline] Low-VRAM mode enabled.")
+            else:
+                # Standard mode: all models loaded to GPU at once.
+                pipeline.low_vram = False
+                pipeline.cuda()
+                pipeline.image_cond_model_ss.cuda()
+                pipeline.image_cond_model_shape_512.cuda()
+                pipeline.image_cond_model_shape_1024.cuda()
+                pipeline.image_cond_model_tex_1024.cuda()
+                print("[NAF] Pre-loading NAF upsampler model...")
+                for attr in ['image_cond_model_ss', 'image_cond_model_shape_512',
+                             'image_cond_model_shape_1024', 'image_cond_model_tex_1024']:
+                    m = getattr(pipeline, attr, None)
+                    if m is not None and getattr(m, 'use_naf_upsample', False):
+                        m._load_naf()
+
+            _set_warmup("loading", "Loading MoGe camera model", 4)
+            print("[MoGe-2] Loading model for camera estimation...")
+            if LOW_VRAM:
+                # Low-VRAM: load MoGe to CPU, move to GPU on-demand per request.
+                moge_model = load_moge_model(device="cpu")
+                print("[MoGe-2] Low-VRAM mode: MoGe stays on CPU, loaded to GPU on-demand.")
+            else:
+                moge_model = load_moge_model(device="cuda")
+
+            _set_warmup("loading", "Loading environment maps", 5)
+            print("[EnvMap] Loading environment maps...")
+            _base = os.path.dirname(os.path.abspath(__file__))
+            _envmap_device = 'cpu' if LOW_VRAM else 'cuda'
+            envmap = {
+                'forest': EnvMap(torch.tensor(cv2.cvtColor(cv2.imread(os.path.join(_base, 'assets/hdri/forest.exr'), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB), dtype=torch.float32, device=_envmap_device)),
+                'sunset': EnvMap(torch.tensor(cv2.cvtColor(cv2.imread(os.path.join(_base, 'assets/hdri/sunset.exr'), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB), dtype=torch.float32, device=_envmap_device)),
+                'courtyard': EnvMap(torch.tensor(cv2.cvtColor(cv2.imread(os.path.join(_base, 'assets/hdri/courtyard.exr'), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB), dtype=torch.float32, device=_envmap_device)),
+            }
+            _set_warmup("ready", "Model ready", 5, done=True)
+        except Exception as exc:
+            _set_warmup("error", "Model preload failed", 0, done=True, error=str(exc))
+            raise
+
+def delayed_init_models(delay_seconds: float):
+    if delay_seconds > 0:
+        time.sleep(delay_seconds)
+    if pipeline is None:
+        init_models()
 
 # ============================================================================
 # Utilities
@@ -421,6 +463,10 @@ async def progress_poll(request: Request):
     except (FileNotFoundError, json.JSONDecodeError):
         return JSONResponse({"stage": "Waiting...", "step": 0, "total": 0, "done": False})
 
+@app.get("/warmup_status")
+async def warmup_status():
+    return JSONResponse(_warmup_snapshot())
+
 @app.api()
 @spaces.GPU(duration=30)
 def preprocess(image: FileData, session_id: str = "") -> FileData:
@@ -606,6 +652,8 @@ if __name__ == "__main__":
     parser.add_argument("--share", action="store_true", help="Enable Gradio share link.")
     parser.add_argument("--lazy-load", action="store_true", help="Start the UI before loading models.")
     parser.add_argument("--warm-on-start", action="store_true", help="Start the UI immediately and initialize models in the background.")
+    parser.add_argument("--warmup-delay", type=float, default=float(os.environ.get("PIXAL3D_WARMUP_DELAY", "0")),
+                        help="Start model preload after this many seconds; 0 disables delayed preload unless --warm-on-start is set.")
     parser.add_argument("--reinstall-utils3d", action="store_true", help="Reinstall upstream utils3d wheel before launch.")
     args, remaining = parser.parse_known_args()
     if args.low_vram is not None:
@@ -619,6 +667,8 @@ if __name__ == "__main__":
     
     if args.warm_on_start:
         threading.Thread(target=init_models, name="pixal3d-model-warmup", daemon=True).start()
+    elif args.lazy_load and args.warmup_delay > 0:
+        threading.Thread(target=delayed_init_models, args=(args.warmup_delay,), name="pixal3d-model-delayed-warmup", daemon=True).start()
     elif not args.lazy_load:
         init_models()
     
