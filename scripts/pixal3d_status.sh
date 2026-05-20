@@ -15,9 +15,9 @@ aux_models_ready=unknown
 quantized_models_ready=false
 quantized_runtime_supported=false
 weight_profile_selected="${PIXAL3D_QUANT}"
-weight_profiles_available="Q5_K_M,Q6_K,Q8_0"
+weight_profiles_available="Low VRAM 1024,Standard 1536,Q5_K_M,Q6_K,Q8_0"
 weight_profiles_downloaded="none"
-weight_profiles_missing="Q5_K_M,Q6_K,Q8_0"
+weight_profiles_missing="Low VRAM 1024,Standard 1536,Q5_K_M,Q6_K,Q8_0"
 weight_profile_ready=false
 api_running=false
 gradio_running=false
@@ -156,6 +156,32 @@ fi
 if [[ "${PIXAL3D_QUANT_RUNTIME_SUPPORTED}" == "1" ]]; then
   quantized_runtime_supported=true
 fi
+
+weight_profiles_available="Low VRAM 1024,Standard 1536,Q5_K_M,Q6_K,Q8_0"
+case "${PIXAL3D_WEIGHT_FORMAT:-safetensors}:${PIXAL3D_PROFILE:-low_vram_1024}" in
+  gguf-experimental:*) weight_profile_selected="${PIXAL3D_QUANT}" ;;
+  *:standard_1536) weight_profile_selected="Standard 1536" ;;
+  *) weight_profile_selected="Low VRAM 1024" ;;
+esac
+
+display_downloaded_profiles=()
+display_missing_profiles=()
+if [[ "${models_ready}" == "true" && "${aux_models_ready}" == "true" ]]; then
+  display_downloaded_profiles+=("Low VRAM 1024" "Standard 1536")
+  if [[ "${weight_profile_selected}" == "Low VRAM 1024" || "${weight_profile_selected}" == "Standard 1536" ]]; then
+    weight_profile_ready=true
+  fi
+else
+  display_missing_profiles+=("Low VRAM 1024" "Standard 1536")
+fi
+for candidate_quant in "${downloaded_weight_profiles[@]}"; do
+  display_downloaded_profiles+=("${candidate_quant}")
+done
+for candidate_quant in "${missing_weight_profiles[@]}"; do
+  display_missing_profiles+=("${candidate_quant}")
+done
+weight_profiles_downloaded="$([[ ${#display_downloaded_profiles[@]} -gt 0 ]] && (IFS=,; printf '%s' "${display_downloaded_profiles[*]}") || printf 'none')"
+weight_profiles_missing="$([[ ${#display_missing_profiles[@]} -gt 0 ]] && (IFS=,; printf '%s' "${display_missing_profiles[*]}") || printf 'none')"
 
 if [[ "${installed}" == "true" && "${env_ready}" == "true" &&
       ( "${models_ready}" != "true" || "${aux_models_ready}" != "true" ) ]]; then
