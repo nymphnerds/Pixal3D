@@ -117,6 +117,17 @@ The production module contract now intentionally uses the shared
 same native CUDA/runtime venv, so whichever module is installed first prepares
 the runtime for both modules. Pixal3D does not require TRELLIS model weights.
 
+Install repair note:
+
+- Pixal3D does not vendor TRELLIS.2 `o-voxel` source directly. When the shared
+  runtime needs native `o_voxel`, Pixal3D install/repair fetches the official
+  `microsoft/TRELLIS.2` runtime source into
+  `$HOME/TRELLIS.2/runtime/TRELLIS.2-source`, initializes its Eigen submodule,
+  and builds `o_voxel` from there.
+- Do not run `git submodule update o-voxel/...` inside the Pixal3D checkout;
+  Pixal3D has no such submodule. The shared runtime source owns that native
+  build input.
+
 Manager/registry status:
 
 - `NymphsModules/nymphs-registry` has a `pixal3d` entry and publishes the BRIA

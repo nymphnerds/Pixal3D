@@ -7,25 +7,6 @@ source "${SCRIPT_DIR}/_pixal3d_common.sh"
 profile="${PIXAL3D_RUNTIME_PROFILE:-trellis_runtime}"
 pixal3d_ensure_data_dirs
 
-pixal3d_ensure_module_submodules() {
-  local eigen_dir="${MODULE_ROOT}/o-voxel/third_party/eigen"
-
-  if [[ -f "${eigen_dir}/Eigen/Core" ]]; then
-    return 0
-  fi
-
-  if [[ -d "${MODULE_ROOT}/.git" ]]; then
-    echo "Initializing Pixal3D native submodules required for shared runtime builds"
-    git -C "${MODULE_ROOT}" submodule update --init --recursive o-voxel/third_party/eigen
-  fi
-
-  if [[ ! -f "${eigen_dir}/Eigen/Core" ]]; then
-    echo "Expected Eigen submodule is missing from ${eigen_dir}." >&2
-    echo "Run git submodule update --init --recursive o-voxel/third_party/eigen in the module repo, then retry." >&2
-    exit 1
-  fi
-}
-
 pixal3d_map_flash_attn_cuda_arch() {
   local compute_cap="$1"
   local major="${compute_cap%%.*}"
@@ -49,6 +30,35 @@ pixal3d_detect_compute_cap() {
   compute_cap="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n 1 | tr -d '[:space:]' || true)"
   if [[ "${compute_cap}" =~ ^[0-9]+\.[0-9]+$ ]]; then
     echo "${compute_cap}"
+  fi
+}
+
+pixal3d_sync_trellis_runtime_source() {
+  local source_dir="${PIXAL3D_TRELLIS_SOURCE_DIR}"
+  local eigen_dir="${source_dir}/o-voxel/third_party/eigen"
+
+  if [[ ! -d "${source_dir}/.git" ]]; then
+    rm -rf "${source_dir}"
+    mkdir -p "$(dirname "${source_dir}")"
+    echo "Cloning TRELLIS.2 runtime source for native Pixal3D dependencies"
+    GIT_TERMINAL_PROMPT=0 git clone --filter=blob:none --no-checkout "${PIXAL3D_TRELLIS_SOURCE_REPO}" "${source_dir}"
+  fi
+
+  echo "Syncing TRELLIS.2 runtime source to ${PIXAL3D_TRELLIS_SOURCE_REF}"
+  GIT_TERMINAL_PROMPT=0 git -C "${source_dir}" fetch --depth 1 origin "${PIXAL3D_TRELLIS_SOURCE_REF}"
+  git -C "${source_dir}" checkout --detach FETCH_HEAD
+  GIT_TERMINAL_PROMPT=0 git -C "${source_dir}" submodule update --init --recursive o-voxel/third_party/eigen
+
+  if [[ ! -f "${eigen_dir}/Eigen/Core" ]]; then
+    echo "Expected Eigen submodule is missing from ${eigen_dir}." >&2
+    echo "Repair or remove ${source_dir}, then retry Pixal3D Install/Repair." >&2
+    exit 1
+  fi
+
+  if [[ ! -f "${source_dir}/o-voxel/setup.py" ]]; then
+    echo "Expected o-voxel source is missing from ${source_dir}/o-voxel." >&2
+    echo "Repair or remove ${source_dir}, then retry Pixal3D Install/Repair." >&2
+    exit 1
   fi
 }
 
@@ -163,12 +173,13 @@ for module_name in ("cumesh", "flex_gemm", "o_voxel", "nvdiffrast.torch"):
 PY
   then
     echo "Building TRELLIS native runtime extensions into shared runtime"
+    pixal3d_sync_trellis_runtime_source
     "$(pixal3d_pip)" install --no-build-isolation \
       "git+https://github.com/JeffreyXiang/CuMesh.git@${PIXAL3D_CUMESH_REF:-cf1a2f07304b5fe388ed86a16e4a0474599df914}" \
       "git+https://github.com/JeffreyXiang/FlexGEMM.git@${PIXAL3D_FLEXGEMM_REF:-6dd94a859c26ee8246888502eada3dd8ad85532e}" \
       "git+https://github.com/NVlabs/nvdiffrast.git@${PIXAL3D_NVDIFFRAST_REF:-253ac4fcea7de5f396371124af597e6cc957bfae}"
 
-    "$(pixal3d_pip)" install --no-build-isolation --no-deps "${PIXAL3D_INSTALL_ROOT}/o-voxel"
+    "$(pixal3d_pip)" install --no-build-isolation --no-deps "${PIXAL3D_TRELLIS_SOURCE_DIR}/o-voxel"
   fi
 
   if ! pixal3d_validate_runtime_stack "$(pixal3d_python)"; then
@@ -187,8 +198,6 @@ with open(sys.argv[1], "r", encoding="utf-8") as handle:
 print(str(manifest.get("version", "unknown")).strip() or "unknown")
 PY
 )"
-
-pixal3d_ensure_module_submodules
 
 if [[ ! -d "${PIXAL3D_INSTALL_ROOT}/pixal3d" && -d "${MODULE_ROOT}/pixal3d" ]]; then
   echo "Syncing Pixal3D source into ${PIXAL3D_INSTALL_ROOT}..."
