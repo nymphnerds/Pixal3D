@@ -5,9 +5,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_pixal3d_common.sh"
 
 if pixal3d_gradio_is_running; then
-  echo "Pixal3D Gradio is running; stopping Pixal3D services."
-  "${SCRIPT_DIR}/pixal3d_stop.sh"
-  echo "Pixal3D stopped."
+  echo "Pixal3D Gradio is already running."
+  echo "url=${PIXAL3D_GRADIO_URL}"
+  echo "module_ui_url=${PIXAL3D_GRADIO_URL}"
   exit 0
 fi
 
