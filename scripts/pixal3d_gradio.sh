@@ -28,7 +28,7 @@ pixal3d_ensure_data_dirs
 pixal3d_load_hf_token
 
 log_file="${PIXAL3D_LOG_DIR}/pixal3d-gradio.log"
-echo "Starting Pixal3D Gradio at ${PIXAL3D_GRADIO_URL}"
+echo "Starting Pixal3D Gradio."
 (
   cd "${PIXAL3D_INSTALL_ROOT}"
   export GRADIO_SERVER_NAME="${PIXAL3D_GRADIO_HOST}"
