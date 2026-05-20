@@ -122,6 +122,75 @@ pixal3d_sync_trellis_runtime_source() {
   fi
 }
 
+pixal3d_sync_runtime_repo() {
+  local name="$1"
+  local repo_url="$2"
+  local repo_ref="$3"
+  local repo_path="$4"
+
+  if [[ ! -d "${repo_path}/.git" ]]; then
+    rm -rf "${repo_path}"
+    mkdir -p "$(dirname "${repo_path}")"
+    echo "Cloning ${name} runtime support"
+    GIT_TERMINAL_PROMPT=0 git clone --filter=blob:none "${repo_url}" "${repo_path}"
+  fi
+
+  echo "Syncing ${name} to ${repo_ref}"
+  GIT_TERMINAL_PROMPT=0 git -C "${repo_path}" fetch --depth 1 origin "${repo_ref}"
+  git -C "${repo_path}" checkout --detach FETCH_HEAD
+  echo "${name}: active commit $(git -C "${repo_path}" rev-parse --short HEAD)"
+}
+
+pixal3d_install_gguf_runtime_bits() {
+  local package_dir="${PIXAL3D_GGUF_RUNTIME_DIR}/ComfyUI-Trellis2-GGUF"
+  local loader_dir="${PIXAL3D_GGUF_RUNTIME_DIR}/ComfyUI-GGUF"
+  local site_packages
+  local loader_target
+
+  if "$(pixal3d_python)" - <<'PY' >/dev/null 2>&1
+import importlib
+for module_name in ("trellis2_gguf", "gguf"):
+    importlib.import_module(module_name)
+PY
+  then
+    echo "Pixal3D GGUF runtime imports already available in shared venv."
+    return 0
+  fi
+
+  echo "Installing Pixal3D GGUF runtime support into shared venv."
+  "$(pixal3d_pip)" install gguf rembg onnxruntime pymeshlab meshlib open3d rectpack sdnq accelerate
+
+  mkdir -p "${PIXAL3D_GGUF_RUNTIME_DIR}"
+  pixal3d_sync_runtime_repo "ComfyUI-Trellis2-GGUF" "${PIXAL3D_TRELLIS2_GGUF_REPO_URL}" "${PIXAL3D_TRELLIS2_GGUF_REPO_REF}" "${package_dir}"
+  pixal3d_sync_runtime_repo "ComfyUI-GGUF" "${PIXAL3D_COMFYUI_GGUF_REPO_URL}" "${PIXAL3D_COMFYUI_GGUF_REPO_REF}" "${loader_dir}"
+
+  site_packages="$(pixal3d_site_packages_dir)"
+  if [[ ! -d "${package_dir}/trellis2_gguf" ]]; then
+    echo "Expected trellis2_gguf package is missing from ${package_dir}" >&2
+    exit 1
+  fi
+  if [[ ! -f "${loader_dir}/ops.py" || ! -f "${loader_dir}/dequant.py" || ! -f "${loader_dir}/loader.py" ]]; then
+    echo "Expected ComfyUI-GGUF loader files are missing from ${loader_dir}" >&2
+    exit 1
+  fi
+
+  rm -rf "${site_packages}/trellis2_gguf"
+  cp -a "${package_dir}/trellis2_gguf" "${site_packages}/trellis2_gguf"
+
+  loader_target="${site_packages}/ComfyUI-GGUF"
+  mkdir -p "${loader_target}"
+  cp -a "${loader_dir}/ops.py" "${loader_dir}/dequant.py" "${loader_dir}/loader.py" "${loader_target}/"
+
+  "$(pixal3d_python)" - <<'PY'
+import importlib
+
+for module_name in ("trellis2_gguf", "gguf", "rembg", "open3d", "pymeshlab", "meshlib"):
+    importlib.import_module(module_name)
+
+print("Pixal3D GGUF runtime imports available.")
+PY
+}
+
 pixal3d_install_flash_attn() {
   local flash_attn_jobs="${TRELLIS_FLASH_ATTN_MAX_JOBS:-${NYMPHS3D_TRELLIS_FLASH_ATTN_MAX_JOBS:-4}}"
   local flash_attn_nvcc_threads="${TRELLIS_FLASH_ATTN_NVCC_THREADS:-${NYMPHS3D_TRELLIS_FLASH_ATTN_NVCC_THREADS:-2}}"
@@ -260,6 +329,7 @@ pixal3d_install_shared_trellis_runtime() {
 
   pixal3d_install_flash_attn
   pixal3d_install_natten
+  pixal3d_install_gguf_runtime_bits
 
   if ! "$(pixal3d_python)" - <<'PY' >/dev/null 2>&1
 import importlib

@@ -35,6 +35,11 @@ PIXAL3D_QUANT_RUNTIME_SUPPORTED="${PIXAL3D_QUANT_RUNTIME_SUPPORTED:-0}"
 PIXAL3D_TEXTURE_NAF_TARGET_SIZE="${PIXAL3D_TEXTURE_NAF_TARGET_SIZE:-}"
 PIXAL3D_TEXTURE_SIZE="${PIXAL3D_TEXTURE_SIZE:-1024}"
 PIXAL3D_UTILS3D_REF="${PIXAL3D_UTILS3D_REF:-3fab839f0be9931dac7c8488eb0e1600c236e183}"
+PIXAL3D_GGUF_RUNTIME_DIR="${PIXAL3D_GGUF_RUNTIME_DIR:-$PIXAL3D_TRELLIS_RUNTIME_ROOT/.cache/trellis-gguf-runtime}"
+PIXAL3D_TRELLIS2_GGUF_REPO_URL="${PIXAL3D_TRELLIS2_GGUF_REPO_URL:-https://github.com/Aero-Ex/ComfyUI-Trellis2-GGUF.git}"
+PIXAL3D_TRELLIS2_GGUF_REPO_REF="${PIXAL3D_TRELLIS2_GGUF_REPO_REF:-ed7245cba449c79e0a6703b7f09c0590328b4f77}"
+PIXAL3D_COMFYUI_GGUF_REPO_URL="${PIXAL3D_COMFYUI_GGUF_REPO_URL:-https://github.com/city96/ComfyUI-GGUF.git}"
+PIXAL3D_COMFYUI_GGUF_REPO_REF="${PIXAL3D_COMFYUI_GGUF_REPO_REF:-6ea2651e7df66d7585f6ffee804b20e92fb38b8a}"
 
 if [[ -f "${PIXAL3D_PROFILE_FILE}" ]]; then
   # shellcheck disable=SC1090
@@ -73,6 +78,17 @@ pixal3d_python() {
 
 pixal3d_pip() {
   printf '%s\n' "${PIXAL3D_VENV_DIR}/bin/pip"
+}
+
+pixal3d_site_packages_dir() {
+  "$(pixal3d_python)" - <<'PY'
+import site
+
+paths = [p for p in site.getsitepackages() if p.endswith("site-packages")]
+if not paths:
+    raise SystemExit("Could not resolve site-packages for the shared Pixal3D venv.")
+print(paths[0])
+PY
 }
 
 pixal3d_repair_utils3d_compat() {

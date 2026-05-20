@@ -17,9 +17,9 @@ aux_models_ready=unknown
 quantized_models_ready=false
 quantized_runtime_supported=false
 weight_profile_selected="${PIXAL3D_QUANT}"
-weight_profiles_available="Low VRAM 1024,Standard 1536,Q5_K_M,Q6_K,Q8_0"
+weight_profiles_available="Low VRAM 1024,Standard 1536,Q4_K_M,Q5_K_M,Q6_K,Q8_0"
 weight_profiles_downloaded="none"
-weight_profiles_missing="Low VRAM 1024,Standard 1536,Q5_K_M,Q6_K,Q8_0"
+weight_profiles_missing="Low VRAM 1024,Standard 1536,Q4_K_M,Q5_K_M,Q6_K,Q8_0"
 weight_profile_ready=false
 display_url="${PIXAL3D_SERVER_URL}"
 api_running=false
@@ -136,10 +136,20 @@ fi
 
 pixal3d_quant_ready() {
   local quant="$1"
-  pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "Sparse/ss_flow_img_dit_1_3B_64_bf16_${quant}.gguf" &&
-    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_512_bf16_${quant}.gguf" &&
-    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_1024_bf16_${quant}.gguf" &&
-    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16_${quant}.gguf" &&
+  pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "Sparse/ss_flow_img_dit_1_3B_64_bf16_${quant}.gguf" ||
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "ss_flow_img_dit_1_3B_64_bf16_${quant}.gguf"
+  local has_sparse=$?
+  pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_512_bf16_${quant}.gguf" ||
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "slat_flow_img2shape_dit_1_3B_512_bf16_${quant}.gguf"
+  local has_shape_512=$?
+  pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "shape/slat_flow_img2shape_dit_1_3B_1024_bf16_${quant}.gguf" ||
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "slat_flow_img2shape_dit_1_3B_1024_bf16_${quant}.gguf"
+  local has_shape_1024=$?
+  pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16_${quant}.gguf" ||
+    pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "slat_flow_imgshape2tex_dit_1_3B_1024_bf16_${quant}.gguf"
+  local has_texture=$?
+
+  [[ "${has_sparse}" -eq 0 && "${has_shape_512}" -eq 0 && "${has_shape_1024}" -eq 0 && "${has_texture}" -eq 0 ]] &&
     pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/ss_dec_conv3d_16l8_fp16.safetensors" &&
     pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/shape_dec_next_dc_f16c32_fp16.safetensors" &&
     pixal3d_cache_snapshot_file_present "models--Aero-Ex--Pixal3D-GGUF" "decoder/tex_dec_next_dc_f16c32_fp16.safetensors"
@@ -147,7 +157,7 @@ pixal3d_quant_ready() {
 
 downloaded_weight_profiles=()
 missing_weight_profiles=()
-for candidate_quant in Q5_K_M Q6_K Q8_0; do
+for candidate_quant in Q4_K_M Q5_K_M Q6_K Q8_0; do
   if pixal3d_quant_ready "${candidate_quant}"; then
     downloaded_weight_profiles+=("${candidate_quant}")
   else
@@ -175,7 +185,7 @@ if [[ "${PIXAL3D_QUANT_RUNTIME_SUPPORTED}" == "1" ]]; then
   quantized_runtime_supported=true
 fi
 
-weight_profiles_available="Low VRAM 1024,Standard 1536,Q5_K_M,Q6_K,Q8_0"
+weight_profiles_available="Low VRAM 1024,Standard 1536,Q4_K_M,Q5_K_M,Q6_K,Q8_0"
 case "${PIXAL3D_WEIGHT_FORMAT:-safetensors}:${PIXAL3D_PROFILE:-low_vram_1024}" in
   gguf-experimental:*) weight_profile_selected="${PIXAL3D_QUANT}" ;;
   *:standard_1536) weight_profile_selected="Standard 1536" ;;

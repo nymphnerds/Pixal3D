@@ -3341,3 +3341,24 @@ Current conclusion:
 - The module's current GGUF fetch-only behavior is incomplete.
 - The fastest real bridge is to reuse the TRELLIS module's proven standalone
   `trellis2_gguf` method with `isPixal3D=True`.
+
+## 2026-05-20 Update: NymphsCore App Shell
+
+The Manager WebView should no longer default to the upstream Pixal3D app. Keep
+the upstream UI available at `/official`, but serve the NymphsCore-owned app at
+`/`.
+
+Current app shell direction:
+
+- Reference image and result preview are locked side by side in the main stage.
+- The reference pane and GLB/result pane share the same footprint and scale with
+  the WebView window.
+- Controls live in the left column and scroll independently.
+- Generation first creates preview frames, then Export GLB loads the result into
+  the embedded model-viewer.
+- Texture export defaults to 1024.
+
+GGUF fetch/status now includes `Q4_K_M` and accepts both the nested repo layout
+and the root-level GGUF files published by the community Pixal3D GGUF repo.
+GGUF remains experimental and must stay behind safetensors until a real
+end-to-end GLB smoke test passes.

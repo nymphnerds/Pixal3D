@@ -62,6 +62,9 @@ case "${profile}" in
     PIXAL3D_LOW_VRAM=0
     PIXAL3D_RESOLUTION=1536
     ;;
+  gguf_q4_k_m)
+    exec "${SCRIPT_DIR}/pixal3d_fetch_quantized_models.sh" --quant Q4_K_M --license-ack "${license_ack}"
+    ;;
   gguf_q5_k_m)
     exec "${SCRIPT_DIR}/pixal3d_fetch_quantized_models.sh" --quant Q5_K_M --license-ack "${license_ack}"
     ;;

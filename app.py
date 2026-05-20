@@ -385,6 +385,14 @@ app = Server()
 
 @app.get("/")
 async def homepage():
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nymph_pixal3d.html")
+    if not os.path.exists(html_path):
+        html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    with open(html_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+
+@app.get("/official")
+async def official_homepage():
     html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
     with open(html_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
@@ -396,6 +404,9 @@ async def get_config():
         "low_vram": LOW_VRAM,
         "output_dir": OUTPUT_DIR,
         "texture_size": DEFAULT_TEXTURE_SIZE,
+        "weight_format": os.environ.get("PIXAL3D_WEIGHT_FORMAT", "safetensors"),
+        "gguf_quant": os.environ.get("PIXAL3D_QUANT", "Q5_K_M"),
+        "gguf_supported": os.environ.get("PIXAL3D_QUANT_RUNTIME_SUPPORTED", "0") == "1",
     })
 
 @app.get("/progress")

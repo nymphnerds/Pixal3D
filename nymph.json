@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -17,7 +17,7 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D generates textured GLB assets from a single image.\n\nOpen Gradio launches the official Pixal3D app in the Manager WebView. Fetch Models downloads the Pixal3D checkpoints and required helper models into NymphsData. The module uses the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv, so TRELLIS.2 and Pixal3D do not build separate native stacks.\n\nLicense and access:\n- Pixal3D is MIT licensed for Tencent-published code, parameters, weights, and documentation.\n- Third-party components keep their own licenses.\n- BRIA RMBG-2.0 is gated on Hugging Face and may have separate access terms. Use the same Hugging Face account for the access form and module token.",
+    "body": "Pixal3D generates textured GLB assets from a single image.\n\nOpen Gradio launches the NymphsCore Pixal3D app in the Manager WebView, with the upstream app still available at /official. Fetch Models downloads the Pixal3D checkpoints and required helper models into NymphsData. The module uses the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv, so TRELLIS.2 and Pixal3D do not build separate native stacks.\n\nLicense and access:\n- Pixal3D is MIT licensed for Tencent-published code, parameters, weights, and documentation.\n- Third-party components keep their own licenses.\n- BRIA RMBG-2.0 is gated on Hugging Face and may have separate access terms. Use the same Hugging Face account for the access form and module token.",
     "links": [
       {
         "label": "Pixal3D source",
@@ -224,6 +224,11 @@
                 "label": "Standard 1536",
                 "value": "standard_1536",
                 "description": "Heavier profile for high VRAM systems"
+              },
+              {
+                "label": "GGUF Q4_K_M (experimental)",
+                "value": "gguf_q4_k_m",
+                "description": "Fetch community Pixal3D GGUF Q4 weights for adapter testing; current runtime remains safetensors"
               },
               {
                 "label": "GGUF Q5_K_M (experimental)",

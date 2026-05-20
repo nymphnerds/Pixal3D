@@ -53,11 +53,11 @@ EOF
 fi
 
 case "${quant}" in
-  Q5_K_M|Q6_K|Q8_0)
+  Q4_K_M|Q5_K_M|Q6_K|Q8_0)
     ;;
   *)
     echo "Unsupported Pixal3D GGUF quant: ${quant}" >&2
-    echo "Supported values: Q5_K_M, Q6_K, Q8_0" >&2
+    echo "Supported values: Q4_K_M, Q5_K_M, Q6_K, Q8_0" >&2
     exit 2
     ;;
 esac
@@ -108,6 +108,7 @@ token = os.environ.get("NYMPHS3D_HF_TOKEN") or os.environ.get("HF_TOKEN") or Non
 allow_patterns = [
     "README.md",
     "pipeline.json",
+    f"*_{quant}.gguf",
     f"Sparse/*_{quant}.gguf",
     "Sparse/*.json",
     f"shape/*_{quant}.gguf",
@@ -118,15 +119,15 @@ allow_patterns = [
     "decoder/*.safetensors",
 ]
 
-required_files = [
-    f"Sparse/ss_flow_img_dit_1_3B_64_bf16_{quant}.gguf",
-    f"shape/slat_flow_img2shape_dit_1_3B_512_bf16_{quant}.gguf",
-    f"shape/slat_flow_img2shape_dit_1_3B_1024_bf16_{quant}.gguf",
-    f"texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16_{quant}.gguf",
-    "decoder/ss_dec_conv3d_16l8_fp16.safetensors",
-    "decoder/shape_dec_next_dc_f16c32_fp16.safetensors",
-    "decoder/tex_dec_next_dc_f16c32_fp16.safetensors",
-    "pipeline.json",
+required_file_groups = [
+    [f"Sparse/ss_flow_img_dit_1_3B_64_bf16_{quant}.gguf", f"ss_flow_img_dit_1_3B_64_bf16_{quant}.gguf"],
+    [f"shape/slat_flow_img2shape_dit_1_3B_512_bf16_{quant}.gguf", f"slat_flow_img2shape_dit_1_3B_512_bf16_{quant}.gguf"],
+    [f"shape/slat_flow_img2shape_dit_1_3B_1024_bf16_{quant}.gguf", f"slat_flow_img2shape_dit_1_3B_1024_bf16_{quant}.gguf"],
+    [f"texture/slat_flow_imgshape2tex_dit_1_3B_1024_bf16_{quant}.gguf", f"slat_flow_imgshape2tex_dit_1_3B_1024_bf16_{quant}.gguf"],
+    ["decoder/ss_dec_conv3d_16l8_fp16.safetensors"],
+    ["decoder/shape_dec_next_dc_f16c32_fp16.safetensors"],
+    ["decoder/tex_dec_next_dc_f16c32_fp16.safetensors"],
+    ["pipeline.json"],
 ]
 
 
@@ -220,7 +221,7 @@ finally:
     thread.join(timeout=1)
 
 root_path = Path(root)
-missing = [name for name in required_files if not (root_path / name).exists()]
+missing = ["/".join(group) for group in required_file_groups if not any((root_path / name).exists() for name in group)]
 files, bytes_now, partials = cache_stats(cache_path)
 print(
     "MODEL FETCH STATUS: "
