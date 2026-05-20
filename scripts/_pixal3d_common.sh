@@ -169,3 +169,14 @@ for module_name in (
     importlib.import_module(module_name)
 PY
 }
+
+pixal3d_print_trellis_runtime_prerequisite() {
+  cat <<'EOF'
+Install TRELLIS.2 runtime first.
+
+Pixal3D needs the TRELLIS.2 module installed or repaired for its CUDA/native runtime.
+You do not need to fetch TRELLIS model weights for Pixal3D.
+
+Next step: open TRELLIS.2, run Install or Repair, then come back to Pixal3D and Open Gradio.
+EOF
+}

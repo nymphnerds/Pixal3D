@@ -61,14 +61,11 @@ sudo apt-get install -y python3.10 python3.10-venv python3.10-dev git curl cmake
 
 if [[ "${profile}" == "trellis_runtime" ]]; then
   if [[ ! -x "${PIXAL3D_TRELLIS_VENV_DIR}/bin/python" ]]; then
-    echo "Pixal3D needs the TRELLIS.2 module runtime installed first." >&2
-    echo "Install or repair the TRELLIS.2 module, then install Pixal3D again." >&2
-    echo "TRELLIS.2 model weights are not required for Pixal3D; only the TRELLIS.2 runtime/native dependencies are needed." >&2
+    pixal3d_print_trellis_runtime_prerequisite
     exit 1
   fi
   if ! pixal3d_validate_runtime_stack "${PIXAL3D_TRELLIS_VENV_DIR}/bin/python"; then
-    echo "Pixal3D found TRELLIS.2, but its runtime stack is incomplete." >&2
-    echo "Repair the TRELLIS.2 module first. Pixal3D needs the TRELLIS.2 runtime/native dependencies, not TRELLIS model weights." >&2
+    pixal3d_print_trellis_runtime_prerequisite
     exit 1
   fi
   PIXAL3D_VENV_DIR="${PIXAL3D_TRELLIS_VENV_DIR}"

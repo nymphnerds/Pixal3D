@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Requires the TRELLIS.2 module runtime to be installed; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
