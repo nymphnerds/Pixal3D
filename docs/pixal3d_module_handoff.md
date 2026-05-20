@@ -3356,6 +3356,9 @@ Current app shell direction:
 - Controls live in the left column and scroll independently.
 - Generation first creates preview frames, then Export GLB loads the result into
   the embedded model-viewer.
+- Open Gradio should start the UI quickly and load the Pixal3D model only when
+  Generate is clicked. Set `PIXAL3D_WARM_ON_START=1` only for deliberate warmup
+  tests.
 - Texture export defaults to 1024.
 
 GGUF fetch/status now includes `Q4_K_M` and accepts both the nested repo layout

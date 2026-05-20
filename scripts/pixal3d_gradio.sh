@@ -36,7 +36,7 @@ echo "Starting Pixal3D Gradio at ${PIXAL3D_GRADIO_URL}"
     --host "${PIXAL3D_GRADIO_HOST}" \
     --port "${PIXAL3D_GRADIO_PORT}" \
     --lazy-load \
-    --warm-on-start \
+    $([[ "${PIXAL3D_WARM_ON_START:-0}" == "1" ]] && printf '%s' "--warm-on-start" || true) \
     $([[ "${PIXAL3D_LOW_VRAM}" == "1" ]] && printf '%s' "--low-vram" || printf '%s' "--no-low-vram") \
     >"${log_file}" 2>&1 < /dev/null &
   echo $! > "${PIXAL3D_GRADIO_PID_FILE}"
