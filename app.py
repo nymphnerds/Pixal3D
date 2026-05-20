@@ -2,6 +2,7 @@ import os
 import subprocess
 import argparse
 import math
+import re
 import time
 import shutil
 import cv2
@@ -306,8 +307,17 @@ from fastapi import Request
 
 PROGRESS_DIR = os.path.join(TMP_DIR, '_progress')
 os.makedirs(PROGRESS_DIR, exist_ok=True)
+PREPROCESSED_DIR = os.path.join(TMP_DIR, '_preprocessed')
+os.makedirs(PREPROCESSED_DIR, exist_ok=True)
 
 _thread_local = threading.local()
+
+def _safe_session_id(session_id: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9_.-]", "_", session_id or "")
+    return cleaned[:96] or "default"
+
+def _preprocessed_file(session_id: str) -> str:
+    return os.path.join(PREPROCESSED_DIR, f"{_safe_session_id(session_id)}.png")
 
 def _progress_file(session_id: str) -> str:
     """Return path to a session's progress JSON file."""
@@ -402,11 +412,11 @@ async def progress_poll(request: Request):
 
 @app.api()
 @spaces.GPU(duration=30)
-def preprocess(image: FileData) -> FileData:
+def preprocess(image: FileData, session_id: str = "") -> FileData:
     init_models()
     img = Image.open(image["path"])
     processed = pipeline.preprocess_image(img)
-    out_path = os.path.join(TMP_DIR, f"preprocessed_{int(time.time()*1000)}.png")
+    out_path = _preprocessed_file(session_id) if session_id else os.path.join(TMP_DIR, f"preprocessed_{int(time.time()*1000)}.png")
     processed.save(out_path)
     return FileData(path=out_path)
 
@@ -439,9 +449,12 @@ def generate_3d(
     torch.manual_seed(seed)
     hr_resolution = int(resolution)
     
-    img = Image.open(image["path"])
-    # Image is already preprocessed by /preprocess endpoint, use directly
-    image_preprocessed = img
+    cached_preprocessed_path = _preprocessed_file(session_id)
+    if session_id and os.path.exists(cached_preprocessed_path):
+        image_preprocessed = Image.open(cached_preprocessed_path).convert("RGBA")
+    else:
+        img = Image.open(image["path"])
+        image_preprocessed = pipeline.preprocess_image(img)
     temp_processed_path = os.path.join(TMP_DIR, f"temp_proc_{session_id[:8]}_{int(time.time()*1000)}.png")
     image_preprocessed.save(temp_processed_path)
     

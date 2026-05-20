@@ -929,6 +929,7 @@
             document.getElementById('clear-btn').onclick = () => {
                 // Reset state
                 currentFile = null;
+                preprocessedFile = null;
                 generationResult = null;
                 currentFrame = 0;
                 currentMode = "shaded_forest";
@@ -1044,7 +1045,7 @@
             
             // Call preprocess and update with segmented result
             try {
-                const result = await client.predict("/preprocess", { image: handle_file(file) });
+                const result = await client.predict("/preprocess", { image: handle_file(file), session_id: sessionId });
                 const processedUrl = result.data[0].url;
                 if (processedUrl) {
                     preprocessedFile = processedUrl;
@@ -1097,7 +1098,7 @@
             startProgressListener();
             try {
                 const params = {
-                    image: preprocessedFile ? handle_file(preprocessedFile) : handle_file(currentFile),
+                    image: handle_file(currentFile),
                     seed: parseInt(document.getElementById('seed').value),
                     resolution: parseInt(document.getElementById('resolution').value),
                     ss_guidance_strength: parseFloat(document.getElementById('ss_gs').value),

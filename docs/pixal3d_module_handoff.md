@@ -3269,3 +3269,75 @@ Research spike acceptance:
   smoke passes. Do not accept SDPA fallback for Pixal3D.
 - Verify WebP vs non-WebP GLB texture import in target Blender.
 - Measure VRAM for low_vram 1024 and standard 1536 on the user's actual GPU.
+
+## 2026-05-20 Update: Real Pixal3D GGUF Path
+
+Earlier notes in this handoff warned not to base Pixal3D on the TRELLIS GGUF
+adapter because the original assumption was that `trellis2_gguf` only supported
+`Aero-Ex/Trellis2-GGUF`. That assumption is incomplete.
+
+Double-check result:
+
+- The ComfyUI GGUF source already has an explicit `Pixal3D-GGUF` mode.
+- In `ComfyUI-Trellis2-GGUF/nodes.py`, `modelname == "Pixal3D-GGUF"` switches
+  the model repo to `Aero-Ex/Pixal3D-GGUF`.
+- In `ComfyUI-Trellis2-GGUF/model_manager.py`, `PIXAL3D_REPO_PATH_MAP` maps:
+  - `ss_dec_`, `shape_dec_`, `tex_dec_` to `decoder/`
+  - `ss_flow_` to `Sparse/`
+  - `slat_flow_img2shape_` to `shape/`
+  - `slat_flow_imgshape2tex_` to `texture/`
+- The ComfyUI loader then calls
+  `Trellis2ImageTo3DPipeline.from_pretrained(..., enable_gguf=True, gguf_quant=..., isPixal3D=True)`.
+- The Nymph TRELLIS module already adapted this ComfyUI GGUF stack to standalone
+  use in the shared `$HOME/TRELLIS.2/.venv` by installing:
+  - `trellis2_gguf`
+  - `ComfyUI-GGUF` loader files: `ops.py`, `dequant.py`, `loader.py`
+  - `gguf`, `sdnq`, `rembg`, `open3d`, `pymeshlab`, `meshlib`, and related runtime deps
+  - standalone ComfyUI stubs and local-path resolution in
+    `NymphsModules/trellis/scripts/trellis_gguf_common.py`
+
+Therefore the real Pixal3D GGUF path is not to add a fake UI toggle or to
+dequantize GGUF into ordinary safetensors. The real path is to reuse the working
+TRELLIS standalone GGUF adaptation and invoke the existing Pixal3D branch of
+`trellis2_gguf`.
+
+Implementation target:
+
+1. Add a Pixal3D equivalent of `trellis_gguf_common.py`, adapted for:
+   - `GGUF_MODEL_REPO_ID = "Aero-Ex/Pixal3D-GGUF"`
+   - Pixal3D cache dir `models--Aero-Ex--Pixal3D-GGUF`
+   - required directories `Sparse`, `shape`, `texture`, and `decoder`
+   - no TRELLIS support checkpoint requirement unless the imported loader proves
+     one is still needed for a specific path
+2. Ensure Pixal3D install/update verifies the shared venv already has the
+   GGUF runtime bits from the TRELLIS module, or installs only those missing
+   bits without rebuilding FlashAttention.
+3. When `PIXAL3D_WEIGHT_FORMAT=gguf-experimental`, load via:
+
+```python
+from trellis2_gguf.pipelines import Trellis2ImageTo3DPipeline
+
+pipeline = Trellis2ImageTo3DPipeline.from_pretrained(
+    str(model_root),
+    keep_models_loaded=False,
+    enable_gguf=True,
+    gguf_quant=quant,
+    precision="bf16",
+    isPixal3D=True,
+)
+```
+
+4. Patch/bridge any Pixal3D-specific preprocessing, image-conditioner, camera,
+   MoGe, and official app expectations around that pipeline object.
+5. Add `Q4_K_M` to Pixal3D fetch/profile choices. The GGUF repo publishes Q4
+   files and it is the most useful first VRAM test on the RTX 4080-class target.
+6. Keep the current safetensors path as the default until GGUF completes a real
+   generation smoke test. Do not expose GGUF as a normal user-facing runtime
+   option until it actually produces a GLB.
+
+Current conclusion:
+
+- The GGUF weights are not useless.
+- The module's current GGUF fetch-only behavior is incomplete.
+- The fastest real bridge is to reuse the TRELLIS module's proven standalone
+  `trellis2_gguf` method with `isPixal3D=True`.
