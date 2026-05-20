@@ -120,7 +120,7 @@ IMAGE_COND_CONFIGS = {
 def resolve_texture_naf_target_size(low_vram: bool) -> int:
     value = os.environ.get("PIXAL3D_TEXTURE_NAF_TARGET_SIZE")
     if value in (None, ""):
-        return 768 if low_vram else 1024
+        return 1024
     value = int(value)
     if value not in {512, 768, 1024}:
         raise ValueError(f"Unsupported PIXAL3D_TEXTURE_NAF_TARGET_SIZE: {value}")
