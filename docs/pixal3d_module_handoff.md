@@ -3550,8 +3550,9 @@ Current app shell direction:
 - The reference pane and GLB/result pane share the same footprint and scale with
   the WebView window.
 - Controls live in the left column and scroll independently.
-- Generation first creates preview frames, then Export GLB loads the result into
-  the embedded model-viewer.
+- Generation now skips preview-frame rendering in the Nymphs UI path. It samples
+  the 3D latent model, packs state for export, builds the GLB, and loads the
+  embedded model-viewer.
 - Open Gradio starts the UI quickly, then begins a delayed model preload by
   default (`PIXAL3D_WARMUP_DELAY=3`). The app polls `/warmup_status` and shows
   model loading progress in the Run panel. Set `PIXAL3D_WARMUP_DELAY=0` to
@@ -3716,12 +3717,12 @@ Latest behavior state:
 
 Published state:
 
-- Pixal3D module version: `0.1.72`
-- Pixal3D commit: `eea997f` (`Fix Pixal3D source preview and prep path`)
-- Registry commit: `53226a3` (`Update Pixal3D registry to 0.1.72`)
-- Registry version: `90`
+- Pixal3D module version: `0.1.74`
+- Pixal3D commit: `71dfac3` (`Remove Pixal3D preview frame path`)
+- Registry commit: `b92f45c` (`Update Pixal3D registry to 0.1.74`)
+- Registry version: `92`
 - Registry Pixal3D manifest hash:
-  `3ecd03aebe314c884ef20a8168f769bc8b5c9d7da5c12b92d0d35876dae38d17`
+  `50232e8285621789f0d02334282419b971741c9e81a3ad792dbaf2bb3e8b4954`
 
 What changed in the final published patch:
 
@@ -3735,17 +3736,25 @@ What changed in the final published patch:
   `'FileData' object is not subscriptable`.
 - The left Pixal work rail remains locked at `360px` and command buttons remain
   thin horizontal strips, not square tiles.
+- `Generate` no longer renders or saves 2D preview frames in the Nymphs UI path.
+  It goes straight from latent model generation to GLB export.
+- The right result area is now dedicated to the interactive embedded
+  `model-viewer`; the old filmstrip is removed.
+- Progress final states are explicit, so completed work should not remain stuck
+  on `Starting`/queued text.
 
 First tests for the next session:
 
-1. In the test WSL/Manager path, update Pixal3D to `0.1.72`.
+1. In the test WSL/Manager path, update Pixal3D to `0.1.74`.
 2. Open the Nymphs UI and confirm the update came through the registry path, not
    a manual file sync.
 3. Drop the transparent character PNG again and confirm the whole image is
    visible inside the square preview.
 4. Let warmup finish, run `Prepare Source`, and confirm prep no longer fails
    with `FileData`.
-5. Confirm `Generate` stays gated correctly until warmup/prep state is ready.
+5. Click `Generate` and confirm it does not render a preview-frame filmstrip.
+6. Confirm the GLB appears in the full-size embedded model viewer and survives
+   window resizing.
 
 Workflow reminder for future agents:
 

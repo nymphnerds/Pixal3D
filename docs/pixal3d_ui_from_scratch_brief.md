@@ -42,8 +42,8 @@ The UI should be built around the actual Pixal3D workflow:
 1. Load or drop a source image.
 2. Warm up the model.
 3. Prepare the source image.
-4. Generate preview frames.
-5. Export or open the GLB.
+4. Generate the 3D latent model.
+5. Export and open the GLB in the embedded model viewer.
 
 Warm-up must have its own top progress area.
 
