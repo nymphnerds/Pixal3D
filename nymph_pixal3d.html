@@ -10,631 +10,242 @@
     :root {
       color-scheme: dark;
       --bg: #07100f;
-      --panel: #101817;
-      --panel-2: #162321;
-      --line: #25413d;
-      --text: #ecfffb;
-      --muted: #95b8b2;
-      --accent: #00f0d8;
-      --accent-2: #ff8a2a;
+      --ink: #ecfffb;
+      --muted: #9ac5bd;
+      --panel: #0b1514;
+      --panel-2: #101c1a;
+      --field: #14221f;
+      --line: #254842;
+      --line-2: #386963;
+      --teal: #00f0d8;
+      --lime: #9cff57;
+      --amber: #ff8a2a;
       --danger: #ff5e6c;
-      --ok: #9cff57;
-      --shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.36);
     }
 
     * { box-sizing: border-box; }
     html, body { height: 100%; }
     body {
       margin: 0;
+      overflow: hidden;
       background: var(--bg);
-      color: var(--text);
+      color: var(--ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       font-size: 14px;
       letter-spacing: 0;
-      overflow: hidden;
     }
 
-    button, input, select {
-      font: inherit;
-      letter-spacing: 0;
-    }
-
-    * {
-      scrollbar-width: thin;
-      scrollbar-color: rgba(0, 240, 216, 0.72) transparent;
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      border-radius: 999px;
-      background: rgba(0, 240, 216, 0.62);
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: rgba(0, 240, 216, 0.9);
-    }
-
-    ::-webkit-scrollbar-corner {
-      background: transparent;
-    }
+    button, input, select { font: inherit; letter-spacing: 0; }
+    * { scrollbar-width: thin; scrollbar-color: rgba(0, 240, 216, 0.78) transparent; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { border-radius: 999px; background: rgba(0, 240, 216, 0.68); }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(0, 240, 216, 0.94); }
+    ::-webkit-scrollbar-corner { background: transparent; }
 
     .app {
-      display: grid;
-      grid-template-columns: 410px minmax(0, 1fr);
       height: 100vh;
       min-height: 560px;
+      display: grid;
+      grid-template-columns: clamp(430px, 44vw, 620px) minmax(520px, 1fr);
+      background: #08110f;
     }
 
     .sidebar {
       min-width: 0;
       height: 100vh;
-      padding: 12px;
-      border-right: 1px solid var(--line);
-      background: #0b1514;
       overflow-y: auto;
+      padding: 14px 16px 12px;
+      border-right: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(14, 27, 25, 0.96), rgba(7, 16, 15, 0.98)),
+        var(--panel);
     }
 
     .section {
-      padding: 8px 0;
-      border-top: 1px solid rgba(37, 65, 61, 0.85);
+      padding: 12px 0;
+      border-top: 1px solid rgba(37, 72, 66, 0.84);
     }
-
-    .section:first-of-type { border-top: 0; }
+    .section:first-child { border-top: 0; padding-top: 0; }
 
     .section-title {
       display: flex;
       align-items: center;
-      gap: 8px;
-      color: #bdebe4;
-      font-size: 12px;
-      font-weight: 800;
+      gap: 9px;
+      margin-bottom: 10px;
+      color: #bdf2ea;
+      font-size: 13px;
+      font-weight: 900;
       text-transform: uppercase;
-      margin-bottom: 8px;
     }
+    .section-title svg { width: 22px; height: 22px; color: #bdf2ea; }
 
-    .drop {
-      aspect-ratio: 4 / 5;
-      min-height: 280px;
-      max-height: 440px;
-      display: grid;
-      place-items: center;
+    .source-frame {
       position: relative;
-      border: 1px dashed #386963;
+      min-height: 360px;
+      height: min(50vh, 520px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px;
+      border: 1px dashed var(--line-2);
       border-radius: 8px;
-      background: #0e1918;
+      background: #0b1715;
       overflow: hidden;
       cursor: pointer;
+      box-shadow: inset 0 0 0 1px rgba(0, 240, 216, 0.04);
     }
-
-    .drop.drag { border-color: var(--accent); background: #102522; }
-
-    .drop img {
-      width: auto;
-      height: auto;
-      max-width: calc(100% - 20px);
-      max-height: calc(100% - 20px);
+    .source-frame.drag { border-color: var(--teal); background: #102522; }
+    .source-frame img {
       display: none;
+      width: 100%;
+      height: 100%;
       object-fit: contain;
       object-position: center;
     }
-
     .drop-hint {
       display: grid;
-      gap: 8px;
+      gap: 10px;
       justify-items: center;
       color: var(--muted);
       text-align: center;
-      padding: 16px;
-      font-size: 12px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .params {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 9px;
-      padding: 0;
-      border-top: 0;
-      background: transparent;
-    }
-
-    .params .field {
-      margin: 0;
-    }
-
-    .params .wide {
-      grid-column: span 2;
-    }
-
-    .params select {
       font-size: 13px;
-      padding-left: 12px;
-      padding-right: 24px;
     }
+    .drop-hint svg { width: 30px; height: 30px; color: var(--muted); }
 
-    label {
-      display: block;
-      font-size: 11px;
-      color: #d7f4ef;
-      margin-bottom: 5px;
-    }
-
-    .field {
-      margin-bottom: 12px;
-    }
-
-    input, select {
-      width: 100%;
-      height: 34px;
-      font-size: 13px;
-      border: 1px solid #314b48;
-      border-radius: 8px;
-      color: var(--text);
-      background: var(--panel-2);
-      padding: 0 12px;
-      outline: none;
-    }
-
-    input:focus, select:focus { border-color: var(--accent); }
-
-    .toggle-row {
+    .prepare-line {
+      min-height: 36px;
+      margin-top: 10px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      min-height: 34px;
-      color: #d7f4ef;
+      gap: 14px;
+      color: var(--ink);
+      font-size: 15px;
     }
+    input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--amber); }
 
-    input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      accent-color: var(--accent-2);
+    .command-panel {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid rgba(49, 91, 84, 0.9);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(17, 36, 33, 0.98), rgba(8, 17, 16, 0.98)),
+        #0b1514;
+      box-shadow:
+        inset 0 1px 0 rgba(0, 240, 216, 0.1),
+        inset 3px 0 0 rgba(156, 255, 87, 0.12);
     }
-
-    input[type="range"] {
-      height: 28px;
-      padding: 0;
-      accent-color: var(--accent-2);
-      background: transparent;
-      border: 0;
+    .command-title {
+      margin-bottom: 9px;
+      color: var(--lime);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
     }
-
-    .value {
-      float: right;
-      color: var(--accent);
-      font-size: 12px;
-      font-weight: 700;
+    .command-title::before { content: "// "; color: var(--teal); }
+    .command-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
     }
 
     .btn {
-      position: relative;
-      min-height: 30px;
-      border: 1px solid #31534f;
-      border-radius: 6px;
+      width: auto;
+      min-width: 112px;
+      min-height: 32px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      color: #dffdf8;
-      background: #0b1514;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-      font-weight: 850;
-      font-size: 12px;
-      line-height: 1.1;
-      padding: 0 10px;
-      cursor: pointer;
-      width: 100%;
-      overflow: hidden;
-      text-shadow: 0 0 10px rgba(0, 240, 216, 0.08);
-    }
-
-    .btn::before {
-      content: "//";
-      color: var(--ok);
-      font-weight: 900;
-      margin-right: 1px;
-    }
-
-    .btn::after {
-      content: "";
-      position: absolute;
-      left: 9px;
-      right: 9px;
-      bottom: 4px;
-      height: 1px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(0, 240, 216, 0.65), rgba(156, 255, 87, 0));
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .btn.secondary {
-      color: var(--accent);
-      background: linear-gradient(180deg, #10201e 0%, #0b1514 100%);
-      border-color: #335b55;
-    }
-
-    .btn.primary {
-      color: #ecfffb;
+      padding: 0 12px;
+      border: 1px solid #315b55;
+      border-radius: 6px;
+      color: var(--teal);
       background:
-        linear-gradient(180deg, rgba(19, 231, 210, 0.18) 0%, rgba(8, 16, 15, 0.1) 55%),
+        linear-gradient(180deg, rgba(13, 31, 28, 0.92), rgba(7, 15, 14, 0.96)),
         #0b1514;
-      border-color: #13e7d2;
-      box-shadow: inset 0 0 0 1px rgba(19, 231, 210, 0.1);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1;
+      white-space: nowrap;
+      cursor: pointer;
     }
-
-    .btn.primary::before {
-      color: var(--ok);
-    }
-
-    .btn.primary::after {
-      opacity: 0.85;
-    }
-
+    .btn::before { content: "//"; color: var(--lime); }
+    .btn svg { display: none; }
     .btn:hover:not(:disabled) {
-      border-color: var(--ok);
+      color: var(--lime);
+      border-color: var(--lime);
       box-shadow: inset 0 0 0 1px rgba(156, 255, 87, 0.18);
     }
-
-    .btn.secondary:hover:not(:disabled) {
-      color: var(--ok);
+    .btn.primary {
+      min-width: 158px;
+      color: var(--ink);
+      border-color: var(--teal);
+      background:
+        linear-gradient(90deg, rgba(0, 240, 216, 0.42), rgba(156, 255, 87, 0.12)),
+        #0b1514;
     }
-
-    .btn.warn {
-      color: white;
-      background: var(--accent-2);
-    }
-
+    .btn.primary::before { color: var(--lime); }
     .btn:disabled {
-      color: #66827d;
-      background: #0b1514;
-      border-color: #243b38;
-      opacity: 0.72;
+      color: #526d68;
+      border-color: #1d3431;
+      background: #091312;
       cursor: not-allowed;
-      text-shadow: none;
+      box-shadow: none;
     }
+    .btn:disabled::before { color: #31544f; }
 
-    .btn:disabled::before {
-      color: #2f5752;
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: #d8f8f2;
+      font-size: 12px;
+      font-weight: 750;
     }
-
-    .btn:disabled::after {
-      opacity: 0;
-    }
-
-    .primary-actions {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .primary-actions .btn {
-      min-width: 0;
-      min-height: 32px;
-      padding: 0 8px;
-      font-size: 11px;
-    }
-
-    .btn svg {
-      display: none;
-    }
-
-    .source-tools {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .source-tools .btn {
-      min-height: 32px;
-      font-size: 11px;
-    }
-
-    .status-actions {
+    .params {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
+      gap: 10px 12px;
     }
-
-    .status-actions .btn {
-      min-height: 32px;
-      font-size: 11px;
-    }
-
-    .stage {
-      display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
-      min-width: 0;
-      min-height: 0;
-      height: 100%;
-      background: #0a1110;
-    }
-
-    .topbar {
-      height: 44px;
-      display: grid;
-      grid-template-columns: minmax(170px, 1fr) auto;
-      align-items: center;
-      gap: 14px;
-      padding: 0 16px;
-      border-bottom: 1px solid var(--line);
-      background: #0f1716;
-    }
-
-    .status {
+    .field { min-width: 0; }
+    .field.wide { grid-column: 1 / -1; }
+    .toggle-field {
+      min-height: 52px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 12px;
-      min-width: 0;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 18px;
+      color: var(--ink);
+      font-size: 16px;
     }
-
-    .dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: var(--muted);
-      box-shadow: 0 0 0 4px rgba(149, 184, 178, 0.12);
-    }
-
-    .dot.work { background: var(--accent-2); }
-    .dot.ok { background: var(--ok); }
-    .dot.err { background: var(--danger); }
-
-    .runtime-text {
-      justify-content: end;
-    }
-
-    .warmup-strip {
-      min-width: 0;
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      grid-template-rows: auto 5px;
-      align-items: center;
-      column-gap: 12px;
-      row-gap: 6px;
-      padding: 8px 16px;
-      border-bottom: 1px solid var(--line);
-      background: #0b1514;
-      color: var(--muted);
-      font-size: 11px;
-    }
-
-    .warmup-title {
-      color: var(--text);
-      font-weight: 800;
-      white-space: nowrap;
-    }
-
-    .warmup-detail {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .warmup-bar {
-      grid-column: 1 / -1;
-      height: 5px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: #213733;
-    }
-
-    .warmup-bar span {
-      display: block;
-      width: 0%;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      transition: width 0.28s ease;
-    }
-
-    .top-progress {
-      min-height: 40px;
-      min-width: 0;
-      display: grid;
-      grid-template-columns: auto minmax(86px, max-content) minmax(0, 1fr);
-      grid-template-rows: auto 6px;
-      align-items: center;
-      column-gap: 10px;
-      row-gap: 7px;
-      padding: 8px 14px;
-      border-top: 1px solid var(--line);
-      background: #0f1716;
-      color: var(--muted);
-      font-size: 11px;
-    }
-
-    .top-progress-copy {
-      min-width: 0;
-      display: grid;
-      gap: 3px;
-    }
-
-    .top-progress-text {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .top-progress-stage {
-      color: var(--text);
-      font-weight: 750;
-      white-space: nowrap;
-    }
-
-    .top-progress-extra {
-      min-width: 0;
-      color: var(--muted);
-      font-size: 10px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .top-progress-icon {
-      width: 20px;
-      height: 20px;
-      color: #bdebe4;
-    }
-
-    .top-progress .bar {
-      grid-column: 1 / -1;
+    input, select {
       width: 100%;
-      height: 6px;
-      margin-top: 0;
-    }
-
-    .workspace {
-      min-width: 0;
-      min-height: 0;
-      overflow: hidden;
-    }
-
-    .preview {
-      min-width: 0;
-      min-height: 0;
-      display: grid;
-      grid-template-rows: minmax(0, 1fr) auto minmax(82px, auto);
-      height: 100%;
-      background: #0d1514;
-      overflow: hidden;
-    }
-
-    .viewer {
-      min-height: 0;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-      padding: 14px;
-      position: relative;
-    }
-
-    .pane {
-      min-width: 0;
-      min-height: 0;
-      display: grid;
-      grid-template-rows: minmax(0, 1fr);
-    }
-
-    .pane-body {
-      min-width: 0;
-      min-height: 0;
-      display: grid;
-      place-items: center;
-      border: 1px solid #263f3b;
+      height: 36px;
+      padding: 0 12px;
+      border: 1px solid #314f49;
       border-radius: 8px;
-      background: #08100f;
-      overflow: hidden;
-      position: relative;
+      outline: none;
+      color: var(--ink);
+      background: var(--field);
+      font-size: 14px;
     }
-
-    .empty {
-      color: var(--muted);
-      text-align: center;
-      display: grid;
-      gap: 10px;
-      justify-items: center;
-    }
-
-    #hero-image {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-      display: none;
-      border-radius: 8px;
-      box-shadow: var(--shadow);
-    }
-
-    model-viewer {
-      width: 100%;
-      height: 100%;
-      min-height: 0;
-      display: none;
-      background: #0a1110;
-    }
-
-    .filmstrip {
-      min-height: 72px;
-      display: flex;
-      gap: 10px;
-      padding: 8px 14px 10px;
-      border-top: 1px solid var(--line);
-      overflow-x: auto;
-      background: #0f1716;
-    }
-
-    .frame {
-      width: 94px;
-      height: 58px;
-      object-fit: cover;
-      border: 1px solid #314b48;
-      border-radius: 8px;
-      cursor: pointer;
-      background: #111;
-      flex: 0 0 auto;
-    }
-
-    .frame.active { border-color: var(--accent); }
-
-    .sidepanel {
-      min-height: 0;
+    select { padding-right: 28px; }
+    input:focus, select:focus { border-color: var(--teal); }
+    input[type="range"] {
+      height: 28px;
       padding: 0;
+      border: 0;
+      background: transparent;
+      accent-color: var(--amber);
     }
-
-    .progress-box {
-      border: 1px solid #2b4b46;
-      border-radius: 8px;
-      padding: 10px;
-      background: #101817;
-      margin-bottom: 10px;
-    }
-
-    .progress-box .status {
-      font-size: 11px;
-      line-height: 1.35;
-    }
-
-    .bar {
-      height: 8px;
-      border-radius: 999px;
-      overflow: hidden;
-      background: #223532;
-      margin-top: 10px;
-    }
-
-    .bar span {
-      display: block;
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      transition: width 160ms ease;
-    }
-
-    .progress-detail {
-      min-height: 18px;
-      margin-top: 8px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.35;
-    }
+    .value { float: right; color: var(--teal); font-size: 12px; font-weight: 900; }
 
     .meta {
       display: grid;
@@ -643,17 +254,135 @@
       font-size: 12px;
       margin-bottom: 10px;
     }
+    .meta strong { color: var(--ink); }
+    .note { color: var(--muted); font-size: 11px; line-height: 1.45; }
 
-    .meta strong {
-      color: var(--text);
-      font-weight: 750;
+    .stage {
+      min-width: 0;
+      min-height: 0;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 46px auto minmax(0, 1fr);
+      background: #0a1110;
     }
-
-    .note {
+    .topbar {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--line);
+      background: #0f1716;
+    }
+    .status {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       color: var(--muted);
-      font-size: 11px;
-      line-height: 1.45;
+      font-size: 13px;
     }
+    .runtime-text { justify-content: end; }
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--muted);
+      box-shadow: 0 0 0 5px rgba(149, 197, 189, 0.1);
+    }
+    .dot.work { background: var(--amber); }
+    .dot.ok { background: var(--lime); }
+    .dot.err { background: var(--danger); }
+
+    .warmup-strip {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-rows: auto 6px;
+      align-items: center;
+      gap: 7px 12px;
+      padding: 9px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #0b1514;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .warmup-title { color: var(--ink); font-weight: 900; white-space: nowrap; }
+    .warmup-detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .warmup-bar { grid-column: 1 / -1; height: 6px; border-radius: 999px; background: #213733; overflow: hidden; }
+    .warmup-bar span { display: block; width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--lime), var(--amber)); transition: width 0.28s ease; }
+
+    .workspace { min-width: 0; min-height: 0; overflow: hidden; }
+    .preview {
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto minmax(80px, auto);
+      background: #0d1514;
+    }
+    .viewer { min-width: 0; min-height: 0; padding: 18px; display: grid; }
+    .pane, .pane-body { min-width: 0; min-height: 0; }
+    .pane-body {
+      display: grid;
+      place-items: center;
+      border: 1px solid #27433f;
+      border-radius: 8px;
+      background: #08100f;
+      overflow: hidden;
+      position: relative;
+    }
+    .empty {
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+      color: var(--muted);
+      text-align: center;
+    }
+    #hero-image {
+      display: none;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    model-viewer { display: none; width: 100%; height: 100%; min-height: 0; background: #0a1110; }
+
+    .top-progress {
+      min-width: 0;
+      min-height: 46px;
+      display: grid;
+      grid-template-columns: auto minmax(84px, max-content) minmax(0, 1fr);
+      grid-template-rows: auto 6px;
+      align-items: center;
+      gap: 7px 10px;
+      padding: 9px 18px;
+      border-top: 1px solid var(--line);
+      background: #0f1716;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .top-progress-icon { width: 20px; height: 20px; color: #bdebe4; }
+    .top-progress-stage { color: var(--ink); font-weight: 900; white-space: nowrap; }
+    .top-progress-copy { min-width: 0; display: grid; gap: 3px; }
+    .top-progress-text, .top-progress-extra { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .top-progress-extra { color: var(--muted); font-size: 10px; }
+    .bar { grid-column: 1 / -1; height: 6px; border-radius: 999px; background: #223532; overflow: hidden; }
+    .bar span { display: block; width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--lime), var(--amber)); transition: width 160ms ease; }
+
+    .filmstrip {
+      min-height: 76px;
+      display: flex;
+      gap: 10px;
+      padding: 9px 18px 11px;
+      border-top: 1px solid var(--line);
+      overflow-x: auto;
+      background: #0f1716;
+    }
+    .frame { flex: 0 0 auto; width: 94px; height: 58px; object-fit: cover; border: 1px solid #314b48; border-radius: 8px; background: #111; cursor: pointer; }
+    .frame.active { border-color: var(--teal); }
 
     .toast {
       position: fixed;
@@ -663,7 +392,7 @@
       padding: 12px 14px;
       border: 1px solid #365f59;
       border-radius: 8px;
-      color: var(--text);
+      color: var(--ink);
       background: #111d1b;
       box-shadow: var(--shadow);
       opacity: 0;
@@ -672,19 +401,13 @@
       transition: 160ms ease;
       z-index: 10;
     }
+    .toast.show { opacity: 1; transform: translateY(0); }
 
-    .toast.show {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    @media (max-width: 760px) {
+    @media (max-width: 900px) {
       body { overflow: auto; }
       .app { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
-      .sidebar { height: auto; max-height: none; border-right: 0; border-bottom: 1px solid var(--line); }
-      .stage { height: 86vh; min-height: 680px; }
-      .params { grid-template-columns: 1fr 1fr; }
-      .sidepanel { border-left: 0; border-top: 1px solid var(--line); }
+      .sidebar { height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+      .stage { height: 84vh; min-height: 640px; }
     }
   </style>
 </head>
@@ -693,7 +416,7 @@
     <aside class="sidebar">
       <section class="section">
         <div class="section-title"><i data-lucide="image"></i> Source</div>
-        <div class="drop" id="drop">
+        <div class="source-frame" id="drop">
           <input id="file" type="file" accept="image/*" hidden>
           <img id="source-preview" alt="Source preview">
           <div class="drop-hint" id="drop-hint">
@@ -701,20 +424,28 @@
             <div>Drop an image here or click to choose</div>
           </div>
         </div>
-        <div class="toggle-row" style="margin-top:10px">
+        <div class="prepare-line">
           <span>Prepare source image</span>
           <input id="prepare-source" type="checkbox" checked>
         </div>
-        <div class="source-tools">
-          <button class="btn secondary" id="prepare-source-action" disabled><i data-lucide="wand-sparkles"></i> Prepare Source</button>
-          <button class="btn secondary" id="clear-source" disabled><i data-lucide="x"></i> Clear Source</button>
+        <div class="command-panel source-tools">
+          <div class="command-title">Source Commands</div>
+          <div class="command-row">
+            <button class="btn secondary" id="prepare-source-action" disabled><i data-lucide="wand-sparkles"></i> Prepare Source</button>
+            <button class="btn secondary" id="clear-source" disabled><i data-lucide="x"></i> Clear Source</button>
+          </div>
         </div>
       </section>
 
-      <section class="section primary-actions">
-        <button class="btn secondary" id="warm-up"><i data-lucide="flame"></i> Warm Up</button>
-        <button class="btn primary" id="generate" disabled><i data-lucide="sparkles"></i> Generate Preview</button>
-        <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export GLB</button>
+      <section class="section">
+        <div class="command-panel primary-actions">
+          <div class="command-title">Run Commands</div>
+          <div class="command-row">
+            <button class="btn secondary" id="warm-up"><i data-lucide="flame"></i> Warm Up</button>
+            <button class="btn primary" id="generate" disabled><i data-lucide="sparkles"></i> Generate Preview</button>
+            <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export GLB</button>
+          </div>
+        </div>
       </section>
 
       <section class="section">
@@ -730,126 +461,30 @@
               <option value="custom">Custom</option>
             </select>
           </div>
-          <div class="toggle-row">
-            <span>Low VRAM</span>
-            <input id="low-vram" type="checkbox" checked>
-          </div>
-          <div class="field">
-            <label for="resolution">Resolution</label>
-            <select id="resolution">
-              <option value="1024">1024</option>
-              <option value="1536">1536</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="weight-profile">Weights</label>
-            <select id="weight-profile">
-              <option value="low_vram_1024">1024 safetensors low-VRAM</option>
-              <option value="standard_1536">1536 safetensors standard</option>
-              <option value="gguf_q4_k_m">GGUF Q4_K_M experimental</option>
-              <option value="gguf_q5_k_m">GGUF Q5_K_M experimental</option>
-              <option value="gguf_q6_k">GGUF Q6_K experimental</option>
-              <option value="gguf_q8_0">GGUF Q8_0 experimental</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="seed">Seed</label>
-            <input id="seed" type="number" value="42">
-          </div>
-          <div class="field">
-            <label for="texture-size">Texture</label>
-            <select id="texture-size">
-              <option value="1024">1024</option>
-              <option value="2048">2048</option>
-              <option value="4096">4096</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="texture-naf">Texture NAF</label>
-            <select id="texture-naf">
-              <option value="512">512</option>
-              <option value="768">768</option>
-              <option value="1024">1024</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="faces">Faces</label>
-            <input id="faces" type="number" min="5000" max="2000000" step="5000" value="200000">
-          </div>
-          <div class="field">
-            <label for="max-tokens">Max Tokens</label>
-            <input id="max-tokens" type="number" min="16384" max="131072" step="1024" value="32768">
-          </div>
-
-          <div class="field">
-            <label for="ss-guidance">SS Guidance</label>
-            <input id="ss-guidance" type="number" min="0" max="20" step="0.1" value="7.5">
-          </div>
-          <div class="field">
-            <label for="ss-rescale">SS Rescale</label>
-            <input id="ss-rescale" type="number" min="0" max="1" step="0.05" value="0.7">
-          </div>
-          <div class="field">
-            <label for="ss-rescale-t">SS Rescale T</label>
-            <input id="ss-rescale-t" type="number" min="0" max="10" step="0.1" value="5.0">
-          </div>
-          <div class="field wide">
-            <label for="ss-steps">Structure Steps <span class="value" id="ss-steps-value">12</span></label>
-            <input id="ss-steps" type="range" min="4" max="32" step="1" value="12">
-          </div>
-
-          <div class="field">
-            <label for="shape-guidance">Shape Guidance</label>
-            <input id="shape-guidance" type="number" min="0" max="20" step="0.1" value="7.5">
-          </div>
-          <div class="field">
-            <label for="shape-rescale">Shape Rescale</label>
-            <input id="shape-rescale" type="number" min="0" max="1" step="0.05" value="0.5">
-          </div>
-          <div class="field">
-            <label for="shape-rescale-t">Shape Rescale T</label>
-            <input id="shape-rescale-t" type="number" min="0" max="10" step="0.1" value="3.0">
-          </div>
-          <div class="field wide">
-            <label for="shape-steps">Shape Steps <span class="value" id="shape-steps-value">12</span></label>
-            <input id="shape-steps" type="range" min="4" max="32" step="1" value="12">
-          </div>
-
-          <div class="field">
-            <label for="tex-guidance">Texture Guidance</label>
-            <input id="tex-guidance" type="number" min="0" max="20" step="0.1" value="1.0">
-          </div>
-          <div class="field">
-            <label for="tex-rescale">Texture Rescale</label>
-            <input id="tex-rescale" type="number" min="0" max="1" step="0.05" value="0.0">
-          </div>
-          <div class="field">
-            <label for="tex-rescale-t">Texture Rescale T</label>
-            <input id="tex-rescale-t" type="number" min="0" max="10" step="0.1" value="3.0">
-          </div>
-          <div class="field wide">
-            <label for="tex-steps">Texture Steps <span class="value" id="tex-steps-value">12</span></label>
-            <input id="tex-steps" type="range" min="4" max="32" step="1" value="12">
-          </div>
-          <div class="field">
-            <label for="fov">FOV</label>
-            <input id="fov" type="number" value="0.2" step="0.01" min="0.0175" max="2.9671" disabled>
-          </div>
-          <div class="field">
-            <label for="fov-unit">Unit</label>
-            <select id="fov-unit" disabled>
-              <option value="rad" selected>rad</option>
-              <option value="deg">deg</option>
-            </select>
-          </div>
-          <div class="toggle-row wide">
-            <span>Auto camera with MoGe</span>
-            <input id="auto-fov" type="checkbox" checked>
-          </div>
-          <div class="toggle-row wide">
-            <span>Use GPU for RMBG</span>
-            <input id="rembg-keep-gpu" type="checkbox">
-          </div>
+          <div class="toggle-field"><span>Low VRAM</span><input id="low-vram" type="checkbox" checked></div>
+          <div class="field"><label for="resolution">Resolution</label><select id="resolution"><option value="1024">1024</option><option value="1536">1536</option></select></div>
+          <div class="field"><label for="weight-profile">Weights</label><select id="weight-profile"><option value="low_vram_1024">1024 safetensors low-VRAM</option><option value="standard_1536">1536 safetensors standard</option><option value="gguf_q4_k_m">GGUF Q4_K_M experimental</option><option value="gguf_q5_k_m">GGUF Q5_K_M experimental</option><option value="gguf_q6_k">GGUF Q6_K experimental</option><option value="gguf_q8_0">GGUF Q8_0 experimental</option></select></div>
+          <div class="field"><label for="seed">Seed</label><input id="seed" type="number" value="42"></div>
+          <div class="field"><label for="texture-size">Texture</label><select id="texture-size"><option value="1024">1024</option><option value="2048">2048</option><option value="4096">4096</option></select></div>
+          <div class="field"><label for="texture-naf">Texture NAF</label><select id="texture-naf"><option value="512">512</option><option value="768">768</option><option value="1024">1024</option></select></div>
+          <div class="field"><label for="faces">Faces</label><input id="faces" type="number" min="5000" max="2000000" step="5000" value="200000"></div>
+          <div class="field"><label for="max-tokens">Max Tokens</label><input id="max-tokens" type="number" min="16384" max="131072" step="1024" value="32768"></div>
+          <div class="field"><label for="ss-guidance">SS Guidance</label><input id="ss-guidance" type="number" min="0" max="20" step="0.1" value="7.5"></div>
+          <div class="field"><label for="ss-rescale">SS Rescale</label><input id="ss-rescale" type="number" min="0" max="1" step="0.05" value="0.7"></div>
+          <div class="field"><label for="ss-rescale-t">SS Rescale T</label><input id="ss-rescale-t" type="number" min="0" max="10" step="0.1" value="5.0"></div>
+          <div class="field wide"><label for="ss-steps">Structure Steps <span class="value" id="ss-steps-value">12</span></label><input id="ss-steps" type="range" min="4" max="32" step="1" value="12"></div>
+          <div class="field"><label for="shape-guidance">Shape Guidance</label><input id="shape-guidance" type="number" min="0" max="20" step="0.1" value="7.5"></div>
+          <div class="field"><label for="shape-rescale">Shape Rescale</label><input id="shape-rescale" type="number" min="0" max="1" step="0.05" value="0.5"></div>
+          <div class="field"><label for="shape-rescale-t">Shape Rescale T</label><input id="shape-rescale-t" type="number" min="0" max="10" step="0.1" value="3.0"></div>
+          <div class="field wide"><label for="shape-steps">Shape Steps <span class="value" id="shape-steps-value">12</span></label><input id="shape-steps" type="range" min="4" max="32" step="1" value="12"></div>
+          <div class="field"><label for="tex-guidance">Texture Guidance</label><input id="tex-guidance" type="number" min="0" max="20" step="0.1" value="1.0"></div>
+          <div class="field"><label for="tex-rescale">Texture Rescale</label><input id="tex-rescale" type="number" min="0" max="1" step="0.05" value="0.0"></div>
+          <div class="field"><label for="tex-rescale-t">Texture Rescale T</label><input id="tex-rescale-t" type="number" min="0" max="10" step="0.1" value="3.0"></div>
+          <div class="field wide"><label for="tex-steps">Texture Steps <span class="value" id="tex-steps-value">12</span></label><input id="tex-steps" type="range" min="4" max="32" step="1" value="12"></div>
+          <div class="field"><label for="fov">FOV</label><input id="fov" type="number" value="0.2" step="0.01" min="0.0175" max="2.9671" disabled></div>
+          <div class="field"><label for="fov-unit">Unit</label><select id="fov-unit" disabled><option value="rad" selected>rad</option><option value="deg">deg</option></select></div>
+          <div class="toggle-field wide"><span>Auto camera with MoGe</span><input id="auto-fov" type="checkbox" checked></div>
+          <div class="toggle-field wide"><span>Use GPU for RMBG</span><input id="rembg-keep-gpu" type="checkbox"></div>
         </div>
       </section>
 
@@ -860,10 +495,12 @@
           <div><strong>Camera</strong> <span id="camera-label">Auto</span></div>
           <div><strong>Output</strong> <span id="output-label">None</span></div>
         </div>
-
-        <div class="status-actions">
-          <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
-          <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Clear GPU Memory</button>
+        <div class="command-panel status-actions">
+          <div class="command-title">Output Commands</div>
+          <div class="command-row">
+            <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
+            <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Clear GPU Memory</button>
+          </div>
         </div>
         <p class="note" id="runtime-note"></p>
       </section>
@@ -871,28 +508,20 @@
 
     <section class="stage">
       <header class="topbar">
-        <div class="status">
-          <span class="dot" id="dot"></span>
-          <span id="status-text">Waiting for image</span>
-        </div>
+        <div class="status"><span class="dot" id="dot"></span><span id="status-text">Waiting for image</span></div>
         <div class="status runtime-text" id="runtime-text">runtime</div>
       </header>
-
       <div class="warmup-strip" id="warmup-strip" aria-live="polite">
         <span class="warmup-title" id="warmup-title">Warm-up required</span>
         <span class="warmup-detail" id="warmup-detail">Run Warm Up before Generate.</span>
         <span class="warmup-bar"><span id="warmup-bar"></span></span>
       </div>
-
       <div class="workspace">
         <div class="preview">
           <div class="viewer">
             <div class="pane">
               <div class="pane-body">
-                <div class="empty" id="empty">
-                  <i data-lucide="box"></i>
-                  <div>Preview frames and GLB appear here.</div>
-                </div>
+                <div class="empty" id="empty"><i data-lucide="box"></i><div>Preview frames and GLB appear here.</div></div>
                 <img id="hero-image" alt="Selected preview frame">
                 <model-viewer id="model" camera-controls auto-rotate shadow-intensity="0.6" exposure="1"></model-viewer>
               </div>
@@ -901,10 +530,7 @@
           <div class="top-progress">
             <i class="top-progress-icon" data-lucide="activity"></i>
             <span class="top-progress-stage" id="progress-stage">Idle</span>
-            <div class="top-progress-copy">
-              <span class="top-progress-text" id="top-progress-text">Idle</span>
-              <span class="top-progress-extra" id="top-progress-extra">Waiting for source image.</span>
-            </div>
+            <div class="top-progress-copy"><span class="top-progress-text" id="top-progress-text">Idle</span><span class="top-progress-extra" id="top-progress-extra">Waiting for source image.</span></div>
             <div class="bar"><span id="top-progress-bar"></span></div>
           </div>
           <div class="filmstrip" id="filmstrip"></div>
@@ -912,7 +538,6 @@
       </div>
     </section>
   </main>
-
   <div class="toast" id="toast"></div>
 
   <script type="module">
