@@ -287,11 +287,12 @@ Nymph UI optimization implementation 2026-05-21:
   prep keeps the same button available as `Retry Prep`. The warmup strip stays
   warmup-only, runtime presets update the Low VRAM checkbox correctly, and the
   source preview uses a portrait-friendly shape.
-- Follow-up tabula-rasa UI shell fix: `v0.1.66` rebuilds the Pixal3D
-  `nymph_pixal3d.html` shell from scratch while preserving the working API
-  script. The new shell uses a Manager/homepage-style left workbench, contained
-  source viewer sizing, compact `//` command panels, and a wider preview-first
-  use of space.
+- Follow-up UI reset: `v0.1.67` saves the last usable pre-restyle UI from
+  `0.1.63` as `docs/backups/nymph_pixal3d_legacy_0.1.63.html`, then replaces
+  `nymph_pixal3d.html` with a new shell. The new shell keeps the working API
+  script/DOM IDs, but moves advanced parameters behind a collapsed section,
+  restores compact inline Manager-style commands, and avoids boxed command
+  panels or a full-page source drop zone.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
@@ -3639,7 +3640,7 @@ Current Nymphs Ui flow:
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.66`
+- Pixal3D module: `0.1.67`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action
@@ -3655,10 +3656,11 @@ Latest behavior state:
 - Weight/profile dropdowns now use explicit technical labels instead of vague
   hardware-vibe names. Examples: `1024 low-VRAM / 12 steps`,
   `1536 full-VRAM / 16 steps`, and `GGUF Q5_K_M experimental`.
-- The UI shell was rebuilt from scratch in `v0.1.66`: the left workbench now
-  uses contained source preview sizing, compact Manager-style `//` command
-  panels, and a wider preview-first layout instead of the older stretched button
-  rows.
+- The failed boxed `0.1.66` shell was replaced in `v0.1.67`. The last usable
+  pre-restyle UI is backed up at
+  `docs/backups/nymph_pixal3d_legacy_0.1.63.html`. The live shell now uses a
+  compact source area, inline Manager-style commands, visible core runtime
+  controls, and collapsed advanced parameters.
 - The main generation progress strip moved below the preview; the topbar area
   now contains status/runtime plus the separate warmup strip.
 - `nvdiffrec_render.light` is a required shared TRELLIS.2/Pixal3D runtime import.
