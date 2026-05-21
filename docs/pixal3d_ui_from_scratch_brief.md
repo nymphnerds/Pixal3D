@@ -253,3 +253,5 @@ design process from this brief.
   and restores the result/GLB preview pane to fill its vertical grid area.
 - `v0.1.69` locks the Pixal work rail to a fixed `400px` width so it stays at
   the approved size instead of resizing with the window.
+- `v0.1.70` narrows the rail to `360px`, removes the bad separator lines around
+  the run buttons, and changes source/run actions into square tool buttons.

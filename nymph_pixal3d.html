@@ -50,7 +50,7 @@
       height: 100vh;
       min-height: 560px;
       display: grid;
-      grid-template-columns: 400px minmax(360px, 1fr);
+      grid-template-columns: 360px minmax(400px, 1fr);
       background: rgba(2, 8, 7, 0.72);
     }
 
@@ -157,6 +157,13 @@
       gap: 8px;
       align-items: center;
       padding-top: 0;
+      padding-bottom: 10px;
+      border-top: 0;
+    }
+
+    .run-strip + .section {
+      border-top: 0;
+      padding-top: 10px;
     }
 
     .btn {
@@ -202,16 +209,32 @@
     }
 
     .primary-actions .btn {
-      min-width: 102px;
+      width: 78px;
+      min-width: 78px;
+      height: 78px;
+      min-height: 78px;
+      white-space: normal;
+      flex-direction: column;
+      text-align: center;
     }
 
     .primary-actions #generate {
-      min-width: 142px;
+      width: 78px;
+      min-width: 78px;
     }
 
-    .source-tools .btn,
+    .source-tools .btn {
+      width: 78px;
+      min-width: 78px;
+      height: 78px;
+      min-height: 78px;
+      white-space: normal;
+      flex-direction: column;
+      text-align: center;
+    }
+
     .status-actions .btn {
-      min-width: 132px;
+      min-width: 116px;
     }
 
     .core-grid {
