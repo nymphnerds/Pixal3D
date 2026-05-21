@@ -238,6 +238,10 @@ Nymph UI optimization implementation 2026-05-21:
   path to `LIBRARY_PATH` and `LD_LIBRARY_PATH` only for the
   `nvdiffrec_render` build. Dev validation built and imported
   `nvdiffrec_render.light` and `nvdiffrec_render.renderutils._C` successfully.
+- Follow-up partial-install fix: the first failed Pixal3D `0.1.55` retry wrote
+  the `0.1.55` marker after runtime repair but left `nymph.json` at `0.1.54`
+  because the installer only synced files when `pixal3d/` was missing.
+  `v0.1.56` refreshes module files on every install/repair before runtime work.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that

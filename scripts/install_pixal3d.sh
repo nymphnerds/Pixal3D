@@ -360,8 +360,12 @@ print(str(manifest.get("version", "unknown")).strip() or "unknown")
 PY
 )"
 
-if [[ ! -d "${PIXAL3D_INSTALL_ROOT}/pixal3d" && -d "${MODULE_ROOT}/pixal3d" ]]; then
-  echo "Syncing Pixal3D source into ${PIXAL3D_INSTALL_ROOT}..."
+pixal3d_sync_module_files() {
+  if [[ ! -d "${MODULE_ROOT}/pixal3d" ]]; then
+    return 0
+  fi
+
+  echo "Syncing Pixal3D module files into ${PIXAL3D_INSTALL_ROOT}..."
   mkdir -p "${PIXAL3D_INSTALL_ROOT}"
   (
     cd "${MODULE_ROOT}"
@@ -369,12 +373,17 @@ if [[ ! -d "${PIXAL3D_INSTALL_ROOT}/pixal3d" && -d "${MODULE_ROOT}/pixal3d" ]]; 
       --exclude='./.git' \
       --exclude='./.venv' \
       --exclude='./__pycache__' \
+      --exclude='./.mypy_cache' \
+      --exclude='./.pytest_cache' \
+      --exclude='./NymphsData' \
       -cf - .
   ) | (
     cd "${PIXAL3D_INSTALL_ROOT}"
     tar -xf -
   )
-fi
+}
+
+pixal3d_sync_module_files
 
 if [[ ! -d "${PIXAL3D_INSTALL_ROOT}/pixal3d" ]]; then
   echo "Pixal3D source is missing at ${PIXAL3D_INSTALL_ROOT}." >&2

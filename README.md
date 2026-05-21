@@ -76,6 +76,9 @@ projection paths still call.
 Module updates stop the local Pixal3D UI before syncing files or repairing
 Python dependencies. This is intentional: a running Gradio/Python process can
 keep stale imports alive even after the shared venv has been repaired.
+Install/Repair also refreshes module files every time it runs, so retrying after
+a failed partial install updates stale UI, script, manifest, and documentation
+files before repairing the shared runtime.
 
 The NymphsCore UI is the supported local app surface for this module. It exposes
 optimized run profiles for 16 GB GPUs, the low-VRAM toggle, max-token budget,
