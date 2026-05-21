@@ -409,7 +409,7 @@
       min-height: 0;
       height: 100%;
       display: grid;
-      grid-template-rows: minmax(280px, 1fr) auto minmax(76px, auto);
+      grid-template-rows: minmax(280px, 1fr) auto;
     }
     .viewer { min-width: 0; min-height: 0; height: 100%; display: grid; padding: 18px; }
     .pane {
@@ -445,13 +445,6 @@
       color: var(--muted);
       text-align: center;
     }
-    #hero-image {
-      display: none;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      border-radius: 8px;
-    }
     model-viewer {
       display: none;
       width: 100%;
@@ -484,18 +477,6 @@
     .top-progress-extra { color: var(--muted); font-size: 10px; }
     .bar { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 999px; background: #223532; }
     .bar span { display: block; width: 0%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--teal), var(--lime), var(--amber)); transition: width 160ms ease; }
-
-    .filmstrip {
-      min-height: 76px;
-      display: flex;
-      gap: 10px;
-      padding: 8px 18px 10px;
-      border-top: 1px solid var(--line);
-      overflow-x: auto;
-      background: rgba(9, 19, 20, 0.92);
-    }
-    .frame { flex: 0 0 auto; width: 94px; height: 58px; object-fit: cover; border: 1px solid #314b48; border-radius: 8px; background: #111; cursor: pointer; }
-    .frame.active { border-color: var(--teal); }
 
     .toast {
       position: fixed;
@@ -636,8 +617,7 @@
           <div class="viewer">
             <div class="pane">
               <div class="pane-body">
-                <div class="empty" id="empty"><i data-lucide="box"></i><div>Preview frames and GLB appear here.</div></div>
-                <img id="hero-image" alt="Selected preview frame">
+                <div class="empty" id="empty"><i data-lucide="box"></i><div>Generated GLB appears here.</div></div>
                 <model-viewer id="model" camera-controls auto-rotate shadow-intensity="0.6" exposure="1"></model-viewer>
               </div>
             </div>
@@ -648,7 +628,6 @@
             <div class="top-progress-copy"><span class="top-progress-text" id="top-progress-text">Idle</span><span class="top-progress-extra" id="top-progress-extra">Waiting for source image.</span></div>
             <div class="bar"><span id="top-progress-bar"></span></div>
           </div>
-          <div class="filmstrip" id="filmstrip"></div>
         </div>
       </div>
     </section>
@@ -867,18 +846,8 @@
       }
     }
 
-    function renderFrame(url, active = true) {
-      if (active) {
-        $("empty").style.display = "none";
-        $("model").style.display = "none";
-        $("hero-image").src = url;
-        $("hero-image").style.display = "block";
-      }
-    }
-
     function renderModel(url) {
       $("empty").style.display = "none";
-      $("hero-image").style.display = "none";
       $("model").src = url;
       $("model").setAttribute("camera-controls", "");
       $("model").setAttribute("auto-rotate", "");
@@ -892,8 +861,6 @@
     }
 
     function setResultEmpty(message) {
-      $("hero-image").removeAttribute("src");
-      $("hero-image").style.display = "none";
       $("model").removeAttribute("src");
       $("model").style.display = "none";
       $("empty").querySelector("div").textContent = message;
@@ -911,29 +878,6 @@
       if (!file || !file.path) return file;
       const { url, ...rest } = file;
       return rest;
-    }
-
-    function populateFrames(renderPaths) {
-      const filmstrip = $("filmstrip");
-      filmstrip.innerHTML = "";
-      const forest = renderPaths.shaded_forest || [];
-      const fallback = Object.values(renderPaths).flat();
-      const frames = forest.length ? forest : fallback;
-
-      frames.forEach((file, index) => {
-        const url = normalizeFileUrl(file);
-        const img = document.createElement("img");
-        img.className = `frame ${index === 0 ? "active" : ""}`;
-        img.src = url;
-        img.alt = `Preview frame ${index + 1}`;
-        img.onclick = () => {
-          document.querySelectorAll(".frame").forEach((node) => node.classList.remove("active"));
-          img.classList.add("active");
-          renderFrame(url);
-        };
-        filmstrip.appendChild(img);
-        if (index === 0) renderFrame(url);
-      });
     }
 
     function startProgress(label = "Starting", detail = "Queued for Pixal3D worker.") {
@@ -1087,15 +1031,15 @@
         return;
       }
       setBusy(true);
-      setStatus("Generating preview", "work");
+      setStatus("Generating", "work");
       $("state-label").textContent = "Generating";
       $("output-label").textContent = "None";
       outputUrl = "";
       outputPath = "";
       generationResult = null;
       $("open-output").disabled = true;
-      setResultEmpty("Generating preview...");
-      startProgress("Queued", "Starting Pixal3D preview generation.");
+      setResultEmpty("Generating...");
+      startProgress("Queued", "Starting Pixal3D generation.");
 
       try {
         const preparedInput = prepareSource
@@ -1128,12 +1072,11 @@
         });
 
         generationResult = result.data[0];
-        populateFrames(generationResult.render_paths || {});
         $("camera-label").textContent = `fov ${Number(generationResult.camera_angle_x || 0).toFixed(3)}, distance ${Number(generationResult.distance || 0).toFixed(3)}`;
-        $("state-label").textContent = "Preview ready";
+        $("state-label").textContent = "Exporting GLB";
         $("extract").disabled = false;
-        setStatus("Preview ready", "ok");
-        stopProgress(true, "Preview ready", "Preview frames are ready. Exporting GLB next.");
+        setStatus("Exporting GLB", "work");
+        stopProgress(true, "Model state ready", "Exporting GLB next.");
         await extract(true);
       } catch (err) {
         console.error(err);
@@ -1220,13 +1163,12 @@
       $("source-preview").removeAttribute("src");
       $("source-preview").style.display = "none";
       $("drop-hint").style.display = "grid";
-      $("filmstrip").innerHTML = "";
       $("open-output").disabled = true;
       $("extract").disabled = true;
       $("output-label").textContent = "None";
       $("camera-label").textContent = "Auto";
       $("state-label").textContent = "No run yet";
-      setResultEmpty("Preview frames and GLB appear here.");
+      setResultEmpty("Generated GLB appears here.");
       setProgressUi("Idle", "Waiting for source image.", "0%");
       setStatus(modelReady ? "Model ready" : "Warming up model", modelReady ? "ok" : "work");
       if (modelReady) setWarmupUi("Warm-up ready", "Prepare Source is available.", "100%");
@@ -1411,8 +1353,7 @@
       updateGenerateState();
       $("extract").disabled = true;
       $("open-output").disabled = true;
-      $("filmstrip").innerHTML = "";
-      setResultEmpty("Waiting for generated preview.");
+      setResultEmpty("Waiting for generated GLB.");
       $("source-preview").style.display = "block";
       $("drop-hint").style.display = "none";
       const localUrl = URL.createObjectURL(file);

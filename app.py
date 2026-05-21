@@ -735,10 +735,11 @@ async def generate_3d_nymph_api(request: Request):
         max_num_tokens=int(payload.get("max_num_tokens") or CASCADE_MAX_NUM_TOKENS),
         texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
     )
-    result["render_paths"] = {
-        mode: [_file_response(_file_path(file)) for file in files]
-        for mode, files in result.get("render_paths", {}).items()
-    }
+    if "render_paths" in result:
+        result["render_paths"] = {
+            mode: [_file_response(_file_path(file)) for file in files]
+            for mode, files in result.get("render_paths", {}).items()
+        }
     return JSONResponse({"data": [result]})
 
 
@@ -859,7 +860,7 @@ def generate_3d(
             mesh_scale=WILD_MESH_SCALE, extend_pixel=WILD_EXTEND_PIXEL,
             image_resolution=WILD_IMAGE_RESOLUTION,
         )
-    _update_progress("Camera ready", 4, 8)
+    _update_progress("Camera ready", 4, 6)
     
     ss_sampler_override = {"steps": ss_sampling_steps, "guidance_strength": ss_guidance_strength,
                            "guidance_rescale": ss_guidance_rescale, "rescale_t": ss_rescale_t}
@@ -869,8 +870,8 @@ def generate_3d(
                             "guidance_rescale": tex_slat_guidance_rescale, "rescale_t": tex_slat_rescale_t}
 
     pipeline_type = f"{hr_resolution}_cascade"
-    _update_progress("Sampling structure, shape, and texture", 5, 8)
-    mesh_list, (shape_slat, tex_slat, res) = pipeline.run(
+    _update_progress("Generating 3D latent model", 5, 6)
+    _mesh_list, (shape_slat, tex_slat, res) = pipeline.run(
         image_preprocessed,
         camera_params=camera_params,
         seed=seed,
@@ -883,47 +884,11 @@ def generate_3d(
         max_num_tokens=effective_max_tokens,
     )
     
-    mesh = mesh_list[0]
-    _update_progress("Packing latent preview state", 6, 8)
+    _update_progress("Packing model state for GLB export", 6, 6)
     state_path = pack_state(shape_slat, tex_slat, res)
-    
-    _update_progress("Rendering preview frames", 7, 8)
-    mesh.simplify(16777216)
-    cam_dist = camera_params['distance']
-    near = max(0.01, cam_dist - 2.0)
-    far = cam_dist + 10.0
-    if LOW_VRAM:
-        for v in envmap.values():
-            v.image = v.image.cuda()
-            if hasattr(v, '_nvdiffrec_envlight'):
-                del v._nvdiffrec_envlight
-    renders = render_utils.render_proj_aligned_video(
-        mesh, camera_angle_x=camera_params['camera_angle_x'],
-        distance=cam_dist, resolution=1024,
-        num_frames=STEPS, envmap=envmap,
-        near=near, far=far,
-    )
-    if LOW_VRAM:
-        for v in envmap.values():
-            if hasattr(v, '_nvdiffrec_envlight'):
-                del v._nvdiffrec_envlight
-            v.image = v.image.cpu()
-        torch.cuda.empty_cache()
-    _update_progress("Saving preview frames", 8, 8)
-    
-    # Save renders and return paths
-    render_files = {}
-    for mode_key, frames in renders.items():
-        mode_files = []
-        for i, frame in enumerate(frames):
-            p = os.path.abspath(os.path.join(TMP_DIR, f"render_{mode_key}_{i}_{int(time.time()*1000)}.jpg"))
-            Image.fromarray(frame).save(p, quality=85)
-            mode_files.append(FileData(path=p))
-        render_files[mode_key] = mode_files
 
-    _finish_progress("Preview frames ready")
+    _finish_progress("Model state ready")
     return {
-        "render_paths": render_files,
         "state_path": os.path.abspath(state_path),
         "camera_angle_x": camera_params['camera_angle_x'],
         "distance": camera_params['distance'],

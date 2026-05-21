@@ -3654,7 +3654,7 @@ Current Nymphs Ui flow:
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.73`
+- Pixal3D module: `0.1.74`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action
@@ -3697,6 +3697,10 @@ Latest behavior state:
   states instead of leaving the UI on stale `Starting`, and the viewer asks
   `model-viewer` to reframe after load/resize so the result view survives
   window resizing.
+- `v0.1.74` removes the preview-frame render/save step and the filmstrip from
+  the Nymphs UI path. `Generate` now samples the 3D latent model, packs the
+  model state, exports the GLB, and gives the full result pane to the embedded
+  interactive `model-viewer`.
 - The main generation progress strip moved below the preview; the topbar area
   now contains status/runtime plus the separate warmup strip.
 - `nvdiffrec_render.light` is a required shared TRELLIS.2/Pixal3D runtime import.

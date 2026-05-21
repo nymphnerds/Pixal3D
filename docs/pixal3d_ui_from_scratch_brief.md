@@ -266,3 +266,6 @@ design process from this brief.
   generated, then GLB export runs automatically and the embedded `model-viewer`
   becomes the primary result. The filmstrip stays secondary, progress completion
   shows explicit final states, and the result viewer reframes on load/resize.
+- `v0.1.74` removes preview frame generation and the filmstrip from the Nymphs
+  path. The backend returns only the model state needed for GLB export, and the
+  full result area belongs to the interactive model viewer.
