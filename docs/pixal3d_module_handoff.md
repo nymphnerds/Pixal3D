@@ -3700,3 +3700,48 @@ Latest behavior state:
   `torch==2.11.0+cu130`; the `nvdiffrec` source branch is used because TRELLIS
   renderers import `nvdiffrec_render`, not because the whole runtime should
   follow the older official dependency profile.
+
+## 2026-05-21 End-Of-Session Pickup
+
+Published state:
+
+- Pixal3D module version: `0.1.72`
+- Pixal3D commit: `eea997f` (`Fix Pixal3D source preview and prep path`)
+- Registry commit: `53226a3` (`Update Pixal3D registry to 0.1.72`)
+- Registry version: `90`
+- Registry Pixal3D manifest hash:
+  `3ecd03aebe314c884ef20a8168f769bc8b5c9d7da5c12b92d0d35876dae38d17`
+
+What changed in the final published patch:
+
+- `Generate Preview` is now `Generate`; `Export GLB` is now `Export`.
+- The source preview/drop area remains square, but the original selected image
+  is rendered with contain behavior inside it so the full image is visible.
+- The visible source preview no longer swaps to Pixal3D's preprocessed output;
+  prep output is stored internally for generation only.
+- `preprocess()` and `generate_3d()` use `_file_path(image)` instead of
+  `image["path"]`, fixing the Nymphs custom API error:
+  `'FileData' object is not subscriptable`.
+- The left Pixal work rail remains locked at `360px` and command buttons remain
+  thin horizontal strips, not square tiles.
+
+First tests for the next session:
+
+1. In the test WSL/Manager path, update Pixal3D to `0.1.72`.
+2. Open the Nymphs UI and confirm the update came through the registry path, not
+   a manual file sync.
+3. Drop the transparent character PNG again and confirm the whole image is
+   visible inside the square preview.
+4. Let warmup finish, run `Prepare Source`, and confirm prep no longer fails
+   with `FileData`.
+5. Confirm `Generate` stays gated correctly until warmup/prep state is ready.
+
+Workflow reminder for future agents:
+
+- The user tests as an end user in a separate NymphsCore WSL/test install.
+- Do not manually sync files into the test install unless explicitly requested.
+- For publishable module changes: patch source, bump `nymph.json`, push Pixal3D,
+  update the registry manifest version/hash, bump registry version, push
+  registry, then let the user update through Manager.
+- Inspecting/log tailing is fine. Major design or behavior changes must be
+  discussed first and agreed before editing.
