@@ -117,8 +117,8 @@
     .drop.drag { border-color: var(--accent); background: #102522; }
 
     .drop img {
-      max-width: 100%;
-      max-height: 100%;
+      width: 100%;
+      height: 100%;
       display: none;
       object-fit: contain;
     }
@@ -218,25 +218,53 @@
     }
 
     .btn {
-      height: 34px;
-      border: 1px solid transparent;
-      border-radius: 8px;
+      min-height: 30px;
+      border: 1px solid #31534f;
+      border-radius: 6px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 7px;
-      color: #05110f;
-      background: var(--accent);
+      gap: 6px;
+      color: #dffdf8;
+      background: #0b1514;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
       font-weight: 850;
       font-size: 12px;
+      line-height: 1.1;
+      padding: 0 10px;
       cursor: pointer;
       width: 100%;
     }
 
+    .btn::before {
+      content: "//";
+      color: var(--ok);
+      font-weight: 900;
+    }
+
     .btn.secondary {
-      color: var(--text);
-      background: #14211f;
+      color: var(--accent);
+      background: #0c1715;
       border-color: #335b55;
+    }
+
+    .btn.primary {
+      color: #06110f;
+      background: linear-gradient(90deg, #13e7d2, #9cff57);
+      border-color: #9cff57;
+    }
+
+    .btn.primary::before {
+      color: #06110f;
+    }
+
+    .btn:hover:not(:disabled) {
+      border-color: var(--ok);
+      box-shadow: inset 0 0 0 1px rgba(156, 255, 87, 0.18);
+    }
+
+    .btn.secondary:hover:not(:disabled) {
+      color: var(--ok);
     }
 
     .btn.warn {
@@ -245,8 +273,15 @@
     }
 
     .btn:disabled {
-      opacity: 0.45;
+      color: #66827d;
+      background: #0b1514;
+      border-color: #243b38;
+      opacity: 0.72;
       cursor: not-allowed;
+    }
+
+    .btn:disabled::before {
+      color: #2f5752;
     }
 
     .primary-actions {
@@ -257,15 +292,13 @@
 
     .primary-actions .btn {
       min-width: 0;
-      height: 36px;
+      min-height: 32px;
       padding: 0 8px;
       font-size: 11px;
     }
 
-    .primary-actions .btn svg {
-      width: 18px;
-      height: 18px;
-      flex: 0 0 auto;
+    .btn svg {
+      display: none;
     }
 
     .source-tools {
@@ -276,7 +309,7 @@
     }
 
     .source-tools .btn {
-      height: 34px;
+      min-height: 32px;
       font-size: 11px;
     }
 
@@ -287,7 +320,7 @@
     }
 
     .status-actions .btn {
-      height: 34px;
+      min-height: 32px;
       font-size: 11px;
     }
 
@@ -648,7 +681,7 @@
 
       <section class="section primary-actions">
         <button class="btn secondary" id="warm-up"><i data-lucide="flame"></i> Warm Up</button>
-        <button class="btn" id="generate" disabled><i data-lucide="sparkles"></i> Generate Preview</button>
+        <button class="btn primary" id="generate" disabled><i data-lucide="sparkles"></i> Generate Preview</button>
         <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export GLB</button>
       </section>
 
@@ -940,18 +973,18 @@
       const prepareButton = $("prepare-source-action");
       prepareButton.disabled = !currentFile || preprocessing || busy || !shouldPrepareSource() || !modelReady;
       prepareButton.innerHTML = prepFailed
-        ? '<i data-lucide="refresh-cw"></i> Retry Prep'
-        : '<i data-lucide="wand-sparkles"></i> Prepare Source';
+        ? 'Retry Prep'
+        : 'Prepare Source';
     }
 
     function updateWarmupButton() {
       const button = $("warm-up");
       button.disabled = busy || preprocessing || warmupActive || modelReady;
       button.innerHTML = warmupActive
-        ? '<i data-lucide="flame"></i> Warming Up...'
+        ? 'Warming Up'
         : modelReady
-          ? '<i data-lucide="check"></i> Model Ready'
-          : '<i data-lucide="flame"></i> Warm Up';
+          ? 'Model Ready'
+          : 'Warm Up';
       updateGenerateState();
       lucide.createIcons();
     }

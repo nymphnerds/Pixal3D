@@ -287,6 +287,10 @@ Nymph UI optimization implementation 2026-05-21:
   prep keeps the same button available as `Retry Prep`. The warmup strip stays
   warmup-only, runtime presets update the Low VRAM checkbox correctly, and the
   source preview uses a portrait-friendly shape.
+- Follow-up action style fix: `v0.1.64` restyles the Pixal3D NymphsCore UI
+  actions as compact app-style `//` command buttons using the Manager teal,
+  lime, and amber palette, and fixes source preview containment so selected
+  images do not clip inside the preview box.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
@@ -3634,7 +3638,7 @@ Current Nymphs Ui flow:
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.63`
+- Pixal3D module: `0.1.64`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action
