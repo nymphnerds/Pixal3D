@@ -12,6 +12,17 @@ includes the official Pixal3D training pipeline and data preparation toolkit.
 Updated: 2026-05-21 after web research on Pixal3D low-VRAM/ComfyUI work and
 the shared TRELLIS.2/Pixal3D runtime uninstall problem.
 
+Updated: 2026-05-21 after Manager self-update testing. Manager now reads a
+top-level `manager` entry from `nymphs-registry/nymphs.json` using the same raw
+registry fetch as modules. Tested flow: copied an older Manager release out of
+the repo publish folder, bumped/published a newer Manager release, updated the
+registry entry, waited for raw registry propagation, then saw
+`local old | remote new | Update`. Do not test Manager update availability by
+launching `NymphsCore/Manager/apps/NymphsCoreManager/publish/win-x64` directly;
+that is the fresh dev build. Watch item: one launch briefly reported zero
+installed module markers after mixed Desktop-release/dev-publish launch testing;
+reopening showed all six modules installed/current again.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
