@@ -409,12 +409,13 @@
       min-height: 0;
       height: 100%;
       display: grid;
-      grid-template-rows: minmax(0, 1fr) auto minmax(76px, auto);
+      grid-template-rows: minmax(280px, 1fr) auto minmax(76px, auto);
     }
-    .viewer { min-width: 0; min-height: 0; display: grid; padding: 18px; }
+    .viewer { min-width: 0; min-height: 0; height: 100%; display: grid; padding: 18px; }
     .pane {
       min-width: 0;
       min-height: 0;
+      height: 100%;
       display: grid;
       grid-template-rows: minmax(0, 1fr);
     }
@@ -446,12 +447,20 @@
     }
     #hero-image {
       display: none;
-      max-width: 100%;
-      max-height: 100%;
+      width: 100%;
+      height: 100%;
       object-fit: contain;
       border-radius: 8px;
     }
-    model-viewer { display: none; width: 100%; height: 100%; min-height: 0; background: #0a1110; }
+    model-viewer {
+      display: none;
+      width: 100%;
+      height: 100%;
+      min-height: 280px;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(41, 230, 218, 0.08), transparent 38%),
+        #030807;
+    }
 
     .top-progress {
       min-width: 0;
@@ -867,6 +876,21 @@
       }
     }
 
+    function renderModel(url) {
+      $("empty").style.display = "none";
+      $("hero-image").style.display = "none";
+      $("model").src = url;
+      $("model").setAttribute("camera-controls", "");
+      $("model").setAttribute("auto-rotate", "");
+      $("model").setAttribute("shadow-intensity", "0.8");
+      $("model").setAttribute("exposure", "1");
+      $("model").setAttribute("interaction-prompt", "auto");
+      $("model").style.display = "block";
+      if (typeof $("model").updateFraming === "function") {
+        requestAnimationFrame(() => $("model").updateFraming());
+      }
+    }
+
     function setResultEmpty(message) {
       $("hero-image").removeAttribute("src");
       $("hero-image").style.display = "none";
@@ -912,32 +936,36 @@
       });
     }
 
-    function startProgress() {
+    function startProgress(label = "Starting", detail = "Queued for Pixal3D worker.") {
       clearInterval(progressTimer);
-      $("progress-stage").textContent = "Starting";
-      $("top-progress-text").textContent = "Queued for Pixal3D worker.";
+      $("progress-stage").textContent = label;
+      $("top-progress-text").textContent = detail;
+      $("top-progress-extra").textContent = label === detail ? "" : label;
       $("top-progress-bar").style.width = "0%";
       progressTimer = setInterval(async () => {
         try {
           const response = await fetch(`/progress?session_id=${sessionId}`);
           if (!response.ok) return;
           const data = await response.json();
-          if (data.done) return;
+          if (data.done) {
+            setProgressUi("Done", data.stage || "Complete.", "100%");
+            return;
+          }
           const total = Number(data.total || 0);
           const step = Number(data.step || 0);
           const stage = data.stage || "Processing";
-          const label = total > 0 && step > 0 ? `${step}/${total}` : "Starting";
+          const label = total > 0 && step > 0 ? `${step}/${total}` : "Queued";
           const width = total > 0 ? `${Math.max(8, Math.min(100, (step / total) * 100))}%` : "14%";
           setProgressUi(label, stage, width);
         } catch {}
       }, 500);
     }
 
-    function stopProgress(done = false) {
+    function stopProgress(done = false, label = "Done", detail = "Complete.") {
       clearInterval(progressTimer);
       progressTimer = null;
       if (done) {
-        setProgressUi($("progress-stage").textContent || "Done", "Complete.", "100%");
+        setProgressUi(label, detail, "100%");
       }
     }
 
@@ -1067,7 +1095,7 @@
       generationResult = null;
       $("open-output").disabled = true;
       setResultEmpty("Generating preview...");
-      startProgress();
+      startProgress("Queued", "Starting Pixal3D preview generation.");
 
       try {
         const preparedInput = prepareSource
@@ -1105,7 +1133,8 @@
         $("state-label").textContent = "Preview ready";
         $("extract").disabled = false;
         setStatus("Preview ready", "ok");
-        stopProgress(true);
+        stopProgress(true, "Preview ready", "Preview frames are ready. Exporting GLB next.");
+        await extract(true);
       } catch (err) {
         console.error(err);
         setStatus("Generation failed", "err");
@@ -1117,12 +1146,13 @@
       }
     }
 
-    async function extract() {
+    async function extract(auto = false) {
       if (!generationResult) return;
       setBusy(true);
       setStatus("Exporting GLB", "work");
       $("state-label").textContent = "Exporting GLB";
-      startProgress();
+      $("extract").disabled = true;
+      startProgress("Exporting", auto ? "Building interactive GLB viewer." : "Building GLB file.");
 
       try {
         const result = await client.predict("/extract_glb_api", {
@@ -1135,15 +1165,12 @@
         const file = result.data[0];
         outputUrl = normalizeFileUrl(file);
         outputPath = file.path || outputUrl;
-        $("model").src = outputUrl;
-        $("model").style.display = "block";
-        $("hero-image").style.display = "none";
-        $("empty").style.display = "none";
+        renderModel(outputUrl);
         $("output-label").textContent = outputPath.split(/[\\/]/).pop();
         $("open-output").disabled = false;
         $("state-label").textContent = "GLB ready";
         setStatus("GLB ready", "ok");
-        stopProgress(true);
+        stopProgress(true, "GLB ready", "Interactive model viewer loaded.");
       } catch (err) {
         console.error(err);
         setStatus("Export failed", "err");
@@ -1151,6 +1178,7 @@
         stopProgress(false);
         toast("Export failed. Check Logs for the traceback.");
       } finally {
+        $("extract").disabled = !generationResult;
         setBusy(false);
       }
     }
@@ -1307,11 +1335,19 @@
       });
 
       $("generate").onclick = generate;
-      $("extract").onclick = extract;
+      $("extract").onclick = () => extract(false);
       $("warm-up").onclick = warmUp;
       $("prepare-source-action").onclick = prepareSource;
       $("clear-source").onclick = clearSource;
       $("free-pipeline").onclick = freePipeline;
+      $("model").addEventListener("load", () => {
+        if (typeof $("model").updateFraming === "function") $("model").updateFraming();
+      });
+      window.addEventListener("resize", () => {
+        if ($("model").style.display === "block" && typeof $("model").updateFraming === "function") {
+          requestAnimationFrame(() => $("model").updateFraming());
+        }
+      });
       $("open-output").onclick = () => {
         if (outputUrl) window.open(outputUrl, "_blank");
       };

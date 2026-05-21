@@ -262,3 +262,7 @@ design process from this brief.
   image inside it, keeps preprocessed output internal, shortens the run buttons
   to `Generate` and `Export`, and fixes prep/generation `FileData` path handling
   for the Nymphs custom API.
+- `v0.1.73` turns Generate into the official-style path: preview frames are
+  generated, then GLB export runs automatically and the embedded `model-viewer`
+  becomes the primary result. The filmstrip stays secondary, progress completion
+  shows explicit final states, and the result viewer reframes on load/resize.

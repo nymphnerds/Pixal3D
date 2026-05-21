@@ -505,10 +505,10 @@ def _update_progress(stage: str, step: int, total: int):
     if session_id:
         _write_progress_file(session_id, {"stage": stage, "step": step, "total": total, "done": False})
 
-def _finish_progress():
+def _finish_progress(stage: str = "Complete"):
     session_id = getattr(_thread_local, 'active_session', '')
     if session_id:
-        _write_progress_file(session_id, {"done": True})
+        _write_progress_file(session_id, {"stage": stage, "step": 1, "total": 1, "done": True})
 
 def _write_progress_file(session_id: str, data: dict):
     """Atomically write progress JSON to a file (cross-process safe)."""
@@ -782,7 +782,7 @@ def preprocess(
     _update_progress("Saving preprocessed image", 2, 3)
     out_path = _preprocessed_file(session_id) if session_id else os.path.join(TMP_DIR, f"preprocessed_{int(time.time()*1000)}.png")
     processed.save(out_path)
-    _finish_progress()
+    _finish_progress("Source preprocessed")
     return FileData(path=out_path)
 
 @app.api()
@@ -921,7 +921,7 @@ def generate_3d(
             mode_files.append(FileData(path=p))
         render_files[mode_key] = mode_files
 
-    _finish_progress()
+    _finish_progress("Preview frames ready")
     return {
         "render_paths": render_files,
         "state_path": os.path.abspath(state_path),
@@ -959,7 +959,7 @@ def extract_glb_api(state_path: str, decimation_target: int, texture_size: int, 
     _update_progress("Exporting GLB file", 3, 4)
     out_glb = os.path.join(OUTPUT_DIR, f"pixal3d_app_{int(time.time()*1000)}.glb")
     glb.export(out_glb, extension_webp=False)
-    _finish_progress()
+    _finish_progress("GLB ready")
     return FileData(path=out_glb)
 
 
@@ -969,7 +969,7 @@ def free_pipeline_api(session_id: str = "") -> Dict:
     _update_progress("Freeing Pixal3D pipeline", 1, 1)
     with init_lock:
         _free_models_locked("manual frontend request")
-    _finish_progress()
+    _finish_progress("GPU memory cleared")
     return {"freed": True}
 
 # Mount assets and tmp for direct access
