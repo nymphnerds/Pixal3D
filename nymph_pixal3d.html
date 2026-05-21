@@ -804,8 +804,6 @@
   <div class="toast" id="toast"></div>
 
   <script type="module">
-    import { Client, handle_file } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
-
     const sessionId = crypto.randomUUID();
     let client = null;
     let currentFile = null;
@@ -823,6 +821,28 @@
     let applyingRunProfile = false;
 
     const $ = (id) => document.getElementById(id);
+
+    async function directPredict(path, payload) {
+      const endpoint = path.replace(/^\//, "");
+      const hasFile = Object.values(payload).some((value) => value instanceof File);
+      const options = { method: "POST" };
+      if (hasFile) {
+        const form = new FormData();
+        for (const [key, value] of Object.entries(payload)) {
+          form.append(key, value instanceof File ? value : String(value ?? ""));
+        }
+        options.body = form;
+      } else {
+        options.headers = { "Content-Type": "application/json" };
+        options.body = JSON.stringify(payload);
+      }
+
+      const response = await fetch(`/api/${endpoint}`, options);
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      return response.json();
+    }
 
     function toast(message) {
       const el = $("toast");
@@ -1077,7 +1097,7 @@
       startProgress();
       try {
         const result = await client.predict("/preprocess", {
-          image: handle_file(file),
+          image: file,
           rembg_keep_gpu: $("rembg-keep-gpu").checked,
           session_id: sessionId,
           low_vram: $("low-vram").checked,
@@ -1131,7 +1151,7 @@
       try {
         const preparedInput = prepareSource
           ? serverFile(preparedFile)
-          : handle_file(currentFile);
+          : currentFile;
         const result = await client.predict("/generate_3d", {
           image: preparedInput,
           seed: parseInt($("seed").value || "42", 10),
@@ -1318,7 +1338,7 @@
       };
 
       try {
-        client = await Client.connect(window.location.origin);
+        client = { predict: directPredict };
         const response = await fetch("/app_config");
         const cfg = await response.json();
         populateRunProfiles(cfg.optimization_profiles || [], cfg.run_profile || "balanced_16gb");

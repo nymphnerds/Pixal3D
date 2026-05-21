@@ -43,10 +43,27 @@ except ImportError:
                 return func
             return decorator
     spaces = _SpacesFallback()
-from gradio import Server
+try:
+    from gradio import Server
+except ImportError:
+    from gradio.routes import App as _GradioApp
+
+    class Server(_GradioApp):
+        def api(self):
+            def decorator(func):
+                return func
+            return decorator
+
+        def launch(self, *, server_name="127.0.0.1", server_port=7860, share=False, **kwargs):
+            if share:
+                print("Pixal3D share links are not supported with this Gradio server backend.")
+            import uvicorn
+
+            uvicorn.run(self, host=server_name, port=server_port)
 from gradio.data_classes import FileData
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi import UploadFile
 
 from pixal3d.modules.sparse import SparseTensor
 from pixal3d.pipelines import Pixal3DImageTo3DPipeline
@@ -549,6 +566,137 @@ async def progress_poll(request: Request):
 @app.get("/warmup_status")
 async def warmup_status():
     return JSONResponse(_warmup_snapshot())
+
+
+def _file_url(path: str) -> str:
+    resolved = os.path.abspath(path)
+    for root, prefix in ((TMP_DIR, "/tmp"), (OUTPUT_DIR, "/outputs")):
+        root_abs = os.path.abspath(root)
+        try:
+            rel = os.path.relpath(resolved, root_abs)
+        except ValueError:
+            continue
+        if rel != os.pardir and not rel.startswith(os.pardir + os.sep):
+            return f"{prefix}/{rel.replace(os.sep, '/')}"
+    return f"/tmp/{os.path.basename(resolved)}"
+
+
+def _file_response(path: str) -> Dict[str, str]:
+    return {"path": os.path.abspath(path), "url": _file_url(path)}
+
+
+def _file_path(file: Any) -> str:
+    if isinstance(file, dict):
+        return str(file["path"])
+    return str(file.path)
+
+
+def _as_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+async def _request_payload(request: Request) -> Dict[str, Any]:
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" not in content_type:
+        return await request.json()
+
+    form = await request.form()
+    payload: Dict[str, Any] = {}
+    for key, value in form.multi_items():
+        if isinstance(value, UploadFile) or (hasattr(value, "filename") and hasattr(value, "read")):
+            suffix = Path(value.filename or "upload.png").suffix or ".png"
+            out_path = os.path.join(TMP_DIR, f"upload_{int(time.time() * 1000)}{suffix}")
+            data = await value.read()
+            with open(out_path, "wb") as f:
+                f.write(data)
+            payload[key] = {"path": out_path}
+        else:
+            payload[key] = value
+    return payload
+
+
+def _payload_file(payload: Dict[str, Any]) -> FileData:
+    image = payload.get("image") or {}
+    if isinstance(image, dict):
+        path = image.get("path")
+    else:
+        path = None
+    if not path:
+        path = payload.get("image_path")
+    if not path:
+        raise ValueError("Missing image path")
+    return FileData(path=os.path.abspath(str(path)))
+
+
+@app.post("/api/preprocess")
+async def preprocess_nymph_api(request: Request):
+    payload = await _request_payload(request)
+    result = preprocess(
+        image=_payload_file(payload),
+        rembg_keep_gpu=_as_bool(payload.get("rembg_keep_gpu")),
+        session_id=str(payload.get("session_id") or ""),
+        low_vram=_as_bool(payload.get("low_vram"), True),
+        texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+    )
+    return JSONResponse({"data": [_file_response(_file_path(result))]})
+
+
+@app.post("/api/generate_3d")
+async def generate_3d_nymph_api(request: Request):
+    payload = await _request_payload(request)
+    result = generate_3d(
+        image=_payload_file(payload),
+        seed=int(payload.get("seed") or 42),
+        resolution=int(payload.get("resolution") or 1024),
+        ss_guidance_strength=float(payload.get("ss_guidance_strength") or 7.5),
+        ss_guidance_rescale=float(payload.get("ss_guidance_rescale") or 0.7),
+        ss_sampling_steps=int(payload.get("ss_sampling_steps") or 12),
+        ss_rescale_t=float(payload.get("ss_rescale_t") or 5.0),
+        shape_slat_guidance_strength=float(payload.get("shape_slat_guidance_strength") or 7.5),
+        shape_slat_guidance_rescale=float(payload.get("shape_slat_guidance_rescale") or 0.5),
+        shape_slat_sampling_steps=int(payload.get("shape_slat_sampling_steps") or 12),
+        shape_slat_rescale_t=float(payload.get("shape_slat_rescale_t") or 3.0),
+        tex_slat_guidance_strength=float(payload.get("tex_slat_guidance_strength") or 1.0),
+        tex_slat_guidance_rescale=float(payload.get("tex_slat_guidance_rescale") or 0.0),
+        tex_slat_sampling_steps=int(payload.get("tex_slat_sampling_steps") or 12),
+        tex_slat_rescale_t=float(payload.get("tex_slat_rescale_t") or 3.0),
+        manual_fov=float(payload.get("manual_fov") or -1.0),
+        fov_unit=str(payload.get("fov_unit") or "deg"),
+        source_preprocessed=_as_bool(payload.get("source_preprocessed"), True),
+        session_id=str(payload.get("session_id") or ""),
+        profile_id=str(payload.get("profile_id") or "balanced_16gb"),
+        low_vram=_as_bool(payload.get("low_vram"), True),
+        max_num_tokens=int(payload.get("max_num_tokens") or CASCADE_MAX_NUM_TOKENS),
+        texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+    )
+    result["render_paths"] = {
+        mode: [_file_response(_file_path(file)) for file in files]
+        for mode, files in result.get("render_paths", {}).items()
+    }
+    return JSONResponse({"data": [result]})
+
+
+@app.post("/api/extract_glb_api")
+async def extract_glb_nymph_api(request: Request):
+    payload = await request.json()
+    result = extract_glb_api(
+        state_path=str(payload.get("state_path") or ""),
+        decimation_target=int(payload.get("decimation_target") or 1000000),
+        texture_size=int(payload.get("texture_size") or DEFAULT_TEXTURE_SIZE),
+        session_id=str(payload.get("session_id") or ""),
+    )
+    return JSONResponse({"data": [_file_response(_file_path(result))]})
+
+
+@app.post("/api/free_pipeline_api")
+async def free_pipeline_nymph_api(request: Request):
+    payload = await request.json()
+    return JSONResponse({"data": [free_pipeline_api(session_id=str(payload.get("session_id") or ""))]})
+
 
 @app.api()
 @spaces.GPU(duration=30)

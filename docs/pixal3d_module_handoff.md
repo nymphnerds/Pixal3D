@@ -242,6 +242,13 @@ Nymph UI optimization implementation 2026-05-21:
   the `0.1.55` marker after runtime repair but left `nymph.json` at `0.1.54`
   because the installer only synced files when `pixal3d/` was missing.
   `v0.1.56` refreshes module files on every install/repair before runtime work.
+- Follow-up Nymph UI startup fix: the shared TRELLIS.2/Pixal3D venv upgraded to
+  Gradio `6.0.1`, where `gradio.Server` and `app.api()` are no longer available
+  in the old form. `v0.1.57` keeps the Nymph UI as the only active browser
+  surface by serving it through the FastAPI/uvicorn app and moving the frontend
+  calls to direct `/api/preprocess`, `/api/generate_3d`,
+  `/api/extract_glb_api`, and `/api/free_pipeline_api` endpoints instead of
+  depending on `@gradio/client`.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
