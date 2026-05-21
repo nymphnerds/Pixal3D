@@ -293,6 +293,10 @@ Nymph UI optimization implementation 2026-05-21:
   script/DOM IDs, but moves advanced parameters behind a collapsed section,
   restores compact inline Manager-style commands, and avoids boxed command
   panels or a full-page source drop zone.
+- Follow-up shell sizing fix: `v0.1.68` narrows the locked Pixal work rail,
+  tightens command button widths, and fixes the result/GLB preview pane so it
+  fills the available vertical grid area instead of collapsing to the empty
+  message.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
@@ -3640,7 +3644,7 @@ Current Nymphs Ui flow:
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.67`
+- Pixal3D module: `0.1.68`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action
@@ -3661,6 +3665,8 @@ Latest behavior state:
   `docs/backups/nymph_pixal3d_legacy_0.1.63.html`. The live shell now uses a
   compact source area, inline Manager-style commands, visible core runtime
   controls, and collapsed advanced parameters.
+- `v0.1.68` keeps the Pixal control rail narrower and restores the right-side
+  result pane height.
 - The main generation progress strip moved below the preview; the topbar area
   now contains status/runtime plus the separate warmup strip.
 - `nvdiffrec_render.light` is a required shared TRELLIS.2/Pixal3D runtime import.

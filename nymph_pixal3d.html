@@ -50,7 +50,7 @@
       height: 100vh;
       min-height: 560px;
       display: grid;
-      grid-template-columns: minmax(360px, 420px) minmax(0, 1fr);
+      grid-template-columns: clamp(430px, 42vw, 540px) minmax(320px, 1fr);
       background: rgba(2, 8, 7, 0.72);
     }
 
@@ -166,13 +166,13 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
-      padding: 5px 10px;
+      padding: 5px 8px;
       border: 1px solid var(--line-2);
       border-radius: 5px;
       color: var(--teal);
       background: rgba(15, 26, 28, 0.85);
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 850;
       line-height: 1.1;
       white-space: nowrap;
@@ -196,6 +196,23 @@
       opacity: 0.72;
     }
     .btn:disabled::before { color: #355a56; }
+
+    .primary-actions {
+      gap: 7px;
+    }
+
+    .primary-actions .btn {
+      min-width: 102px;
+    }
+
+    .primary-actions #generate {
+      min-width: 142px;
+    }
+
+    .source-tools .btn,
+    .status-actions .btn {
+      min-width: 132px;
+    }
 
     .core-grid {
       display: grid;
@@ -348,8 +365,17 @@
       grid-template-rows: minmax(0, 1fr) auto minmax(76px, auto);
     }
     .viewer { min-width: 0; min-height: 0; display: grid; padding: 18px; }
-    .pane,
-    .pane-body { min-width: 0; min-height: 0; }
+    .pane {
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      grid-template-rows: minmax(0, 1fr);
+    }
+    .pane-body {
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+    }
     .pane-body {
       display: grid;
       place-items: center;
@@ -434,7 +460,7 @@
     }
     .toast.show { opacity: 1; transform: translateY(0); }
 
-    @media (max-width: 860px) {
+    @media (max-width: 760px) {
       body { overflow: auto; }
       .app { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
       .sidebar { height: auto; border-right: 0; border-bottom: 1px solid var(--line); }

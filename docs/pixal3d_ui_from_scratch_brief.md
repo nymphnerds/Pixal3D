@@ -249,3 +249,5 @@ design process from this brief.
   - core runtime controls visible first
   - advanced parameters collapsed behind `Advanced parameters`
   - right-side generated preview remains the main inspection surface
+- `v0.1.68` narrows the locked Pixal work rail, tightens command button sizing,
+  and restores the result/GLB preview pane to fill its vertical grid area.
