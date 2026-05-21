@@ -251,3 +251,5 @@ design process from this brief.
   - right-side generated preview remains the main inspection surface
 - `v0.1.68` narrows the locked Pixal work rail, tightens command button sizing,
   and restores the result/GLB preview pane to fill its vertical grid area.
+- `v0.1.69` locks the Pixal work rail to a fixed `400px` width so it stays at
+  the approved size instead of resizing with the window.
