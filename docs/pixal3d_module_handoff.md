@@ -287,7 +287,7 @@ Nymph UI optimization implementation 2026-05-21:
   prep keeps the same button available as `Retry Prep`. The warmup strip stays
   warmup-only, runtime presets update the Low VRAM checkbox correctly, and the
   source preview uses a portrait-friendly shape.
-- Follow-up action style fix: `v0.1.64` restyles the Pixal3D NymphsCore UI
+- Follow-up action style fix: `v0.1.65` restyles the Pixal3D NymphsCore UI
   actions as compact app-style `//` command buttons using the Manager teal,
   lime, and amber palette, and fixes source preview containment so selected
   images do not clip inside the preview box.
@@ -3638,7 +3638,7 @@ Current Nymphs Ui flow:
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.64`
+- Pixal3D module: `0.1.65`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action
@@ -3654,6 +3654,11 @@ Latest behavior state:
 - Weight/profile dropdowns now use explicit technical labels instead of vague
   hardware-vibe names. Examples: `1024 low-VRAM / 12 steps`,
   `1536 full-VRAM / 16 steps`, and `GGUF Q5_K_M experimental`.
+- The source/action controls use compact Manager-style `//` command buttons:
+  dark teal surfaces, restrained teal/lime highlights, and amber only for
+  selection/attention states.
+- The source preview uses contained image sizing so tall character images remain
+  visible instead of zooming/cropping inside the upload frame.
 - The main generation progress strip moved below the preview; the topbar area
   now contains status/runtime plus the separate warmup strip.
 - `nvdiffrec_render.light` is a required shared TRELLIS.2/Pixal3D runtime import.
