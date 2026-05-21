@@ -271,6 +271,12 @@ Nymph UI optimization implementation 2026-05-21:
   NymphsCore UI. It calls a new backend warmup endpoint, shows model loading in
   the header and progress strip, and leaves the existing optional warm-on-open
   path available for future defaults/settings.
+- Follow-up warmup/state fix: `v0.1.61` gives warmup a dedicated top progress
+  strip, keeps source prep/generation/export progress below the preview, and
+  gates source prep plus `Generate Preview` until warmup is ready. It also
+  widens the locked Pixal3D control column, enlarges the source preview,
+  compacts control buttons, and renames runtime presets with explicit settings
+  such as `1024 low-VRAM / 12 steps`.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
@@ -3603,36 +3609,37 @@ WSL_INTEROP=/run/WSL/1_interop /mnt/c/WINDOWS/system32/wsl.exe -d NymphsCore --c
 Current Nymphs Ui flow:
 
 - `Nymphs Ui` opens `/nymph`; `Official Ui` opens `/official`.
-- The source image should preprocess on image selection when the optional
-  `Prepare source image` checkbox is enabled.
+- The source image can be selected before warmup. When `Prepare source image`
+  is enabled, preprocessing waits until warmup is ready so it does not secretly
+  become the warmup path or overwrite warmup progress.
 - Turning `Prepare source image` off sends the original image to generation.
 - `Use GPU for RMBG` belongs to the preprocess stage.
-- Keep a single progress surface in the top/right result strip; do not duplicate
-  a progress card in the left controls.
-- As of `0.1.44`, the progress bar in that top/result strip spans the full strip
-  width.
+- Warmup has its own top progress strip directly under the Pixal3D status bar.
+- Source prep, generation, and GLB export share the separate progress strip
+  underneath the preview.
 
 ## 2026-05-21 Update: Nymphs Ui Startup Chrome Cleanup
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.52`
+- Pixal3D module: `0.1.61`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action
   strip already identifies the workspace state.
-- Background model warmup no longer writes into the main result-strip progress.
-  It now uses a tiny separate topbar indicator beside the active runtime label.
+- Background/manual model warmup no longer writes into the main result-strip
+  progress. As of `0.1.61`, it uses a full dedicated top warmup strip with its
+  own bar.
 - The main result-strip progress is reserved for source prep, generation, and
   GLB export so delayed preload stages such as `Loading MoGe camera model` do
   not flash over `Image ready`.
 - Nymphs Ui scrollbars use thin teal thumbs with transparent tracks, matching
   the rest of the app instead of the wide native gray scrollbar.
-- Weight Profile uses compact display labels such as `Low VRAM`, `Standard`,
-  and `GGUF Q5` because the resolution is already visible in the adjacent
-  control and full labels clip in the two-column parameter layout.
-- The main generation progress strip moved below the preview; the topbar is now
-  reserved for status, runtime, and the small background warmup indicator.
+- Weight/profile dropdowns now use explicit technical labels instead of vague
+  hardware-vibe names. Examples: `1024 low-VRAM / 12 steps`,
+  `1536 full-VRAM / 16 steps`, and `GGUF Q5_K_M experimental`.
+- The main generation progress strip moved below the preview; the topbar area
+  now contains status/runtime plus the separate warmup strip.
 - `nvdiffrec_render.light` is a required shared TRELLIS.2/Pixal3D runtime import.
   Both Pixal3D and TRELLIS module install/update scripts should validate and
   repair it in `$HOME/TRELLIS.2/.venv`.

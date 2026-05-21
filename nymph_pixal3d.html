@@ -68,7 +68,7 @@
 
     .app {
       display: grid;
-      grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
+      grid-template-columns: 520px minmax(420px, 1fr);
       height: 100vh;
       min-height: 560px;
     }
@@ -101,8 +101,8 @@
     }
 
     .drop {
-      min-height: 116px;
-      max-height: 220px;
+      min-height: 180px;
+      max-height: 340px;
       display: grid;
       place-items: center;
       position: relative;
@@ -117,7 +117,7 @@
 
     .drop img {
       max-width: 100%;
-      max-height: 220px;
+      max-height: 320px;
       display: none;
       object-fit: contain;
     }
@@ -217,17 +217,17 @@
     }
 
     .btn {
-      height: 42px;
+      height: 34px;
       border: 1px solid transparent;
       border-radius: 8px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 9px;
+      gap: 7px;
       color: #05110f;
       background: var(--accent);
       font-weight: 850;
-      font-size: 13px;
+      font-size: 12px;
       cursor: pointer;
       width: 100%;
     }
@@ -250,7 +250,7 @@
 
     .stage {
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto auto minmax(0, 1fr);
       min-width: 0;
       min-height: 0;
       height: 100%;
@@ -289,48 +289,47 @@
     .dot.ok { background: var(--ok); }
     .dot.err { background: var(--danger); }
 
-    .runtime-stack {
-      min-width: 128px;
-      display: grid;
-      gap: 4px;
-      justify-items: end;
-    }
-
-    .runtime-stack .status {
+    .runtime-text {
       justify-content: end;
     }
 
-    .warmup-mini {
-      width: min(150px, 28vw);
-      display: none;
-      grid-template-columns: minmax(0, 1fr) 38px;
-      align-items: center;
-      gap: 8px;
-      color: var(--muted);
-      font-size: 9px;
-      line-height: 1;
-    }
-
-    .warmup-mini.show {
+    .warmup-strip {
+      min-width: 0;
       display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-rows: auto 5px;
+      align-items: center;
+      column-gap: 12px;
+      row-gap: 6px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #0b1514;
+      color: var(--muted);
+      font-size: 11px;
     }
 
-    .warmup-mini-label {
+    .warmup-title {
+      color: var(--text);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .warmup-detail {
       min-width: 0;
       overflow: hidden;
-      text-align: right;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .warmup-mini-bar {
-      height: 3px;
+    .warmup-bar {
+      grid-column: 1 / -1;
+      height: 5px;
       overflow: hidden;
       border-radius: 999px;
       background: #213733;
     }
 
-    .warmup-mini-bar span {
+    .warmup-bar span {
       display: block;
       width: 0%;
       height: 100%;
@@ -465,18 +464,18 @@
     }
 
     .filmstrip {
-      min-height: 88px;
+      min-height: 72px;
       display: flex;
       gap: 10px;
-      padding: 10px 14px 14px;
+      padding: 8px 14px 10px;
       border-top: 1px solid var(--line);
       overflow-x: auto;
       background: #0f1716;
     }
 
     .frame {
-      width: 104px;
-      height: 64px;
+      width: 94px;
+      height: 58px;
       object-fit: cover;
       border: 1px solid #314b48;
       border-radius: 8px;
@@ -612,12 +611,12 @@
         <div class="section-title"><i data-lucide="sliders-horizontal"></i> Parameters</div>
         <div class="params">
           <div class="field wide">
-            <label for="run-profile">Run Profile</label>
+            <label for="run-profile">Runtime Preset</label>
             <select id="run-profile">
-              <option value="preview_16gb">Preview 16GB</option>
-              <option value="balanced_16gb">Balanced 16GB</option>
-              <option value="quality_16gb">Quality 16GB</option>
-              <option value="high_vram_1536">1536 High VRAM</option>
+              <option value="preview_16gb">1024 fast / 8 steps</option>
+              <option value="balanced_16gb">1024 low-VRAM / 12 steps</option>
+              <option value="quality_16gb">1024 low-VRAM / 16 steps</option>
+              <option value="high_vram_1536">1536 full-VRAM / 16 steps</option>
               <option value="custom">Custom</option>
             </select>
           </div>
@@ -633,14 +632,14 @@
             </select>
           </div>
           <div class="field">
-            <label for="weight-profile">Weight Profile</label>
+            <label for="weight-profile">Weights</label>
             <select id="weight-profile">
-              <option value="low_vram_1024">Low VRAM</option>
-              <option value="standard_1536">Standard</option>
-              <option value="gguf_q4_k_m">GGUF Q4</option>
-              <option value="gguf_q5_k_m">GGUF Q5</option>
-              <option value="gguf_q6_k">GGUF Q6</option>
-              <option value="gguf_q8_0">GGUF Q8</option>
+              <option value="low_vram_1024">1024 safetensors low-VRAM</option>
+              <option value="standard_1536">1536 safetensors standard</option>
+              <option value="gguf_q4_k_m">GGUF Q4_K_M experimental</option>
+              <option value="gguf_q5_k_m">GGUF Q5_K_M experimental</option>
+              <option value="gguf_q6_k">GGUF Q6_K experimental</option>
+              <option value="gguf_q8_0">GGUF Q8_0 experimental</option>
             </select>
           </div>
           <div class="field">
@@ -765,14 +764,14 @@
           <span class="dot" id="dot"></span>
           <span id="status-text">Waiting for image</span>
         </div>
-        <div class="runtime-stack">
-          <div class="status" id="runtime-text">runtime</div>
-          <div class="warmup-mini" id="warmup-mini" aria-live="polite">
-            <span class="warmup-mini-label" id="warmup-mini-label">warming model</span>
-            <span class="warmup-mini-bar"><span id="warmup-mini-bar"></span></span>
-          </div>
-        </div>
+        <div class="status runtime-text" id="runtime-text">runtime</div>
       </header>
+
+      <div class="warmup-strip" id="warmup-strip" aria-live="polite">
+        <span class="warmup-title" id="warmup-title">Warm-up required</span>
+        <span class="warmup-detail" id="warmup-detail">Run Warm Up before Generate.</span>
+        <span class="warmup-bar"><span id="warmup-bar"></span></span>
+      </div>
 
       <div class="workspace">
         <div class="preview">
@@ -868,10 +867,18 @@
       $("top-progress-bar").style.width = width;
     }
 
-    function setWarmupMini(visible, label = "", width = "0%") {
-      $("warmup-mini").classList.toggle("show", visible);
-      $("warmup-mini-label").textContent = label;
-      $("warmup-mini-bar").style.width = width;
+    function setWarmupUi(title, detail = "", width = "0%") {
+      $("warmup-title").textContent = title;
+      $("warmup-detail").textContent = detail;
+      $("warmup-bar").style.width = width;
+    }
+
+    function updateGenerateState() {
+      $("generate").disabled = busy
+        || preprocessing
+        || !currentFile
+        || !modelReady
+        || (shouldPrepareSource() && !preparedFile);
     }
 
     function updateWarmupButton() {
@@ -882,12 +889,14 @@
         : modelReady
           ? '<i data-lucide="check"></i> Model Ready'
           : '<i data-lucide="flame"></i> Warm Up';
+      updateGenerateState();
       lucide.createIcons();
     }
 
     function markWarmupDirty() {
       if (!warmupActive) {
         modelReady = false;
+        setWarmupUi("Warm-up required", "Settings changed. Run Warm Up again.", "0%");
         updateWarmupButton();
       }
     }
@@ -899,7 +908,7 @@
 
     function setBusy(isBusy) {
       busy = isBusy;
-      $("generate").disabled = isBusy || preprocessing || !currentFile || (shouldPrepareSource() && !preparedFile);
+      updateGenerateState();
       $("extract").disabled = isBusy || preprocessing || !generationResult;
       updateWarmupButton();
     }
@@ -1085,34 +1094,40 @@
           const width = total > 0 ? `${Math.min(100, (step / total) * 100)}%` : "12%";
           warmupActive = true;
           modelReady = false;
-          setWarmupMini(true, stage, width);
+          setWarmupUi("Warming up", stage, width);
           if (canChangeStatus) {
             setStatus("Warming up model", "work");
-            setProgressUi("Warming up", stage, width);
           }
           updateWarmupButton();
         } else if (data.status === "ready") {
           warmupActive = false;
           modelReady = true;
-          setWarmupMini(false);
+          setWarmupUi(
+            "Warm-up ready",
+            currentFile && shouldPrepareSource() && !preparedFile ? "Preparing selected source image." : "Generate Preview is unlocked.",
+            "100%"
+          );
           if (canChangeStatus) {
             setStatus("Model ready", "ok");
-            setProgressUi("Model ready", "Pixal3D is warmed up.", "100%");
           }
           updateWarmupButton();
           clearInterval(warmupTimer);
+          if (currentFile && shouldPrepareSource() && !preparedFile && !preprocessing) {
+            preprocess(currentFile);
+          }
         } else if (data.status === "error") {
           warmupActive = false;
           modelReady = false;
-          setWarmupMini(true, "warmup failed", "0%");
+          setWarmupUi("Warm-up failed", data.error || "Check Logs for the traceback.", "0%");
           if (canChangeStatus) {
             setStatus("Preload failed", "err");
-            setProgressUi("Warmup failed", data.error || "Check Logs for the traceback.", "0%");
           }
           updateWarmupButton();
           clearInterval(warmupTimer);
         } else {
           warmupActive = false;
+          modelReady = false;
+          setWarmupUi("Warm-up required", "Run Warm Up before Generate.", "0%");
           updateWarmupButton();
         }
       } catch {}
@@ -1157,6 +1172,7 @@
         }
         stopProgress(true);
         setProgressUi("Source ready", "Source preprocessed. Ready to generate.", "100%");
+        if (modelReady) setWarmupUi("Warm-up ready", "Generate Preview is unlocked.", "100%");
         $("state-label").textContent = "Image ready";
         setStatus("Image ready", "ok");
       } catch (err) {
@@ -1178,6 +1194,10 @@
     }
 
     async function generate() {
+      if (!modelReady) {
+        toast("Run Warm Up before Generate Preview.");
+        return;
+      }
       const prepareSource = shouldPrepareSource();
       if (prepareSource && !preparedFile) {
         toast("Wait for source preprocessing to finish first.");
@@ -1288,9 +1308,9 @@
         await client.predict("/free_pipeline_api", { session_id: sessionId });
         modelReady = false;
         warmupActive = false;
+        setWarmupUi("Warm-up required", "Clear GPU Memory unloaded the model. Run Warm Up again.", "0%");
         setStatus("GPU memory cleared", "ok");
         $("state-label").textContent = "GPU memory cleared";
-        setWarmupMini(false);
         setProgressUi("Idle", "GPU memory cleared.", "0%");
         toast("Pixal3D GPU memory cleared.");
       } catch (err) {
@@ -1309,8 +1329,7 @@
       updateWarmupButton();
       setStatus("Warming up model", "work");
       $("state-label").textContent = "Warming up";
-      setProgressUi("Warming up", "Starting Pixal3D warmup.", "8%");
-      setWarmupMini(true, "starting warmup", "8%");
+      setWarmupUi("Warming up", "Starting Pixal3D warm-up.", "8%");
       try {
         await client.predict("/warmup", {
           session_id: sessionId,
@@ -1325,7 +1344,7 @@
         updateWarmupButton();
         setStatus("Warmup failed", "err");
         $("state-label").textContent = "Warmup failed";
-        setWarmupMini(true, "warmup failed", "0%");
+        setWarmupUi("Warm-up failed", "Check Logs for the traceback.", "0%");
         toast("Warmup failed. Check Logs for the traceback.");
       }
     }
@@ -1382,12 +1401,20 @@
         prepGeneration += 1;
         preparedFile = null;
         if (shouldPrepareSource()) {
-          $("generate").disabled = true;
-          preprocess(currentFile);
+          updateGenerateState();
+          if (modelReady) {
+            preprocess(currentFile);
+          } else {
+            setProgressUi("Waiting", "Warm up the model before source prep.", "0%");
+            $("state-label").textContent = "Warm-up required";
+            setStatus("Image selected", "");
+            setBusy(false);
+          }
         } else {
           preprocessing = false;
           stopProgress(false);
           setProgressUi("Source ready", "Using original source image.", "0%");
+          if (modelReady) setWarmupUi("Warm-up ready", "Generate Preview is unlocked.", "100%");
           $("state-label").textContent = "Image ready";
           setStatus("Image ready", "ok");
           setBusy(false);
@@ -1456,7 +1483,7 @@
       outputPath = "";
       preprocessing = false;
       stopProgress(false);
-      $("generate").disabled = true;
+      updateGenerateState();
       $("extract").disabled = true;
       $("open-output").disabled = true;
       $("filmstrip").innerHTML = "";
@@ -1466,9 +1493,16 @@
       const localUrl = URL.createObjectURL(file);
       $("source-preview").src = localUrl;
       if (shouldPrepareSource()) {
-        $("state-label").textContent = "Preparing source";
-        setStatus("Preparing source", "work");
-        preprocess(file);
+        if (modelReady) {
+          $("state-label").textContent = "Preparing source";
+          setStatus("Preparing source", "work");
+          preprocess(file);
+        } else {
+          setProgressUi("Waiting", "Warm up the model before source prep.", "0%");
+          $("state-label").textContent = "Warm-up required";
+          setStatus("Image selected", "");
+          setBusy(false);
+        }
       } else {
         prepGeneration += 1;
         setProgressUi("Source ready", "Using original source image.", "0%");

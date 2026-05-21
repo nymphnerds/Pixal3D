@@ -20,8 +20,8 @@ PROFILE_ORDER = [
 OPTIMIZATION_PROFILES = {
     "preview_16gb": {
         "id": "preview_16gb",
-        "label": "Preview 16GB",
-        "description": "Fast 1024 low-VRAM test pass.",
+        "label": "1024 fast / 8 steps",
+        "description": "Fast 1024 low-VRAM test pass with 8 sampler steps and 16k max tokens.",
         "low_vram": True,
         "resolution": 1024,
         "ss_sampling_steps": 8,
@@ -34,8 +34,8 @@ OPTIMIZATION_PROFILES = {
     },
     "balanced_16gb": {
         "id": "balanced_16gb",
-        "label": "Balanced 16GB",
-        "description": "Best first target for RTX 4080 SUPER 16GB.",
+        "label": "1024 low-VRAM / 12 steps",
+        "description": "Default 1024 low-VRAM run with 12 sampler steps and 32k max tokens.",
         "low_vram": True,
         "resolution": 1024,
         "ss_sampling_steps": 12,
@@ -48,8 +48,8 @@ OPTIMIZATION_PROFILES = {
     },
     "quality_16gb": {
         "id": "quality_16gb",
-        "label": "Quality 16GB",
-        "description": "Higher-detail 1024 run; may need a freshly freed pipeline.",
+        "label": "1024 low-VRAM / 16 steps",
+        "description": "Higher-detail 1024 low-VRAM run with 16 sampler steps and 32k max tokens.",
         "low_vram": True,
         "resolution": 1024,
         "ss_sampling_steps": 16,
@@ -62,8 +62,8 @@ OPTIMIZATION_PROFILES = {
     },
     "high_vram_1536": {
         "id": "high_vram_1536",
-        "label": "1536 High VRAM",
-        "description": "Heavy quality profile for 24GB+ cards.",
+        "label": "1536 full-VRAM / 16 steps",
+        "description": "Heavy full-VRAM 1536 run for larger cards.",
         "low_vram": False,
         "resolution": 1536,
         "ss_sampling_steps": 16,
