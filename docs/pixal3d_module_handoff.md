@@ -303,6 +303,10 @@ Nymph UI optimization implementation 2026-05-21:
 - Follow-up compact rail fix: `v0.1.70` narrows the Pixal work rail to `360px`,
   removes the divider lines around the run-command buttons, and makes the
   source/run command buttons square tool buttons.
+- Follow-up preview square fix: `v0.1.71` corrects the mistaken button-square
+  change. Source/run buttons are compact horizontal commands again, and the
+  source image preview/drop zone is the square element. The source and run
+  command rows use thin fitted button strips inside the locked rail.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
@@ -3650,7 +3654,7 @@ Current Nymphs Ui flow:
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.70`
+- Pixal3D module: `0.1.71`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action
@@ -3677,6 +3681,9 @@ Latest behavior state:
   viewport width.
 - `v0.1.70` narrows the locked rail to `360px`, removes button-adjacent
   separator lines, and squares the main command buttons.
+- `v0.1.71` restores horizontal command buttons and makes the source preview
+  square. The source/run command buttons are thin fitted strips, not square
+  tiles.
 - The main generation progress strip moved below the preview; the topbar area
   now contains status/runtime plus the separate warmup strip.
 - `nvdiffrec_render.light` is a required shared TRELLIS.2/Pixal3D runtime import.

@@ -100,7 +100,9 @@
 
     .drop {
       position: relative;
-      height: 255px;
+      aspect-ratio: 1 / 1;
+      height: auto;
+      width: 100%;
       display: grid;
       place-items: center;
       padding: 10px;
@@ -205,31 +207,43 @@
     .btn:disabled::before { color: #355a56; }
 
     .primary-actions {
+      display: grid;
+      grid-template-columns: 1fr 1.34fr 0.92fr;
       gap: 7px;
     }
 
     .primary-actions .btn {
-      width: 78px;
-      min-width: 78px;
-      height: 78px;
-      min-height: 78px;
+      width: 100%;
+      min-width: 0;
+      height: 30px;
+      min-height: 30px;
+      padding: 4px 6px;
+      font-size: 10px;
       white-space: normal;
-      flex-direction: column;
+      flex-direction: row;
       text-align: center;
     }
 
     .primary-actions #generate {
-      width: 78px;
-      min-width: 78px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .source-tools {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
     }
 
     .source-tools .btn {
-      width: 78px;
-      min-width: 78px;
-      height: 78px;
-      min-height: 78px;
-      white-space: normal;
-      flex-direction: column;
+      width: 100%;
+      min-width: 0;
+      height: 30px;
+      min-height: 30px;
+      padding: 4px 6px;
+      font-size: 10px;
+      white-space: nowrap;
+      flex-direction: row;
       text-align: center;
     }
 
