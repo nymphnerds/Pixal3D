@@ -11,6 +11,7 @@ import numpy as np
 import base64
 import io
 import json
+import gc
 from datetime import datetime
 from pathlib import Path
 from typing import *
@@ -51,6 +52,7 @@ from pixal3d.modules.sparse import SparseTensor
 from pixal3d.pipelines import Pixal3DImageTo3DPipeline
 from pixal3d.renderers import EnvMap
 from pixal3d.utils import render_utils
+from pixal3d_profiles import get_profile, list_profiles, normalize_profile_id
 import o_voxel
 
 # ============================================================================
@@ -64,7 +66,9 @@ OUTPUT_DIR = os.path.abspath(os.path.expanduser(
 TMP_DIR = os.path.abspath(os.path.expanduser(
     os.environ.get("PIXAL3D_TMP_DIR", os.path.join(OUTPUT_DIR, "tmp"))
 ))
-DEFAULT_TEXTURE_SIZE = int(os.environ.get("PIXAL3D_TEXTURE_SIZE", "1024"))
+DEFAULT_PROFILE = normalize_profile_id(os.environ.get("PIXAL3D_RUN_PROFILE") or os.environ.get("PIXAL3D_PROFILE"))
+DEFAULT_PROFILE_SETTINGS = get_profile(DEFAULT_PROFILE)
+DEFAULT_TEXTURE_SIZE = int(os.environ.get("PIXAL3D_TEXTURE_SIZE", str(DEFAULT_PROFILE_SETTINGS["texture_size"])))
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(TMP_DIR, exist_ok=True)
 
@@ -80,7 +84,7 @@ STEPS = 8
 
 # Cascade parameters
 CASCADE_LR_RESOLUTION = 512
-CASCADE_MAX_NUM_TOKENS = 49152
+CASCADE_MAX_NUM_TOKENS = int(os.environ.get("PIXAL3D_MAX_NUM_TOKENS", str(DEFAULT_PROFILE_SETTINGS["max_num_tokens"])))
 
 # MoGe defaults
 MOGE_MODEL_NAME = "Ruicheng/moge-2-vitl"
@@ -118,10 +122,13 @@ IMAGE_COND_CONFIGS = {
     },
 }
 
-def resolve_texture_naf_target_size(low_vram: bool) -> int:
-    value = os.environ.get("PIXAL3D_TEXTURE_NAF_TARGET_SIZE")
+def resolve_texture_naf_target_size(low_vram: bool, requested: int | None = None) -> int:
+    if requested:
+        value = requested
+    else:
+        value = os.environ.get("PIXAL3D_TEXTURE_NAF_TARGET_SIZE")
     if value in (None, ""):
-        return 1024
+        return 512 if low_vram else 1024
     value = int(value)
     if value not in {512, 768, 1024}:
         raise ValueError(f"Unsupported PIXAL3D_TEXTURE_NAF_TARGET_SIZE: {value}")
@@ -147,7 +154,11 @@ def load_moge_model(device="cuda", model_name=MOGE_MODEL_NAME):
 pipeline = None
 moge_model = None
 envmap = None
-LOW_VRAM = os.environ.get("LOW_VRAM", "0") == "1"
+LOW_VRAM = os.environ.get("PIXAL3D_LOW_VRAM", os.environ.get("LOW_VRAM", "1" if DEFAULT_PROFILE_SETTINGS["low_vram"] else "0")) == "1"
+runtime_settings = {
+    "low_vram": None,
+    "texture_naf_target_size": None,
+}
 warmup_lock = threading.Lock()
 warmup_state = {
     "status": "idle",
@@ -174,7 +185,10 @@ def _warmup_snapshot():
         return dict(warmup_state)
 
 def configure_cuda_memory_limit():
-    value = os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", "0.92").strip()
+    raw_value = os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION")
+    if raw_value is None:
+        return
+    value = raw_value.strip()
     if not value or value in {"0", "1", "1.0"}:
         return
     if not torch.cuda.is_available():
@@ -193,14 +207,46 @@ def configure_cuda_memory_limit():
     except Exception as exc:
         print(f"[CUDA] Could not set memory fraction: {exc}")
 
-def init_models():
+
+def _free_models_locked(reason: str = ""):
     global pipeline, moge_model, envmap
+    if reason:
+        print(f"[Pipeline] Freeing Pixal3D runtime: {reason}")
+    pipeline = None
+    moge_model = None
+    envmap = None
+    runtime_settings["low_vram"] = None
+    runtime_settings["texture_naf_target_size"] = None
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        try:
+            torch.cuda.ipc_collect()
+        except Exception:
+            pass
+    _set_warmup("idle", "Pipeline freed", 0, done=False)
+
+
+def init_models(low_vram: bool | None = None, texture_naf_target_size: int | None = None, force_reload: bool = False):
+    global pipeline, moge_model, envmap
+    global LOW_VRAM
+    desired_low_vram = LOW_VRAM if low_vram is None else bool(low_vram)
+    desired_texture_naf = resolve_texture_naf_target_size(desired_low_vram, texture_naf_target_size)
     with init_lock:
-        if pipeline is not None:
+        if (
+            pipeline is not None
+            and not force_reload
+            and runtime_settings["low_vram"] == desired_low_vram
+            and runtime_settings["texture_naf_target_size"] == desired_texture_naf
+        ):
             _set_warmup("ready", "Model ready", 5, done=True)
             return
 
+        if pipeline is not None:
+            _free_models_locked("runtime profile changed")
+
         try:
+            LOW_VRAM = desired_low_vram
             _set_warmup("loading", "Checking GPU", 0)
             configure_cuda_memory_limit()
             # GPU / CUDA Diagnostics (runs when GPU is allocated)
@@ -230,7 +276,7 @@ def init_models():
 
             _set_warmup("loading", "Building image conditioners", 2)
             print("[ImageCond] Building DinoV3ProjFeatureExtractor models...")
-            tex_naf_target = resolve_texture_naf_target_size(LOW_VRAM)
+            tex_naf_target = desired_texture_naf
             IMAGE_COND_CONFIGS["tex_1024"]["naf_target_size"] = tex_naf_target
             print(f"[ImageCond] Texture NAF target size: {tex_naf_target}")
             pipeline.image_cond_model_ss = build_image_cond_model(IMAGE_COND_CONFIGS["ss"])
@@ -283,6 +329,8 @@ def init_models():
                 'sunset': EnvMap(torch.tensor(cv2.cvtColor(cv2.imread(os.path.join(_base, 'assets/hdri/sunset.exr'), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB), dtype=torch.float32, device=_envmap_device)),
                 'courtyard': EnvMap(torch.tensor(cv2.cvtColor(cv2.imread(os.path.join(_base, 'assets/hdri/courtyard.exr'), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB), dtype=torch.float32, device=_envmap_device)),
             }
+            runtime_settings["low_vram"] = LOW_VRAM
+            runtime_settings["texture_naf_target_size"] = tex_naf_target
             _set_warmup("ready", "Model ready", 5, done=True)
         except Exception as exc:
             _set_warmup("error", "Model preload failed", 0, done=True, error=str(exc))
@@ -449,7 +497,7 @@ app = Server()
 
 @app.get("/")
 async def homepage():
-    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nymph_pixal3d.html")
     with open(html_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
@@ -461,24 +509,29 @@ async def nymph_homepage():
 
 @app.get("/official")
 async def official_homepage():
-    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "index.html")
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nymph_pixal3d.html")
     with open(html_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
 @app.get("/app_config")
 async def get_config():
     """Return server configuration for frontend (e.g. LOW_VRAM mode)."""
+    active_profile = get_profile(DEFAULT_PROFILE)
     return JSONResponse({
         "low_vram": LOW_VRAM,
         "output_dir": OUTPUT_DIR,
         "texture_size": DEFAULT_TEXTURE_SIZE,
         "texture_naf_target_size": resolve_texture_naf_target_size(LOW_VRAM),
+        "run_profile": active_profile["id"],
+        "optimization_profiles": list_profiles(),
+        "max_num_tokens": CASCADE_MAX_NUM_TOKENS,
+        "decimation_target": active_profile["decimation_target"],
         "profile": os.environ.get("PIXAL3D_PROFILE", "low_vram_1024"),
         "weight_format": os.environ.get("PIXAL3D_WEIGHT_FORMAT", "safetensors"),
         "gguf_quant": os.environ.get("PIXAL3D_QUANT", "Q5_K_M"),
         "gguf_supported": os.environ.get("PIXAL3D_QUANT_RUNTIME_SUPPORTED", "0") == "1",
         "rembg_keep_gpu": os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "0") == "1",
-        "cuda_memory_fraction": os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", "0.92"),
+        "cuda_memory_fraction": os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", ""),
     })
 
 @app.get("/progress")
@@ -499,10 +552,19 @@ async def warmup_status():
 
 @app.api()
 @spaces.GPU(duration=30)
-def preprocess(image: FileData, rembg_keep_gpu: bool = False, session_id: str = "") -> FileData:
+def preprocess(
+    image: FileData,
+    rembg_keep_gpu: bool = False,
+    session_id: str = "",
+    low_vram: bool = True,
+    texture_naf_target_size: int = 0,
+) -> FileData:
     _reset_progress(session_id)
     _update_progress("Loading Pixal3D models", 0, 3)
-    init_models()
+    init_models(
+        low_vram=bool(low_vram),
+        texture_naf_target_size=int(texture_naf_target_size) or None,
+    )
     _update_progress("Preprocessing source image", 1, 3)
     img = Image.open(image["path"])
     os.environ["PIXAL3D_REMBG_KEEP_GPU"] = "1" if rembg_keep_gpu else "0"
@@ -535,10 +597,21 @@ def generate_3d(
     fov_unit: str = "deg",
     source_preprocessed: bool = True,
     session_id: str = "",
+    profile_id: str = "balanced_16gb",
+    low_vram: bool = True,
+    max_num_tokens: int = CASCADE_MAX_NUM_TOKENS,
+    texture_naf_target_size: int = 0,
 ) -> Dict:
     _reset_progress(session_id)
     _update_progress("Loading Pixal3D models", 0, 8)
-    init_models()
+    active_profile = get_profile(profile_id)
+    effective_low_vram = bool(low_vram)
+    effective_texture_naf = int(texture_naf_target_size or active_profile["texture_naf_target_size"])
+    effective_max_tokens = int(max_num_tokens or active_profile["max_num_tokens"])
+    init_models(
+        low_vram=effective_low_vram,
+        texture_naf_target_size=effective_texture_naf,
+    )
     
     torch.manual_seed(seed)
     hr_resolution = int(resolution)
@@ -597,7 +670,7 @@ def generate_3d(
         preprocess_image=False,
         return_latent=True,
         pipeline_type=pipeline_type,
-        max_num_tokens=CASCADE_MAX_NUM_TOKENS,
+        max_num_tokens=effective_max_tokens,
     )
     
     mesh = mesh_list[0]
@@ -675,9 +748,19 @@ def extract_glb_api(state_path: str, decimation_target: int, texture_size: int, 
     
     _update_progress("Exporting GLB file", 3, 4)
     out_glb = os.path.join(OUTPUT_DIR, f"pixal3d_app_{int(time.time()*1000)}.glb")
-    glb.export(out_glb, extension_webp=True)
+    glb.export(out_glb, extension_webp=False)
     _finish_progress()
     return FileData(path=out_glb)
+
+
+@app.api()
+def free_pipeline_api(session_id: str = "") -> Dict:
+    _reset_progress(session_id)
+    _update_progress("Freeing Pixal3D pipeline", 1, 1)
+    with init_lock:
+        _free_models_locked("manual frontend request")
+    _finish_progress()
+    return {"freed": True}
 
 # Mount assets and tmp for direct access
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")

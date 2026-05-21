@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.53",
+  "version": "0.1.54",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -17,7 +17,7 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D generates textured GLB assets from a single image.\n\nOfficial Ui launches the upstream Pixal3D custom web UI in the Manager WebView. Nymphs Ui launches the NymphsCore Pixal3D app on the same local Gradio server/API. Fetch Models downloads the Pixal3D checkpoints and required helper models into NymphsData. The module uses the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv, so TRELLIS.2 and Pixal3D do not build separate native stacks.\n\nLicense and access:\n- Pixal3D is MIT licensed for Tencent-published code, parameters, weights, and documentation.\n- Third-party components keep their own licenses.\n- BRIA RMBG-2.0 is gated on Hugging Face and may have separate access terms. Use the same Hugging Face account for the access form and module token.",
+    "body": "Pixal3D generates textured GLB assets from a single image.\n\nPixal3D opens the NymphsCore custom UI in the Manager WebView. Fetch Models downloads the Pixal3D checkpoints and required helper models into NymphsData. The module uses the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv, so TRELLIS.2 and Pixal3D do not build separate native stacks.\n\nLicense and access:\n- Pixal3D is MIT licensed for Tencent-published code, parameters, weights, and documentation.\n- Third-party components keep their own licenses.\n- BRIA RMBG-2.0 is gated on Hugging Face and may have separate access terms. Use the same Hugging Face account for the access form and module token.",
     "links": [
       {
         "label": "Pixal3D source",
@@ -183,7 +183,7 @@
     "standard_lifecycle_rail": true,
     "manager_ui": {
       "type": "local_url",
-      "title": "Nymphs Ui",
+      "title": "Pixal3D",
       "url": "http://127.0.0.1:8097/nymph",
       "requires_running": true,
       "start_action": "open_nymph_ui",
@@ -273,14 +273,8 @@
     "manager_actions": [
       {
         "id": "open_nymph_ui",
-        "label": "Nymphs Ui",
+        "label": "Open UI",
         "entrypoint": "open_nymph_ui",
-        "result": "open_in_manager"
-      },
-      {
-        "id": "open_gradio",
-        "label": "Official Ui",
-        "entrypoint": "open_gradio",
         "result": "open_in_manager"
       },
       {
@@ -333,17 +327,17 @@
   "notes": [
     "The official upstream training code and data toolkit are preserved in the module repo, but v0.1 exposes inference and Gradio testing only.",
     "Install/Repair installs the official Pixal3D utils3d wheel, verifies intrinsics_from_fov_xy, and creates the utils3d.pt/np compatibility aliases required by MoGe camera estimation.",
-    "Official Ui starts the local Gradio server/API and opens the upstream Pixal3D custom UI.",
+    "The upstream custom UI is kept only as reference code; Manager opens the NymphsCore Pixal3D UI.",
     "Close Gradio stops only the embedded Gradio UI; the full stop entrypoint remains available internally for module lifecycle cleanup.",
     "Pixal3D hides separate Start API and Stop buttons from the module action strip because normal Gradio use does not require them.",
-    "Nymphs Ui starts the same local Gradio server/API and opens the NymphsCore custom UI.",
+    "Open UI starts the local Gradio server/API and opens the NymphsCore custom UI.",
     "The Gradio launcher no longer prints the API URL during API pre-start, and status reports the Gradio URL while the Gradio UI is running.",
     "The API running check now also accepts a healthy /server_info probe so the Gradio launcher does not spawn a duplicate API on an occupied port.",
     "Low-VRAM Gradio exposes Texture NAF Size and defaults the texture conditioning NAF pass to 512 to reduce 16 GB GPU pressure.",
     "Gradio is allowed to serve generated GLB files from the shared Pixal3D outputs directory.",
-    "v0.1.27 republishes the dual Official Ui/Nymphs Ui manifest so installed 0.1.26 runtimes surface a normal Manager update.",
-    "v0.1.28 makes Nymphs Ui the primary Manager UI while keeping Official Ui as a separate action.",
-    "v0.1.29 keeps the Gradio start output free of the base server URL so Manager opens the explicit Nymphs Ui or Official Ui URL.",
+    "v0.1.27 republishes the dual UI manifest so installed 0.1.26 runtimes surface a normal Manager update.",
+    "v0.1.28 makes Nymphs Ui the primary Manager UI.",
+    "v0.1.29 keeps the Gradio start output free of the base server URL so Manager opens the explicit Pixal3D UI URL.",
     "v0.1.30 exposes all current generation/export parameters in Nymphs Ui and keeps the background-removal model on GPU by default to avoid low-VRAM CPU unload failures.",
     "v0.1.31 compacts Nymphs Ui for the default Manager WebView size and removes the duplicate main reference preview.",
     "v0.1.32 adds detailed Nymphs Ui progress text under the run bar and reports model-loading, preprocess, camera, sampling, rendering, and export stages.",
@@ -368,6 +362,7 @@
     "v0.1.51 moves the main generation progress strip below the preview and repairs missing nvdiffrec_render during install/update.",
     "v0.1.52 treats nvdiffrec_render as a shared TRELLIS.2/Pixal3D runtime dependency and installs it after nvdiffrast with CUDA arch scoping.",
     "v0.1.53 makes Pixal3D uninstall output and metadata explicit that the shared TRELLIS.2/Pixal3D runtime venv is preserved.",
+    "v0.1.54 makes the NymphsCore UI the only advertised Pixal3D app surface, adds optimized run profiles, exposes max tokens and texture NAF controls, adds manual Free Pipeline, removes the default CUDA memory fraction cap, and exports GLB textures as PNG.",
     "Do not vendor model weights into this repo."
   ]
 }

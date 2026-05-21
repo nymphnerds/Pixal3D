@@ -9,6 +9,9 @@ Updated: 2026-05-19 after merging upstream `TencentARC/Pixal3D` through
 `e3b2ac1` (`docs: add natten installation step in README`). The fork now
 includes the official Pixal3D training pipeline and data preparation toolkit.
 
+Updated: 2026-05-21 after web research on Pixal3D low-VRAM/ComfyUI work and
+the shared TRELLIS.2/Pixal3D runtime uninstall problem.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -114,6 +117,121 @@ Update 2026-05-20:
 - If `PIXAL3D_WEIGHT_FORMAT` is manually set away from `safetensors`, `/generate`
   now returns HTTP 501 with an explicit "GGUF loader support is not implemented
   yet" message instead of failing obscurely inside model loading.
+
+Update 2026-05-21 low-VRAM research:
+
+- Official Pixal3D now documents low-VRAM inference and web demo support.
+  Low-VRAM mode defaults to `1024` resolution, while standard mode defaults to
+  `1536`.
+- Official Pixal3D also documents `ATTN_BACKEND=sdpa` as an emergency fallback
+  if flash-attn is unavailable. The Nymph module should keep flash-attn as the
+  normal path, but this is useful diagnostic information.
+- The upstream Hugging Face model card says May 2026 brought the improved
+  TRELLIS.2-based implementation, inference/demo release, and training code.
+- The upstream repository `LICENSE` is MIT for Tencent-published code, weights,
+  parameters, and documentation. `NOTICE` says third-party components keep their
+  own licenses; current third-party attributions include DINOv2 under Apache-2.0
+  and TRELLIS.2, Direct3D-S2, and MoGe under MIT.
+- No mature Pixal3D GGUF runtime equivalent to `Aero-Ex/Trellis2-GGUF` was found
+  during the search. Treat Pixal3D GGUF as an experimental future branch, not a
+  module dependency.
+- `city96/ComfyUI-GGUF` confirms the general reason GGUF may eventually help:
+  transformer/DiT models tend to tolerate quantization better than conv-heavy
+  UNet-style models. Pixal3D has DiT stages, but a loader bridge is still needed
+  before the downloaded Pixal3D GGUF weights can replace safetensors stages.
+
+Community low-VRAM/ComfyUI findings:
+
+- `Saganaki22/Pixal3D-ComfyUI` is now listed by upstream as a community project.
+  Useful ideas to borrow:
+  - Environment Check node that reports missing CUDA/runtime pieces before
+    model load.
+  - Explicit Unload Model node that clears Pixal3D pipeline cache and releases
+    model handles.
+  - Manual camera mode/FOV controls as an alternative to MoGe camera estimation.
+  - FlashAttention 2/3 selection and `natten` fallback modes.
+  - Troubleshooting guidance: do not let pip replace a working Torch install
+    when testing random CUDA wheels; use `--no-deps` for manual CUDA wheels.
+- `dreamrec/ComfyUI-Pixal3D` has the most useful 16GB tuning table found:
+  - `1024_cascade`, `low_vram=true`, 12/12/12 steps, 32k tokens, 200k decim,
+    2048 texture: about 14GB peak, around 3 minutes warm, described as balanced
+    for 16GB cards.
+  - `1024_cascade`, `low_vram=true`, 8/8/8 steps, 16k tokens: about 10GB peak,
+    around 1.5-2 minutes warm, useful as a preview/tight-card mode.
+  - `1024_cascade`, `low_vram=true`, 16/16/16 steps, 32k tokens, 4096 texture:
+    about 17GB peak, so it may work on 16GB only with enough allocator headroom
+    and no memory fragmentation.
+  - `1536_cascade` with `low_vram=true` can work on RTX 5090-class cards but is
+    around 32GB peak, not a target for RTX 4080 SUPER 16GB.
+- `Rizzlord/ComfyUI-Pixal3D-D` looks like a different/experimental Pixal3D-D
+  line, but its UX ideas are interesting: keep-model-loaded toggle, complete
+  purge after generation, and 1024 refinement mode where `refine` is suggested
+  for 16GB while `full` is for 24GB+.
+
+Proposed Nymph 16GB profile plan:
+
+- Add an explicit "4080S / 16GB Balanced" profile once the current install path
+  is stable.
+- Suggested defaults:
+  - `low_vram=true`
+  - `resolution=1024`
+  - cascade/profile: `1024_cascade` if upstream exposes a clean switch
+  - steps: start with 8/8/8 preview and 12/12/12 balanced
+  - max tokens: 16k preview, 32k balanced
+  - decimation: 200k balanced, 300k only after stable
+  - texture: 2048 balanced, 4096 only after stable
+  - keep warm/model cache off by default for 16GB until fragmentation behavior is
+    measured
+- Add or expose a "Free Pipeline" / "Unload Model" action before attempting
+  higher-quality reruns on 16GB.
+- Keep the safetensors path as the first stable 16GB target. Defer Pixal3D GGUF
+  runtime work until we have a reliable safetensors baseline and a confirmed
+  GGUF loader strategy.
+
+Shared-runtime uninstall fix 2026-05-21:
+
+- TRELLIS.2 `0.1.27` default uninstall now preserves
+  `$HOME/TRELLIS.2/.venv`, `$HOME/TRELLIS.2/runtime`, and
+  `$HOME/TRELLIS.2/.cache` when Pixal3D appears installed.
+- TRELLIS.2 `--purge` still removes the full install root, but warns when
+  Pixal3D appears installed because purge removes the shared runtime.
+- Pixal3D `0.1.53` uninstall metadata/output now explicitly says the shared
+  TRELLIS.2/Pixal3D runtime is preserved.
+- Registry `69` publishes TRELLIS.2 `0.1.27` and Pixal3D `0.1.53`.
+- Validation performed before push:
+  - `bash -n` on affected uninstall/common scripts
+  - `python3 -m json.tool` on manifests and registry
+  - `git diff --check`
+  - temp-tree destructive uninstall test proving TRELLIS preserves `.venv`,
+    `runtime`, `.cache`, outputs, and logs while deleting wrapper files when
+    Pixal3D is installed.
+
+Nymph UI optimization implementation 2026-05-21:
+
+- The NymphsCore UI is now the only advertised Pixal3D app surface. The
+  upstream/official UI files remain in the repo only as reference code.
+- `/`, `/nymph`, and `/official` all serve the Nymph UI so old launch paths do
+  not accidentally open the reference UI.
+- Added shared run profile definitions in `pixal3d_profiles.py`:
+  - `preview_16gb`: 1024 low-VRAM, 8/8/8 steps, 16k tokens.
+  - `balanced_16gb`: 1024 low-VRAM, 12/12/12 steps, 32k tokens, 200k faces,
+    2048 texture.
+  - `quality_16gb`: 1024 low-VRAM, 16/16/16 steps, 32k tokens, 300k faces,
+    4096 texture, 768 texture NAF.
+  - `high_vram_1536`: 1536 high-VRAM, 16/16/16 steps, 49k tokens, 4096 texture.
+- Nymph UI now exposes run profile, low-VRAM mode, max tokens, texture NAF,
+  face target, texture size, per-stage steps, and the existing guidance/camera
+  controls. Manual edits switch the run profile to `Custom`.
+- Added a `Free Pipeline` frontend action backed by `free_pipeline_api` to clear
+  cached Pixal3D/MoGe/envmap state and release CUDA memory before a higher-risk
+  run.
+- Removed the default CUDA allocator fraction cap. `PIXAL3D_CUDA_MEMORY_FRACTION`
+  is still honored if explicitly set, but no cap is applied by default.
+- GLB export now uses PNG textures (`extension_webp=False`) for viewer/Blender
+  compatibility.
+- Added `scripts/benchmark_pixal3d_profiles.py` to run selected profiles against
+  one image and append JSONL records with elapsed time, success/failure, output
+  path, settings, and `nvidia-smi` memory samples.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that

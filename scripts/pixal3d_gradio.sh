@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/_pixal3d_common.sh"
 
-open_path="${PIXAL3D_GRADIO_OPEN_PATH:-/official}"
+open_path="${PIXAL3D_GRADIO_OPEN_PATH:-/nymph}"
 open_url="${PIXAL3D_GRADIO_URL}${open_path}"
 
 if pixal3d_gradio_is_running; then
@@ -34,7 +34,7 @@ echo "Starting Pixal3D Gradio."
   export GRADIO_SERVER_NAME="${PIXAL3D_GRADIO_HOST}"
   export GRADIO_SERVER_PORT="${PIXAL3D_GRADIO_PORT}"
   export LOW_VRAM="${PIXAL3D_LOW_VRAM}"
-  export PIXAL3D_OUTPUT_DIR PIXAL3D_TEXTURE_SIZE PIXAL3D_TEXTURE_NAF_TARGET_SIZE PIXAL3D_REMBG_KEEP_GPU
+  export PIXAL3D_PROFILE PIXAL3D_OUTPUT_DIR PIXAL3D_TEXTURE_SIZE PIXAL3D_TEXTURE_NAF_TARGET_SIZE PIXAL3D_REMBG_KEEP_GPU
   setsid "$(pixal3d_python)" -u app.py \
     --host "${PIXAL3D_GRADIO_HOST}" \
     --port "${PIXAL3D_GRADIO_PORT}" \

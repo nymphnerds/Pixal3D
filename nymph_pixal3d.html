@@ -610,11 +610,25 @@
         <div class="section-title"><i data-lucide="sliders-horizontal"></i> Parameters</div>
         <div class="params">
           <div class="field">
+            <label for="run-profile">Run Profile</label>
+            <select id="run-profile">
+              <option value="preview_16gb">Preview 16GB</option>
+              <option value="balanced_16gb">Balanced 16GB</option>
+              <option value="quality_16gb">Quality 16GB</option>
+              <option value="high_vram_1536">1536 High VRAM</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div class="field">
             <label for="resolution">Resolution</label>
             <select id="resolution">
               <option value="1024">1024</option>
               <option value="1536">1536</option>
             </select>
+          </div>
+          <div class="toggle-row wide">
+            <span>Low VRAM</span>
+            <input id="low-vram" type="checkbox" checked>
           </div>
           <div class="field">
             <label for="weight-profile">Weight Profile</label>
@@ -640,8 +654,20 @@
             </select>
           </div>
           <div class="field">
+            <label for="texture-naf">Texture NAF</label>
+            <select id="texture-naf">
+              <option value="512">512</option>
+              <option value="768">768</option>
+              <option value="1024">1024</option>
+            </select>
+          </div>
+          <div class="field">
             <label for="faces">Faces</label>
-            <input id="faces" type="number" min="100000" max="2000000" step="10000" value="1000000">
+            <input id="faces" type="number" min="5000" max="2000000" step="5000" value="200000">
+          </div>
+          <div class="field">
+            <label for="max-tokens">Max Tokens</label>
+            <input id="max-tokens" type="number" min="16384" max="131072" step="1024" value="32768">
           </div>
 
           <div class="field">
@@ -725,6 +751,8 @@
         </div>
 
         <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
+        <div style="height:10px"></div>
+        <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Free Pipeline</button>
         <p class="note" id="runtime-note"></p>
       </section>
     </aside>
@@ -791,6 +819,8 @@
     let preprocessing = false;
     let prepGeneration = 0;
     let activeProfile = "low_vram_1024";
+    let optimizationProfiles = {};
+    let applyingRunProfile = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -841,6 +871,54 @@
       if ($("auto-fov").checked) return -1.0;
       const value = parseFloat($("fov").value || "0.2");
       return $("fov-unit").value === "rad" ? value : value;
+    }
+
+    function profileValue(id, fallback = null) {
+      const profile = optimizationProfiles[id] || null;
+      return profile || fallback;
+    }
+
+    function setCustomProfile() {
+      if (!applyingRunProfile && $("run-profile").value !== "custom") {
+        $("run-profile").value = "custom";
+      }
+    }
+
+    function applyRunProfile(profileId) {
+      if (profileId === "custom") return;
+      const profile = profileValue(profileId);
+      if (!profile) return;
+      applyingRunProfile = true;
+      $("low-vram").checked = profile.low_vram === true;
+      $("resolution").value = String(profile.resolution || 1024);
+      $("texture-size").value = String(profile.texture_size || 2048);
+      $("texture-naf").value = String(profile.texture_naf_target_size || ($("low-vram").checked ? 512 : 1024));
+      $("faces").value = String(profile.decimation_target || 200000);
+      $("max-tokens").value = String(profile.max_num_tokens || 32768);
+      $("ss-steps").value = String(profile.ss_sampling_steps || 12);
+      $("shape-steps").value = String(profile.shape_slat_sampling_steps || 12);
+      $("tex-steps").value = String(profile.tex_slat_sampling_steps || 12);
+      updateSliderLabels();
+      applyingRunProfile = false;
+    }
+
+    function populateRunProfiles(profiles, selectedProfile) {
+      optimizationProfiles = {};
+      const select = $("run-profile");
+      select.innerHTML = "";
+      for (const profile of profiles || []) {
+        optimizationProfiles[profile.id] = profile;
+        const option = document.createElement("option");
+        option.value = profile.id;
+        option.textContent = profile.label || profile.id;
+        select.appendChild(option);
+      }
+      const custom = document.createElement("option");
+      custom.value = "custom";
+      custom.textContent = "Custom";
+      select.appendChild(custom);
+      select.value = optimizationProfiles[selectedProfile] ? selectedProfile : "balanced_16gb";
+      applyRunProfile(select.value);
     }
 
     function quantToProfile(quant) {
@@ -1002,6 +1080,8 @@
           image: handle_file(file),
           rembg_keep_gpu: $("rembg-keep-gpu").checked,
           session_id: sessionId,
+          low_vram: $("low-vram").checked,
+          texture_naf_target_size: parseInt($("texture-naf").value || "512", 10),
         });
         if (currentFile !== file || prepId !== prepGeneration || !shouldPrepareSource()) return;
         preparedFile = result?.data?.[0] || null;
@@ -1072,6 +1152,10 @@
           fov_unit: $("fov-unit").value,
           source_preprocessed: prepareSource,
           session_id: sessionId,
+          profile_id: $("run-profile").value,
+          low_vram: $("low-vram").checked,
+          max_num_tokens: parseInt($("max-tokens").value || "32768", 10),
+          texture_naf_target_size: parseInt($("texture-naf").value || "512", 10),
         });
 
         generationResult = result.data[0];
@@ -1130,6 +1214,26 @@
       }
     }
 
+    async function freePipeline() {
+      setBusy(true);
+      setStatus("Freeing pipeline", "work");
+      $("state-label").textContent = "Freeing pipeline";
+      try {
+        await client.predict("/free_pipeline_api", { session_id: sessionId });
+        setStatus("Pipeline freed", "ok");
+        $("state-label").textContent = "Pipeline freed";
+        setWarmupMini(false);
+        toast("Pixal3D pipeline freed.");
+      } catch (err) {
+        console.error(err);
+        setStatus("Free failed", "err");
+        $("state-label").textContent = "Free failed";
+        toast("Could not free pipeline. Check Logs.");
+      } finally {
+        setBusy(false);
+      }
+    }
+
     async function init() {
       lucide.createIcons();
       updateSliderLabels();
@@ -1143,6 +1247,30 @@
           toast(`${profileLabel(selected)} needs Fetch Models/Update and a UI restart. Current session: ${profileLabel(activeProfile)}.`);
         }
       });
+      $("run-profile").addEventListener("change", () => applyRunProfile($("run-profile").value));
+      for (const id of [
+        "low-vram",
+        "resolution",
+        "texture-size",
+        "texture-naf",
+        "faces",
+        "max-tokens",
+        "ss-guidance",
+        "ss-rescale",
+        "ss-rescale-t",
+        "ss-steps",
+        "shape-guidance",
+        "shape-rescale",
+        "shape-rescale-t",
+        "shape-steps",
+        "tex-guidance",
+        "tex-rescale",
+        "tex-rescale-t",
+        "tex-steps",
+      ]) {
+        $(id).addEventListener("input", setCustomProfile);
+        $(id).addEventListener("change", setCustomProfile);
+      }
 
       $("auto-fov").addEventListener("change", () => {
         const manual = !$("auto-fov").checked;
@@ -1167,6 +1295,7 @@
 
       $("generate").onclick = generate;
       $("extract").onclick = extract;
+      $("free-pipeline").onclick = freePipeline;
       $("open-output").onclick = () => {
         if (outputUrl) window.open(outputUrl, "_blank");
       };
@@ -1192,8 +1321,14 @@
         client = await Client.connect(window.location.origin);
         const response = await fetch("/app_config");
         const cfg = await response.json();
+        populateRunProfiles(cfg.optimization_profiles || [], cfg.run_profile || "balanced_16gb");
+        $("low-vram").checked = cfg.low_vram === true;
         $("resolution").value = cfg.low_vram ? "1024" : "1536";
-        $("texture-size").value = String(cfg.texture_size || 1024);
+        $("texture-size").value = String(cfg.texture_size || $("texture-size").value || 2048);
+        $("texture-naf").value = String(cfg.texture_naf_target_size || $("texture-naf").value || 512);
+        $("max-tokens").value = String(cfg.max_num_tokens || $("max-tokens").value || 32768);
+        $("faces").value = String(cfg.decimation_target || $("faces").value || 200000);
+        applyRunProfile($("run-profile").value);
         $("rembg-keep-gpu").checked = cfg.rembg_keep_gpu === true;
         setWeightProfileUi(cfg);
         $("runtime-text").textContent = cfg.weight_format === "gguf-experimental"

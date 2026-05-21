@@ -77,6 +77,16 @@ Module updates stop the local Pixal3D UI before syncing files or repairing
 Python dependencies. This is intentional: a running Gradio/Python process can
 keep stale imports alive even after the shared venv has been repaired.
 
+The NymphsCore UI is the supported local app surface for this module. It exposes
+optimized run profiles for 16 GB GPUs, the low-VRAM toggle, max-token budget,
+texture NAF size, face target, texture size, per-stage sampling controls, and a
+manual **Free Pipeline** action for clearing cached models before higher-risk
+runs. The upstream HTML app is kept in the repository only as reference code.
+
+The NymphsCore runtime is performance-first and expects `flash_attn` to be
+installed in the shared venv. Do not treat SDPA/naive attention as a normal
+generation path for this module.
+
 ### Installation
 
 #### Step 1: Follow TRELLIS.2 Installation
@@ -131,25 +141,31 @@ python inference.py --image assets/images/0_img.png --output ./output.glb --low_
 python inference.py --image assets/images/0_img.png --output ./output.glb --resolution 1024
 ```
 
-**Tip**: If you don't have `flash_attn` installed, you can use PyTorch's built-in SDPA backend instead:
-> ```bash
-> ATTN_BACKEND=sdpa python inference.py --image assets/images/0_img.png --output ./output.glb --low_vram
-> ```
+For the NymphsCore module, `flash_attn` is required for the supported fast path.
 
-### Web Demo
+### NymphsCore Web UI
 
-We provide a Gradio web demo for Pixal3D, which allows you to generate 3D meshes from images interactively.
+The local server opens the NymphsCore Pixal3D UI, which is the supported module
+interface for interactive generation and testing.
 
 ```bash
 python app.py 
 ```
 
-Low-VRAM mode is also available for the web demo. The frontend default resolution will automatically switch to 1024 in low-VRAM mode (1536 otherwise), but can be changed manually in the UI.
+Low-VRAM mode is available for the NymphsCore UI. The profile selector provides
+`Preview 16GB`, `Balanced 16GB`, `Quality 16GB`, and `1536 High VRAM` presets;
+changing individual controls switches the run to `Custom`.
 
 ```bash
 python app.py --low_vram
 # or via environment variable:
 LOW_VRAM=1 python app.py
+```
+
+To compare profiles against one image and write JSONL timing/results records:
+
+```bash
+scripts/benchmark_pixal3d_profiles.py --image assets/images/0_img.png --profiles preview_16gb balanced_16gb
 ```
 ## 🔧 Training
 
