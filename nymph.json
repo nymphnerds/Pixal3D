@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.75",
+  "version": "0.1.76",
   "description": "Local Pixal3D image-to-3D backend and Nymphs UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -380,6 +380,7 @@
     "v0.1.63 makes source prep manual with a Prepare Source/Retry Prep button, keeps the warmup strip warmup-only, fixes runtime preset Low VRAM sync, and changes the source preview to a portrait-friendly shape.",
     "v0.1.64 restyles Pixal3D NymphsCore UI actions as compact app-style // command buttons and fixes the source preview image containment so selected images do not clip inside the preview box.",
     "v0.1.75 hardens Nymphs Ui warmup/run state, prevents Clear GPU Memory and source replacement during active tasks, preserves runtime settings through GLB export, vendors viewer scripts locally, and surfaces generation/export errors in the UI.",
+    "v0.1.76 exposes deeper generation startup progress in the existing progress strip, shortens the ready warmup state to Warmed, preserves the current GLB when the same source image is touched again, makes Warm Up restart/reconnect the backend when applying changed runtime memory settings, and makes Clear GPU Memory reset the backend so settings can be changed before warming.",
     "Do not vendor model weights into this repo."
   ]
 }

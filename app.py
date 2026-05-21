@@ -13,6 +13,7 @@ import io
 import json
 import gc
 import traceback
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import *
@@ -179,6 +180,10 @@ runtime_settings = {
     "low_vram": None,
     "texture_naf_target_size": None,
 }
+process_runtime_settings = {
+    "low_vram": None,
+    "texture_naf_target_size": None,
+}
 warmup_lock = threading.Lock()
 warmup_state = {
     "status": "idle",
@@ -205,6 +210,13 @@ def _set_warmup(status: str, stage: str, step: int, total: int = 5, *, done: boo
 def _warmup_snapshot():
     with warmup_lock:
         return dict(warmup_state)
+
+
+def _mirror_active_progress(stage: str, step: int, total: int):
+    try:
+        _update_progress(stage, step, total)
+    except NameError:
+        pass
 
 
 def _warm_models_worker(low_vram: bool | None = None, texture_naf_target_size: int | None = None):
@@ -297,6 +309,19 @@ def init_models(low_vram: bool | None = None, texture_naf_target_size: int | Non
     desired_low_vram = LOW_VRAM if low_vram is None else bool(low_vram)
     desired_texture_naf = resolve_texture_naf_target_size(desired_low_vram, texture_naf_target_size)
     with init_lock:
+        process_key_set = process_runtime_settings["low_vram"] is not None
+        if (
+            process_key_set
+            and (
+                process_runtime_settings["low_vram"] != desired_low_vram
+                or process_runtime_settings["texture_naf_target_size"] != desired_texture_naf
+            )
+        ):
+            raise RuntimeError(
+                "Pixal3D runtime memory settings can only be changed after restarting the Pixal3D backend. "
+                "Stop Pixal3D, open the UI again, choose the new Low VRAM/Texture NAF settings, then warm up."
+            )
+
         if (
             pipeline is not None
             and not force_reload
@@ -304,14 +329,21 @@ def init_models(low_vram: bool | None = None, texture_naf_target_size: int | Non
             and runtime_settings["texture_naf_target_size"] == desired_texture_naf
         ):
             _set_warmup("ready", "Model ready", 5, done=True)
+            _mirror_active_progress("Pixal3D models already warm", 7, 12)
             return
 
         if pipeline is not None:
-            _free_models_locked("runtime profile changed")
+            raise RuntimeError(
+                "Pixal3D runtime reload was blocked to protect WSL memory. "
+                "Stop Pixal3D, open the UI again, choose the new runtime settings, then warm up."
+            )
 
         try:
             LOW_VRAM = desired_low_vram
+            process_runtime_settings["low_vram"] = desired_low_vram
+            process_runtime_settings["texture_naf_target_size"] = desired_texture_naf
             _set_warmup("loading", "Checking GPU", 0)
+            _mirror_active_progress("Checking CUDA and GPU state", 2, 12)
             configure_cuda_memory_limit()
             # GPU / CUDA Diagnostics (runs when GPU is allocated)
             import subprocess as _sp
@@ -335,10 +367,12 @@ def init_models(low_vram: bool | None = None, texture_naf_target_size: int | Non
 
             model_path = "TencentARC/Pixal3D"
             _set_warmup("loading", "Loading Pixal3D pipeline", 1)
+            _mirror_active_progress("Loading Pixal3D pipeline", 3, 12)
             print(f"[Pipeline] Loading from {model_path}...")
             pipeline = Pixal3DImageTo3DPipeline.from_pretrained(model_path)
 
             _set_warmup("loading", "Building image conditioners", 2)
+            _mirror_active_progress("Building image conditioners", 4, 12)
             print("[ImageCond] Building DinoV3ProjFeatureExtractor models...")
             tex_naf_target = desired_texture_naf
             IMAGE_COND_CONFIGS["tex_1024"]["naf_target_size"] = tex_naf_target
@@ -349,6 +383,7 @@ def init_models(low_vram: bool | None = None, texture_naf_target_size: int | Non
             pipeline.image_cond_model_tex_1024 = build_image_cond_model(IMAGE_COND_CONFIGS["tex_1024"])
 
             _set_warmup("loading", "Preparing NAF upsamplers", 3)
+            _mirror_active_progress("Preparing NAF upsamplers", 5, 12)
             if LOW_VRAM:
                 # Low-VRAM mode: models stay on CPU, loaded to GPU on-demand per stage.
                 print("[NAF] Pre-downloading NAF upsampler weights (CPU only)...")
@@ -376,6 +411,7 @@ def init_models(low_vram: bool | None = None, texture_naf_target_size: int | Non
                         m._load_naf()
 
             _set_warmup("loading", "Loading MoGe camera model", 4)
+            _mirror_active_progress("Loading MoGe camera model", 6, 12)
             print("[MoGe-2] Loading model for camera estimation...")
             if LOW_VRAM:
                 # Low-VRAM: load MoGe to CPU, move to GPU on-demand per request.
@@ -385,6 +421,7 @@ def init_models(low_vram: bool | None = None, texture_naf_target_size: int | Non
                 moge_model = load_moge_model(device="cuda")
 
             _set_warmup("loading", "Loading environment maps", 5)
+            _mirror_active_progress("Loading environment maps", 7, 12)
             print("[EnvMap] Loading environment maps...")
             _base = os.path.dirname(os.path.abspath(__file__))
             _envmap_device = 'cpu' if LOW_VRAM else 'cuda'
@@ -396,6 +433,7 @@ def init_models(low_vram: bool | None = None, texture_naf_target_size: int | Non
             runtime_settings["low_vram"] = LOW_VRAM
             runtime_settings["texture_naf_target_size"] = tex_naf_target
             _set_warmup("ready", "Model ready", 5, done=True)
+            _mirror_active_progress("Model runtime ready", 8, 12)
         except Exception as exc:
             _set_warmup("error", "Model preload failed", 0, done=True, error=str(exc))
             raise
@@ -598,6 +636,21 @@ async def get_config():
         "cuda_memory_fraction": os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", ""),
     })
 
+@app.get("/health")
+async def health():
+    return JSONResponse({"ok": True, "service": "pixal3d-ui", "pid": os.getpid()})
+
+@app.get("/server_info")
+async def server_info():
+    return JSONResponse({
+        "ok": True,
+        "service": "pixal3d-ui",
+        "pid": os.getpid(),
+        "runtime_settings": dict(runtime_settings),
+        "process_runtime_settings": dict(process_runtime_settings),
+        "warmup": _warmup_snapshot(),
+    })
+
 @app.get("/progress")
 async def progress_poll(request: Request):
     """Polling endpoint for real-time progress updates during generation."""
@@ -623,6 +676,60 @@ async def warmup_nymph_api(request: Request):
         texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
     )
     return JSONResponse({"data": [snapshot]})
+
+
+@app.post("/api/restart_runtime")
+async def restart_runtime_nymph_api(request: Request):
+    payload = await request.json()
+    host = str(payload.get("host") or os.environ.get("GRADIO_SERVER_NAME") or "127.0.0.1")
+    port = int(payload.get("port") or os.environ.get("GRADIO_SERVER_PORT") or "8097")
+    install_root = os.path.abspath(os.environ.get("PIXAL3D_INSTALL_ROOT") or os.path.dirname(os.path.abspath(__file__)))
+    log_dir = os.path.abspath(os.path.expanduser(os.environ.get("PIXAL3D_LOG_DIR", os.path.join("~", "NymphsData", "logs", "pixal3d"))))
+    os.makedirs(log_dir, exist_ok=True)
+    pid_file = os.environ.get("PIXAL3D_GRADIO_PID_FILE") or os.path.join(log_dir, "pixal3d-gradio.pid")
+    log_file = os.path.join(log_dir, "pixal3d-gradio.log")
+    old_pid = os.getpid()
+
+    env = os.environ.copy()
+    env["GRADIO_SERVER_NAME"] = host
+    env["GRADIO_SERVER_PORT"] = str(port)
+    env["PIXAL3D_INSTALL_ROOT"] = install_root
+    env["PIXAL3D_LOG_DIR"] = log_dir
+    env["PIXAL3D_GRADIO_PID_FILE"] = pid_file
+
+    argv = [sys.executable, "-u", *sys.argv]
+    script = r'''
+set -euo pipefail
+old_pid="$1"
+pid_file="$2"
+log_file="$3"
+shift 3
+for _ in $(seq 1 80); do
+  if ! kill -0 "${old_pid}" 2>/dev/null; then
+    break
+  fi
+  sleep 0.25
+done
+cd "${PIXAL3D_INSTALL_ROOT}"
+setsid "$@" >"${log_file}" 2>&1 < /dev/null &
+echo $! > "${pid_file}"
+'''
+    subprocess.Popen(
+        ["/bin/bash", "-lc", script, "pixal3d-restart", str(old_pid), pid_file, log_file, *argv],
+        cwd=install_root,
+        env=env,
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        stdin=subprocess.DEVNULL,
+    )
+
+    def _exit_current_process():
+        time.sleep(0.35)
+        os._exit(0)
+
+    threading.Thread(target=_exit_current_process, name="pixal3d-self-restart", daemon=True).start()
+    return JSONResponse({"data": [{"restarting": True, "pid": old_pid}]})
 
 
 def _file_url(path: str) -> str:
@@ -829,13 +936,23 @@ def generate_3d(
     max_num_tokens: int = CASCADE_MAX_NUM_TOKENS,
     texture_naf_target_size: int = 0,
 ) -> Dict:
-    with runtime_op_lock:
-        _reset_progress(session_id)
-        _update_progress("Loading Pixal3D models", 0, 8)
+    _reset_progress(session_id)
+    if runtime_op_lock.acquire(blocking=False):
+        lock_acquired = True
+        _update_progress("Pixal3D runtime lock acquired", 1, 12)
+    else:
+        _update_progress("Waiting for current Pixal3D task to finish", 0, 12)
+        runtime_op_lock.acquire()
+        lock_acquired = True
+        _update_progress("Pixal3D runtime lock acquired", 1, 12)
+
+    try:
+        _update_progress("Reading generation settings", 1, 12)
         active_profile = get_profile(profile_id)
         effective_low_vram = bool(low_vram)
         effective_texture_naf = int(texture_naf_target_size or active_profile["texture_naf_target_size"])
         effective_max_tokens = int(max_num_tokens or active_profile["max_num_tokens"])
+        _update_progress("Checking warmed model state", 2, 12)
         init_models(
             low_vram=effective_low_vram,
             texture_naf_target_size=effective_texture_naf,
@@ -845,16 +962,16 @@ def generate_3d(
         hr_resolution = int(resolution)
 
         if source_preprocessed:
-            _update_progress("Using preprocessed source image", 1, 8)
+            _update_progress("Loading prepared source image", 8, 12)
         else:
-            _update_progress("Using original source image", 1, 8)
+            _update_progress("Loading original source image", 8, 12)
         image_preprocessed = Image.open(_file_path(image)).convert("RGBA")
-        _update_progress("Saving prepared image", 2, 8)
+        _update_progress("Staging image for camera estimation", 9, 12)
         temp_processed_path = os.path.join(TMP_DIR, f"temp_proc_{_safe_session_id(session_id)[:8]}_{int(time.time()*1000)}.png")
         image_preprocessed.save(temp_processed_path)
 
         if manual_fov > 0:
-            _update_progress("Using manual camera FOV", 3, 8)
+            _update_progress("Using manual camera FOV", 10, 12)
             # Convert to radians based on unit
             if fov_unit == "rad":
                 camera_angle_x = float(manual_fov)
@@ -871,13 +988,13 @@ def generate_3d(
             camera_params = {'camera_angle_x': camera_angle_x, 'distance': distance, 'mesh_scale': WILD_MESH_SCALE}
             print(f"[Camera] Using manual FOV: {fov_deg:.2f}° ({camera_angle_x:.4f} rad), distance: {distance:.4f}")
         else:
-            _update_progress("Estimating camera with MoGe", 3, 8)
+            _update_progress("Estimating camera with MoGe", 10, 12)
             camera_params = get_camera_params_wild_moge(
                 temp_processed_path, device="cuda",
                 mesh_scale=WILD_MESH_SCALE, extend_pixel=WILD_EXTEND_PIXEL,
                 image_resolution=WILD_IMAGE_RESOLUTION,
             )
-        _update_progress("Camera ready", 4, 6)
+        _update_progress("Camera ready", 10, 12)
 
         ss_sampler_override = {"steps": ss_sampling_steps, "guidance_strength": ss_guidance_strength,
                                "guidance_rescale": ss_guidance_rescale, "rescale_t": ss_rescale_t}
@@ -887,7 +1004,7 @@ def generate_3d(
                                 "guidance_rescale": tex_slat_guidance_rescale, "rescale_t": tex_slat_rescale_t}
 
         pipeline_type = f"{hr_resolution}_cascade"
-        _update_progress("Generating 3D latent model", 5, 6)
+        _update_progress("Starting Pixal3D samplers", 11, 12)
         _mesh_list, (shape_slat, tex_slat, res) = pipeline.run(
             image_preprocessed,
             camera_params=camera_params,
@@ -901,7 +1018,7 @@ def generate_3d(
             max_num_tokens=effective_max_tokens,
         )
 
-        _update_progress("Packing model state for GLB export", 6, 6)
+        _update_progress("Packing model state for GLB export", 12, 12)
         state_path = pack_state(shape_slat, tex_slat, res)
 
         _finish_progress("Model state ready")
@@ -910,6 +1027,9 @@ def generate_3d(
             "camera_angle_x": camera_params['camera_angle_x'],
             "distance": camera_params['distance'],
         }
+    finally:
+        if lock_acquired:
+            runtime_op_lock.release()
 
 @app.api()
 @spaces.GPU(duration=240)

@@ -648,6 +648,8 @@
     let preprocessing = false;
     let warmupActive = false;
     let modelReady = false;
+    let runtimeStarted = false;
+    let warmedRuntimeKey = "";
     let prepFailed = false;
     let prepGeneration = 0;
     let runGeneration = 0;
@@ -751,6 +753,13 @@
       warmupTargetKey = "";
       warmupDirtyDuringLoad = warmupDirtyDuringLoad || changedWhileLoading;
       invalidatePreparedSource();
+      if (runtimeStarted && warmedRuntimeKey && warmedRuntimeKey !== currentWarmupKey()) {
+        setWarmupUi("Restart on Warm Up", "Warm Up will restart Pixal3D and load these settings.", "0%");
+        setStatus("Settings changed", "");
+        $("state-label").textContent = "Settings changed";
+        updateWarmupButton();
+        return;
+      }
       setWarmupUi(
         "Warm-up required",
         changedWhileLoading
@@ -787,6 +796,7 @@
       $("source-preview").src = sourceObjectUrl;
       $("source-preview").style.display = "block";
       $("drop-hint").style.display = "none";
+      $("drop").classList.add("has-source");
     }
 
     function setBusy(isBusy) {
@@ -979,7 +989,9 @@
             if (canChangeStatus) setStatus("Warm-up required", "");
           } else {
             modelReady = true;
-            setWarmupUi("Warm-up ready", "Prepare Source is available.", "100%");
+            runtimeStarted = true;
+            warmedRuntimeKey = currentWarmupKey();
+            setWarmupUi("Warmed", "", "100%");
             if (canChangeStatus) {
               setStatus("Model ready", "ok");
             }
@@ -1050,7 +1062,7 @@
           $("source-preview").src = preparedUrl;
         }
         setProgressUi("Source ready", "Prepared image shown. Ready to generate.", "100%");
-        if (modelReady) setWarmupUi("Warm-up ready", "Generate is unlocked.", "100%");
+        if (modelReady) setWarmupUi("Warmed", "", "100%");
         $("state-label").textContent = "Image ready";
         setStatus("Image ready", "ok");
       } catch (err) {
@@ -1094,7 +1106,7 @@
       generationResult = null;
       $("open-output").disabled = true;
       setResultEmpty("Generating...");
-      startProgress("Queued", "Starting Pixal3D generation.");
+      startProgress("Queued", "Waiting for Pixal3D runtime.");
 
       try {
         const preparedInput = prepareSource
@@ -1196,28 +1208,44 @@
         toast("Wait for the current Pixal3D task to finish first.");
         return;
       }
-      setBusy(true);
+      busy = true;
+      updateWarmupButton();
       setStatus("Clearing GPU memory", "work");
       $("state-label").textContent = "Clearing GPU memory";
+      setProgressUi("Clearing", "Restarting backend to release runtime memory.", "18%");
       try {
-        await client.predict("/free_pipeline_api", { session_id: sessionId });
+        try {
+          await client.predict("/restart_runtime", {
+            host: window.location.hostname || "127.0.0.1",
+            port: window.location.port || "8097",
+          });
+        } catch (err) {
+          setProgressUi("Clearing", "Reconnect probe after backend handoff.", "18%");
+        }
+        const reconnected = await waitForBackend();
+        if (!reconnected) {
+          throw new Error("Pixal3D did not come back before timeout.");
+        }
         modelReady = false;
+        runtimeStarted = false;
+        warmedRuntimeKey = "";
         warmupActive = false;
         warmupTargetKey = "";
         warmupDirtyDuringLoad = false;
         invalidatePreparedSource();
-        setWarmupUi("Warm-up required", "Clear GPU Memory unloaded the model. Run Warm Up again.", "0%");
+        setWarmupUi("Warm-up required", "Settings can be changed before Warm Up.", "0%");
         setStatus("GPU memory cleared", "ok");
         $("state-label").textContent = "GPU memory cleared";
         setProgressUi("Idle", "GPU memory cleared.", "0%");
-        toast("Pixal3D GPU memory cleared.");
+        toast("GPU memory cleared. Change settings, then Warm Up.");
       } catch (err) {
         console.error(err);
         setStatus("Clear failed", "err");
         $("state-label").textContent = "Clear failed";
-        toast("Could not clear GPU memory. Check Logs.");
+        toast(errorMessage(err, "Could not clear GPU memory. Check Logs."));
       } finally {
-        setBusy(false);
+        busy = false;
+        updateWarmupButton();
       }
     }
 
@@ -1240,6 +1268,7 @@
       $("source-preview").removeAttribute("src");
       $("source-preview").style.display = "none";
       $("drop-hint").style.display = "grid";
+      $("drop").classList.remove("has-source");
       $("open-output").disabled = true;
       $("extract").disabled = true;
       $("output-label").textContent = "None";
@@ -1251,7 +1280,7 @@
         modelReady ? "Model ready" : (warmupActive ? "Warming up model" : "Waiting for image"),
         modelReady ? "ok" : (warmupActive ? "work" : "")
       );
-      if (modelReady) setWarmupUi("Warm-up ready", "Prepare Source is available.", "100%");
+      if (modelReady) setWarmupUi("Warmed", "", "100%");
       updateGenerateState();
     }
 
@@ -1262,6 +1291,10 @@
     }
 
     async function warmUp() {
+      if (runtimeStarted && warmedRuntimeKey && warmedRuntimeKey !== currentWarmupKey()) {
+        await restartAndWarmUp();
+        return;
+      }
       warmupActive = true;
       modelReady = false;
       warmupDirtyDuringLoad = false;
@@ -1277,17 +1310,75 @@
           low_vram: $("low-vram").checked,
           texture_naf_target_size: $("texture-naf").value,
         });
+        runtimeStarted = true;
         startWarmupPolling();
       } catch (err) {
         console.error(err);
         warmupActive = false;
         modelReady = false;
         updateWarmupButton();
+        const message = errorMessage(err, "Warmup failed. Check Logs for the traceback.");
         setStatus("Warmup failed", "err");
         $("state-label").textContent = "Warmup failed";
-        setWarmupUi("Warm-up failed", "Check Logs for the traceback.", "0%");
-        toast("Warmup failed. Check Logs for the traceback.");
+        setWarmupUi("Warm-up failed", message, "0%");
+        toast(message);
       }
+    }
+
+    async function restartAndWarmUp() {
+      busy = true;
+      warmupActive = true;
+      modelReady = false;
+      prepGeneration += 1;
+      preparedFile = null;
+      warmupTargetKey = currentWarmupKey();
+      updateWarmupButton();
+      setStatus("Restarting Pixal3D", "work");
+      $("state-label").textContent = "Restarting Pixal3D";
+      setWarmupUi("Restarting", "Applying changed runtime settings.", "18%");
+      setProgressUi("Restarting", "Waiting for Pixal3D backend.", "18%");
+      try {
+        await client.predict("/restart_runtime", {
+          host: window.location.hostname || "127.0.0.1",
+          port: window.location.port || "8097",
+        });
+      } catch (err) {
+        setProgressUi("Restarting", "Reconnect probe after backend handoff.", "18%");
+      }
+
+      const reconnected = await waitForBackend();
+      if (!reconnected) {
+        setStatus("Reconnect failed", "err");
+        setWarmupUi("Reconnect failed", "Pixal3D did not come back before timeout.", "0%");
+        toast("Pixal3D did not come back before timeout. Use Open UI again.");
+        busy = false;
+        warmupActive = false;
+        updateWarmupButton();
+        return;
+      }
+
+      runtimeStarted = false;
+      warmedRuntimeKey = "";
+      busy = false;
+      warmupActive = false;
+      setWarmupUi("Warming up", "Backend restarted. Loading runtime.", "28%");
+      setStatus("Warming up model", "work");
+      await warmUp();
+    }
+
+    async function waitForBackend() {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        try {
+          const response = await fetch(`/health?restart_probe=${Date.now()}`, { cache: "no-store" });
+          if (response.ok) {
+            client = { predict: directPredict };
+            setProgressUi("Restarted", "Pixal3D backend is back.", "28%");
+            return true;
+          }
+        } catch {}
+      }
+      return false;
     }
 
     async function init() {
@@ -1353,7 +1444,7 @@
           stopProgress(false);
           showOriginalSourcePreview();
           setProgressUi("Source ready", "Using original source image.", "0%");
-          if (modelReady) setWarmupUi("Warm-up ready", "Generate is unlocked.", "100%");
+          if (modelReady) setWarmupUi("Warmed", "", "100%");
           $("state-label").textContent = "Image ready";
           setStatus("Image ready", "ok");
           setBusy(false);
@@ -1430,6 +1521,11 @@
         toast("Wait for the current Pixal3D task to finish first.");
         return;
       }
+      const nextSignature = fileSignature(file);
+      if (currentFile && nextSignature && nextSignature === fileSignature(currentFile)) {
+        updateGenerateState();
+        return;
+      }
       currentFile = file;
       preparedFile = null;
       generationResult = null;
@@ -1456,6 +1552,11 @@
         setStatus("Image ready", "ok");
         setBusy(false);
       }
+    }
+
+    function fileSignature(file) {
+      if (!file) return "";
+      return [file.name || "", file.size || 0, file.lastModified || 0].join(":");
     }
 
     init();
