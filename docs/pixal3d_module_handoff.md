@@ -282,6 +282,11 @@ Nymph UI optimization implementation 2026-05-21:
   starts after warmup is ready, `Generate Preview` unlocks after prep, and prep
   failures expose the backend error with `Retry Prep` and `Clear Source`
   controls instead of trapping the UI.
+- Follow-up manual prep fix: `v0.1.63` keeps auto-warmup but makes source prep
+  explicit. After selecting an image, the user clicks `Prepare Source`; failed
+  prep keeps the same button available as `Retry Prep`. The warmup strip stays
+  warmup-only, runtime presets update the Low VRAM checkbox correctly, and the
+  source preview uses a portrait-friendly shape.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
@@ -3616,8 +3621,9 @@ Current Nymphs Ui flow:
 - `Nymphs Ui` opens `/nymph`; `Official Ui` opens `/official`.
 - Warmup starts automatically when the UI opens.
 - The source image can be selected before warmup. When `Prepare source image`
-  is enabled, preprocessing waits until warmup is ready so it does not secretly
-  become the warmup path or overwrite warmup progress.
+  is enabled, preprocessing is manual via `Prepare Source` after warmup is
+  ready so it does not secretly become the warmup path or overwrite warmup
+  progress.
 - Turning `Prepare source image` off sends the original image to generation.
 - `Use GPU for RMBG` belongs to the preprocess stage.
 - Warmup has its own top progress strip directly under the Pixal3D status bar.
@@ -3628,7 +3634,7 @@ Current Nymphs Ui flow:
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.62`
+- Pixal3D module: `0.1.63`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action

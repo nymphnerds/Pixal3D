@@ -101,8 +101,9 @@
     }
 
     .drop {
-      min-height: 180px;
-      max-height: 320px;
+      aspect-ratio: 4 / 5;
+      min-height: 280px;
+      max-height: 440px;
       display: grid;
       place-items: center;
       position: relative;
@@ -117,7 +118,7 @@
 
     .drop img {
       max-width: 100%;
-      max-height: 300px;
+      max-height: 100%;
       display: none;
       object-fit: contain;
     }
@@ -269,13 +270,13 @@
 
     .source-tools {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: 8px;
       margin-top: 10px;
     }
 
     .source-tools .btn {
-      height: 30px;
+      height: 34px;
       font-size: 11px;
     }
 
@@ -640,7 +641,7 @@
           <input id="prepare-source" type="checkbox" checked>
         </div>
         <div class="source-tools">
-          <button class="btn secondary" id="retry-prep" disabled><i data-lucide="refresh-cw"></i> Retry Prep</button>
+          <button class="btn secondary" id="prepare-source-action" disabled><i data-lucide="wand-sparkles"></i> Prepare Source</button>
           <button class="btn secondary" id="clear-source" disabled><i data-lucide="x"></i> Clear Source</button>
         </div>
       </section>
@@ -936,7 +937,11 @@
         || !modelReady
         || (shouldPrepareSource() && !preparedFile);
       $("clear-source").disabled = !currentFile || busy || preprocessing;
-      $("retry-prep").disabled = !currentFile || !prepFailed || preprocessing || busy || !shouldPrepareSource() || !modelReady;
+      const prepareButton = $("prepare-source-action");
+      prepareButton.disabled = !currentFile || preprocessing || busy || !shouldPrepareSource() || !modelReady;
+      prepareButton.innerHTML = prepFailed
+        ? '<i data-lucide="refresh-cw"></i> Retry Prep'
+        : '<i data-lucide="wand-sparkles"></i> Prepare Source';
     }
 
     function updateWarmupButton() {
@@ -1010,6 +1015,8 @@
       $("tex-steps").value = String(profile.tex_slat_sampling_steps || 12);
       updateSliderLabels();
       applyingRunProfile = false;
+      markWarmupDirty();
+      setBusy(false);
     }
 
     function populateRunProfiles(profiles, selectedProfile) {
@@ -1160,21 +1167,13 @@
         } else if (data.status === "ready") {
           warmupActive = false;
           modelReady = true;
-          setWarmupUi(
-            "Warm-up ready",
-            currentFile && shouldPrepareSource() && !preparedFile ? "Preparing selected source image." : "Generate Preview is unlocked.",
-            "100%"
-          );
+          setWarmupUi("Warm-up ready", "Prepare Source is available.", "100%");
           if (canChangeStatus) {
             setStatus("Model ready", "ok");
           }
           updateWarmupButton();
           clearInterval(warmupTimer);
-          if (currentFile && shouldPrepareSource() && !preparedFile && !preprocessing) {
-            preprocess(currentFile);
-          } else {
-            updateGenerateState();
-          }
+          updateGenerateState();
         } else if (data.status === "error") {
           warmupActive = false;
           modelReady = false;
@@ -1410,10 +1409,11 @@
       setResultEmpty("Preview frames and GLB appear here.");
       setProgressUi("Idle", "Waiting for source image.", "0%");
       setStatus(modelReady ? "Model ready" : "Warming up model", modelReady ? "ok" : "work");
+      if (modelReady) setWarmupUi("Warm-up ready", "Prepare Source is available.", "100%");
       updateGenerateState();
     }
 
-    function retryPrep() {
+    function prepareSource() {
       if (!currentFile || !modelReady || !shouldPrepareSource()) return;
       prepFailed = false;
       preprocess(currentFile);
@@ -1458,7 +1458,9 @@
           toast(`${profileLabel(selected)} needs Fetch Models/Update and a UI restart. Current session: ${profileLabel(activeProfile)}.`);
         }
       });
-      $("run-profile").addEventListener("change", () => applyRunProfile($("run-profile").value));
+      $("run-profile").addEventListener("change", () => {
+        applyRunProfile($("run-profile").value);
+      });
       for (const id of [
         "low-vram",
         "resolution",
@@ -1497,15 +1499,10 @@
         prepGeneration += 1;
         preparedFile = null;
         if (shouldPrepareSource()) {
-          updateGenerateState();
-          if (modelReady) {
-            preprocess(currentFile);
-          } else {
-            setProgressUi("Waiting", "Warm up the model before source prep.", "0%");
-            $("state-label").textContent = "Warm-up required";
-            setStatus("Image selected", "");
-            setBusy(false);
-          }
+          setProgressUi("Source selected", modelReady ? "Click Prepare Source." : "Warm-up is running.", "0%");
+          $("state-label").textContent = modelReady ? "Source selected" : "Warm-up required";
+          setStatus("Image selected", "");
+          setBusy(false);
         } else {
           preprocessing = false;
           stopProgress(false);
@@ -1520,7 +1517,7 @@
       $("generate").onclick = generate;
       $("extract").onclick = extract;
       $("warm-up").onclick = warmUp;
-      $("retry-prep").onclick = retryPrep;
+      $("prepare-source-action").onclick = prepareSource;
       $("clear-source").onclick = clearSource;
       $("free-pipeline").onclick = freePipeline;
       $("open-output").onclick = () => {
@@ -1593,16 +1590,10 @@
       const localUrl = URL.createObjectURL(file);
       $("source-preview").src = localUrl;
       if (shouldPrepareSource()) {
-        if (modelReady) {
-          $("state-label").textContent = "Preparing source";
-          setStatus("Preparing source", "work");
-          preprocess(file);
-        } else {
-          setProgressUi("Waiting", "Warm up the model before source prep.", "0%");
-          $("state-label").textContent = "Warm-up required";
-          setStatus("Image selected", "");
-          setBusy(false);
-        }
+        setProgressUi("Source selected", modelReady ? "Click Prepare Source." : "Warm-up is running.", "0%");
+        $("state-label").textContent = modelReady ? "Source selected" : "Warm-up required";
+        setStatus("Image selected", "");
+        setBusy(false);
       } else {
         prepGeneration += 1;
         setProgressUi("Source ready", "Using original source image.", "0%");
