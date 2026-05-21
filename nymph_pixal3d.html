@@ -841,6 +841,12 @@
       return "";
     }
 
+    function serverFile(file) {
+      if (!file || !file.path) return file;
+      const { url, ...rest } = file;
+      return rest;
+    }
+
     function populateFrames(renderPaths) {
       const filmstrip = $("filmstrip");
       filmstrip.innerHTML = "";
@@ -988,7 +994,7 @@
 
       try {
         const preparedInput = prepareSource
-          ? (preparedFile.url ? handle_file(preparedFile.url) : preparedFile)
+          ? serverFile(preparedFile)
           : handle_file(currentFile);
         const result = await client.predict("/generate_3d", {
           image: preparedInput,
