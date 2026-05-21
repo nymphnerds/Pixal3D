@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.58",
+  "version": "0.1.59",
   "description": "Local Pixal3D image-to-3D backend and Nymphs UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -278,6 +278,12 @@
         "result": "open_in_manager"
       },
       {
+        "id": "stop",
+        "label": "Stop",
+        "entrypoint": "stop",
+        "result": "show_output"
+      },
+      {
         "id": "smoke_test",
         "label": "Smoke Test",
         "entrypoint": "smoke_test",
@@ -329,7 +335,7 @@
     "Install/Repair installs the official Pixal3D utils3d wheel, verifies intrinsics_from_fov_xy, and creates the utils3d.pt/np compatibility aliases required by MoGe camera estimation.",
     "The upstream custom UI is kept only as reference code; Manager opens the NymphsCore Pixal3D UI.",
     "Close Gradio stops only the embedded Gradio UI; the full stop entrypoint remains available internally for module lifecycle cleanup.",
-    "Pixal3D hides separate Start API and Stop buttons from the module action strip because normal Gradio use does not require them.",
+    "Pixal3D shows Open UI and Stop in the module action strip so users can start and stop the running local UI without opening the side manage menu.",
     "Open UI starts the local Gradio server/API and opens the NymphsCore custom UI.",
     "The Gradio launcher no longer prints the API URL during API pre-start, and status reports the Gradio URL while the Gradio UI is running.",
     "The API running check now also accepts a healthy /server_info probe so the Gradio launcher does not spawn a duplicate API on an occupied port.",
@@ -367,6 +373,7 @@
     "v0.1.56 refreshes module files on every install/repair so a retry after a failed partial install cannot leave stale UI, docs, or manifest files behind.",
     "v0.1.57 serves the NymphsCore UI directly through FastAPI endpoints so Pixal3D no longer depends on the removed Gradio Server/app.api path in Gradio 6.",
     "v0.1.58 widens the Run Profile selector, places Resolution next to Low VRAM, renames Free Pipeline to Clear GPU Memory, and prevents stale source-prep progress from lingering after prep is disabled.",
+    "v0.1.59 adds a visible Stop module action for the running Pixal3D UI/API process.",
     "Do not vendor model weights into this repo."
   ]
 }

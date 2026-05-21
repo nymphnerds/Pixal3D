@@ -253,6 +253,9 @@ Nymph UI optimization implementation 2026-05-21:
   places Resolution next to the Low VRAM checkbox, renames the noob-hostile
   "Free Pipeline" action to "Clear GPU Memory", and stops stale source-prep
   progress from lingering after source preparation is disabled.
+- Follow-up module action fix: `v0.1.59` adds a visible `Stop` module action
+  that runs the module `stop` entrypoint, so users can stop Pixal3D from the
+  module actions row without opening the side manage menu.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
