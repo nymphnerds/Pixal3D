@@ -249,6 +249,10 @@ Nymph UI optimization implementation 2026-05-21:
   calls to direct `/api/preprocess`, `/api/generate_3d`,
   `/api/extract_glb_api`, and `/api/free_pipeline_api` endpoints instead of
   depending on `@gradio/client`.
+- Follow-up Nymph UI clarity fix: `v0.1.58` widens the Run Profile selector,
+  places Resolution next to the Low VRAM checkbox, renames the noob-hostile
+  "Free Pipeline" action to "Clear GPU Memory", and stops stale source-prep
+  progress from lingering after source preparation is disabled.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that

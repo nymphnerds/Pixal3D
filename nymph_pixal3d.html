@@ -609,7 +609,7 @@
       <section class="section">
         <div class="section-title"><i data-lucide="sliders-horizontal"></i> Parameters</div>
         <div class="params">
-          <div class="field">
+          <div class="field wide">
             <label for="run-profile">Run Profile</label>
             <select id="run-profile">
               <option value="preview_16gb">Preview 16GB</option>
@@ -619,16 +619,16 @@
               <option value="custom">Custom</option>
             </select>
           </div>
+          <div class="toggle-row">
+            <span>Low VRAM</span>
+            <input id="low-vram" type="checkbox" checked>
+          </div>
           <div class="field">
             <label for="resolution">Resolution</label>
             <select id="resolution">
               <option value="1024">1024</option>
               <option value="1536">1536</option>
             </select>
-          </div>
-          <div class="toggle-row wide">
-            <span>Low VRAM</span>
-            <input id="low-vram" type="checkbox" checked>
           </div>
           <div class="field">
             <label for="weight-profile">Weight Profile</label>
@@ -752,7 +752,7 @@
 
         <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
         <div style="height:10px"></div>
-        <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Free Pipeline</button>
+        <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Clear GPU Memory</button>
         <p class="note" id="runtime-note"></p>
       </section>
     </aside>
@@ -1103,7 +1103,15 @@
           low_vram: $("low-vram").checked,
           texture_naf_target_size: parseInt($("texture-naf").value || "512", 10),
         });
-        if (currentFile !== file || prepId !== prepGeneration || !shouldPrepareSource()) return;
+        if (currentFile !== file || prepId !== prepGeneration || !shouldPrepareSource()) {
+          stopProgress(false);
+          if (currentFile === file && !shouldPrepareSource()) {
+            setProgressUi("Source ready", "Using original source image.", "0%");
+            $("state-label").textContent = "Image ready";
+            setStatus("Image ready", "ok");
+          }
+          return;
+        }
         preparedFile = result?.data?.[0] || null;
         const url = preparedFile?.url;
         if (url) {
@@ -1236,19 +1244,19 @@
 
     async function freePipeline() {
       setBusy(true);
-      setStatus("Freeing pipeline", "work");
-      $("state-label").textContent = "Freeing pipeline";
+      setStatus("Clearing GPU memory", "work");
+      $("state-label").textContent = "Clearing GPU memory";
       try {
         await client.predict("/free_pipeline_api", { session_id: sessionId });
-        setStatus("Pipeline freed", "ok");
-        $("state-label").textContent = "Pipeline freed";
+        setStatus("GPU memory cleared", "ok");
+        $("state-label").textContent = "GPU memory cleared";
         setWarmupMini(false);
-        toast("Pixal3D pipeline freed.");
+        toast("Pixal3D GPU memory cleared.");
       } catch (err) {
         console.error(err);
-        setStatus("Free failed", "err");
-        $("state-label").textContent = "Free failed";
-        toast("Could not free pipeline. Check Logs.");
+        setStatus("Clear failed", "err");
+        $("state-label").textContent = "Clear failed";
+        toast("Could not clear GPU memory. Check Logs.");
       } finally {
         setBusy(false);
       }
@@ -1306,6 +1314,7 @@
           preprocess(currentFile);
         } else {
           preprocessing = false;
+          stopProgress(false);
           setProgressUi("Source ready", "Using original source image.", "0%");
           $("state-label").textContent = "Image ready";
           setStatus("Image ready", "ok");
@@ -1373,6 +1382,7 @@
       outputUrl = "";
       outputPath = "";
       preprocessing = false;
+      stopProgress(false);
       $("generate").disabled = true;
       $("extract").disabled = true;
       $("open-output").disabled = true;
