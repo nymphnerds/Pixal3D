@@ -68,7 +68,7 @@
 
     .app {
       display: grid;
-      grid-template-columns: 520px minmax(420px, 1fr);
+      grid-template-columns: 410px minmax(0, 1fr);
       height: 100vh;
       min-height: 560px;
     }
@@ -102,7 +102,7 @@
 
     .drop {
       min-height: 180px;
-      max-height: 340px;
+      max-height: 320px;
       display: grid;
       place-items: center;
       position: relative;
@@ -117,7 +117,7 @@
 
     .drop img {
       max-width: 100%;
-      max-height: 320px;
+      max-height: 300px;
       display: none;
       object-fit: contain;
     }
@@ -246,6 +246,48 @@
     .btn:disabled {
       opacity: 0.45;
       cursor: not-allowed;
+    }
+
+    .primary-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .primary-actions .btn {
+      min-width: 0;
+      height: 36px;
+      padding: 0 8px;
+      font-size: 11px;
+    }
+
+    .primary-actions .btn svg {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    .source-tools {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .source-tools .btn {
+      height: 30px;
+      font-size: 11px;
+    }
+
+    .status-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .status-actions .btn {
+      height: 34px;
+      font-size: 11px;
     }
 
     .stage {
@@ -597,13 +639,15 @@
           <span>Prepare source image</span>
           <input id="prepare-source" type="checkbox" checked>
         </div>
+        <div class="source-tools">
+          <button class="btn secondary" id="retry-prep" disabled><i data-lucide="refresh-cw"></i> Retry Prep</button>
+          <button class="btn secondary" id="clear-source" disabled><i data-lucide="x"></i> Clear Source</button>
+        </div>
       </section>
 
-      <section class="section">
+      <section class="section primary-actions">
         <button class="btn secondary" id="warm-up"><i data-lucide="flame"></i> Warm Up</button>
-        <div style="height:10px"></div>
         <button class="btn" id="generate" disabled><i data-lucide="sparkles"></i> Generate Preview</button>
-        <div style="height:10px"></div>
         <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export GLB</button>
       </section>
 
@@ -751,9 +795,10 @@
           <div><strong>Output</strong> <span id="output-label">None</span></div>
         </div>
 
-        <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
-        <div style="height:10px"></div>
-        <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Clear GPU Memory</button>
+        <div class="status-actions">
+          <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
+          <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Clear GPU Memory</button>
+        </div>
         <p class="note" id="runtime-note"></p>
       </section>
     </aside>
@@ -818,6 +863,7 @@
     let preprocessing = false;
     let warmupActive = false;
     let modelReady = false;
+    let prepFailed = false;
     let prepGeneration = 0;
     let activeProfile = "low_vram_1024";
     let optimizationProfiles = {};
@@ -855,6 +901,16 @@
       toast._t = setTimeout(() => el.classList.remove("show"), 3200);
     }
 
+    function errorMessage(err, fallback = "Unexpected error.") {
+      const raw = String(err?.message || err || "");
+      if (!raw) return fallback;
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed.detail) return String(parsed.detail);
+      } catch {}
+      return raw.length > 180 ? `${raw.slice(0, 177)}...` : raw;
+    }
+
     function setStatus(message, mode = "") {
       $("status-text").textContent = message;
       $("dot").className = `dot ${mode}`;
@@ -879,6 +935,8 @@
         || !currentFile
         || !modelReady
         || (shouldPrepareSource() && !preparedFile);
+      $("clear-source").disabled = !currentFile || busy || preprocessing;
+      $("retry-prep").disabled = !currentFile || !prepFailed || preprocessing || busy || !shouldPrepareSource() || !modelReady;
     }
 
     function updateWarmupButton() {
@@ -1114,6 +1172,8 @@
           clearInterval(warmupTimer);
           if (currentFile && shouldPrepareSource() && !preparedFile && !preprocessing) {
             preprocess(currentFile);
+          } else {
+            updateGenerateState();
           }
         } else if (data.status === "error") {
           warmupActive = false;
@@ -1141,6 +1201,7 @@
 
     async function preprocess(file) {
       preprocessing = true;
+      prepFailed = false;
       const prepId = ++prepGeneration;
       setBusy(false);
       preparedFile = null;
@@ -1166,6 +1227,7 @@
           return;
         }
         preparedFile = result?.data?.[0] || null;
+        prepFailed = false;
         const url = preparedFile?.url;
         if (url) {
           $("source-preview").src = url;
@@ -1180,10 +1242,12 @@
         if (currentFile === file && prepId === prepGeneration && shouldPrepareSource()) {
           stopProgress(false);
           preparedFile = null;
-          setProgressUi("Prep failed", "Source preprocessing failed. Check Logs.", "0%");
+          prepFailed = true;
+          const message = errorMessage(err, "Source preprocessing failed. Check Logs.");
+          setProgressUi("Prep failed", message, "0%");
           $("state-label").textContent = "Source prep failed";
           setStatus("Source prep failed", "err");
-          toast("Source preprocessing failed. Check Logs.");
+          toast(message);
         }
       } finally {
         if (currentFile === file) {
@@ -1323,6 +1387,38 @@
       }
     }
 
+    function clearSource() {
+      currentFile = null;
+      preparedFile = null;
+      generationResult = null;
+      prepFailed = false;
+      prepGeneration += 1;
+      outputUrl = "";
+      outputPath = "";
+      preprocessing = false;
+      stopProgress(false);
+      $("file").value = "";
+      $("source-preview").removeAttribute("src");
+      $("source-preview").style.display = "none";
+      $("drop-hint").style.display = "grid";
+      $("filmstrip").innerHTML = "";
+      $("open-output").disabled = true;
+      $("extract").disabled = true;
+      $("output-label").textContent = "None";
+      $("camera-label").textContent = "Auto";
+      $("state-label").textContent = "No run yet";
+      setResultEmpty("Preview frames and GLB appear here.");
+      setProgressUi("Idle", "Waiting for source image.", "0%");
+      setStatus(modelReady ? "Model ready" : "Warming up model", modelReady ? "ok" : "work");
+      updateGenerateState();
+    }
+
+    function retryPrep() {
+      if (!currentFile || !modelReady || !shouldPrepareSource()) return;
+      prepFailed = false;
+      preprocess(currentFile);
+    }
+
     async function warmUp() {
       warmupActive = true;
       modelReady = false;
@@ -1424,6 +1520,8 @@
       $("generate").onclick = generate;
       $("extract").onclick = extract;
       $("warm-up").onclick = warmUp;
+      $("retry-prep").onclick = retryPrep;
+      $("clear-source").onclick = clearSource;
       $("free-pipeline").onclick = freePipeline;
       $("open-output").onclick = () => {
         if (outputUrl) window.open(outputUrl, "_blank");
@@ -1466,8 +1564,9 @@
         $("runtime-note").textContent = cfg.gguf_supported
           ? "GGUF runtime is available for this session."
           : `Safetensors are active. Texture NAF ${cfg.texture_naf_target_size || 1024}. GGUF weights can be fetched now and will become selectable after the runtime bridge is verified.`;
-        setStatus("Waiting for image");
-        startWarmupPolling();
+        setStatus("Warming up model", "work");
+        setWarmupUi("Warming up", "Starting Pixal3D warm-up.", "8%");
+        warmUp();
       } catch (err) {
         console.error(err);
         setStatus("Connection failed", "err");
@@ -1479,6 +1578,7 @@
       currentFile = file;
       preparedFile = null;
       generationResult = null;
+      prepFailed = false;
       outputUrl = "";
       outputPath = "";
       preprocessing = false;

@@ -277,6 +277,11 @@ Nymph UI optimization implementation 2026-05-21:
   widens the locked Pixal3D control column, enlarges the source preview,
   compacts control buttons, and renames runtime presets with explicit settings
   such as `1024 low-VRAM / 12 steps`.
+- Follow-up official-like flow fix: `v0.1.62` auto-starts warmup when the
+  NymphsCore UI opens. Users can select an image while warmup runs; source prep
+  starts after warmup is ready, `Generate Preview` unlocks after prep, and prep
+  failures expose the backend error with `Retry Prep` and `Clear Source`
+  controls instead of trapping the UI.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
@@ -3609,6 +3614,7 @@ WSL_INTEROP=/run/WSL/1_interop /mnt/c/WINDOWS/system32/wsl.exe -d NymphsCore --c
 Current Nymphs Ui flow:
 
 - `Nymphs Ui` opens `/nymph`; `Official Ui` opens `/official`.
+- Warmup starts automatically when the UI opens.
 - The source image can be selected before warmup. When `Prepare source image`
   is enabled, preprocessing waits until warmup is ready so it does not secretly
   become the warmup path or overwrite warmup progress.
@@ -3622,14 +3628,14 @@ Current Nymphs Ui flow:
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.61`
+- Pixal3D module: `0.1.62`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action
   strip already identifies the workspace state.
 - Background/manual model warmup no longer writes into the main result-strip
-  progress. As of `0.1.61`, it uses a full dedicated top warmup strip with its
-  own bar.
+  progress. As of `0.1.62`, warmup starts automatically on UI open and uses a
+  full dedicated top warmup strip with its own bar.
 - The main result-strip progress is reserved for source prep, generation, and
   GLB export so delayed preload stages such as `Loading MoGe camera model` do
   not flash over `Image ready`.

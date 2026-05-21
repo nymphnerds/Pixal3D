@@ -12,6 +12,7 @@ import base64
 import io
 import json
 import gc
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import *
@@ -63,7 +64,7 @@ except ImportError:
 from gradio.data_classes import FileData
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 
 from pixal3d.modules.sparse import SparseTensor
 from pixal3d.pipelines import Pixal3DImageTo3DPipeline
@@ -688,14 +689,19 @@ def _payload_file(payload: Dict[str, Any]) -> FileData:
 @app.post("/api/preprocess")
 async def preprocess_nymph_api(request: Request):
     payload = await _request_payload(request)
-    result = preprocess(
-        image=_payload_file(payload),
-        rembg_keep_gpu=_as_bool(payload.get("rembg_keep_gpu")),
-        session_id=str(payload.get("session_id") or ""),
-        low_vram=_as_bool(payload.get("low_vram"), True),
-        texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
-    )
-    return JSONResponse({"data": [_file_response(_file_path(result))]})
+    try:
+        result = preprocess(
+            image=_payload_file(payload),
+            rembg_keep_gpu=_as_bool(payload.get("rembg_keep_gpu")),
+            session_id=str(payload.get("session_id") or ""),
+            low_vram=_as_bool(payload.get("low_vram"), True),
+            texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+        )
+        return JSONResponse({"data": [_file_response(_file_path(result))]})
+    except Exception as exc:
+        print("[NymphUI] Source preprocessing failed:")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc) or exc.__class__.__name__) from exc
 
 
 @app.post("/api/generate_3d")
