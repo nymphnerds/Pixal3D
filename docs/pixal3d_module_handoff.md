@@ -2024,7 +2024,8 @@ MoGe: 2.0.0
 pipeline:
   git+https://github.com/EasternJournalist/pipeline.git@866f059d2a05cde05e4a52211ec5051fd5f276d6
 utils3d:
-  git+https://github.com/EasternJournalist/utils3d.git@3fab839f0be9931dac7c8488eb0e1600c236e183
+  https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl
+  plus generated utils3d.pt/utils3d.np aliases for MoGe compatibility
 ```
 
 Dependency health check:
@@ -2193,8 +2194,9 @@ Implementation lessons learned:
   call it a waiver.
 - Pin Transformers to 4.57.3 until Pixal3D updates its DINO extraction code for
   newer Transformers model internals.
-- Use MoGe's pinned utils3d commit for auto camera. If using the Pixal3D README
-  utils3d wheel, expect only manual-FOV validation to work.
+- Use the Pixal3D README `utils3d-0.0.2` wheel and create `utils3d.pt` /
+  `utils3d.np` aliases for auto camera. Do not use MoGe's newer pinned
+  `utils3d` commit for Pixal3D; it lacks `intrinsics_from_fov_xy`.
 - Do not base Pixal3D on the TRELLIS GGUF loader. It needs the TRELLIS.2-style
   native/runtime surface but loads TencentARC/Pixal3D checkpoints directly.
 - Keep NAF prefetch in the fetch path; first use downloads the GitHub repo and
@@ -2208,9 +2210,10 @@ Implementation lessons learned:
 - VRAM: upstream standard mode is likely too heavy for a 16 GB default; keep
   low-VRAM default until tested.
 - Model size: Pixal3D ckpts are around 24 GB before auxiliary models.
-- Dependency friction: MoGe and Pixal3D disagree in docs around `utils3d`. For
-  auto camera support, use MoGe's pinned git commit or add an explicit
-  `utils3d.pt` compatibility shim. Prefer a separate Pixal3D venv/module root.
+- Dependency friction: MoGe and Pixal3D disagree in docs around `utils3d`.
+  Pixal3D needs the README wheel because render/projection paths call
+  `utils3d.torch.intrinsics_from_fov_xy`; MoGe needs `utils3d.pt`, so the module
+  creates `pt`/`np` aliases after installing the wheel.
 - `flash_attn`: upstream defaults `ATTN_BACKEND=flash_attn`. Although upstream
   documents `ATTN_BACKEND=sdpa` as a fallback, this Nymph module should hard
   require flash-attn and fail fast if import or CUDA kernel smoke fails.
@@ -3377,3 +3380,63 @@ Correction to the app shell routing:
   differs:
   - `Official Ui` -> `/official`
   - `Nymphs Ui` -> `/nymph`
+
+## 2026-05-21 Update: Utils3d Dependency Fix
+
+Latest published state:
+
+- Pixal3D module: `0.1.43`
+- Registry: `registry_version` 63
+- Pixal3D commit: `fd9f18798c1a1d790d2a0ee8ab68eabaa1cb92e5`
+- Manifest hash:
+  `3a67ea2203978f4bcc7580192fc26d224bc52ebc29d97a274614117a0b44f87d`
+
+Failure that triggered this update:
+
+- A Nymphs Ui generation in the test WSL distro reached the expensive Pixal3D
+  sampling stages, including texture sampling, then failed during preview/render
+  projection.
+- The concrete crash was:
+  `AttributeError: module 'utils3d.torch' has no attribute 'intrinsics_from_fov_xy'`.
+- This was not a NATTEN/FlashAttention failure and not a hidden preprocessing
+  handoff failure. The dependency stack had the wrong `utils3d` API for Pixal3D.
+
+Correct dependency rule:
+
+- Install Pixal3D's official README wheel:
+  `https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl`.
+- After installing it, create `utils3d.pt` and `utils3d.np` alias files so MoGe
+  auto-camera imports still work.
+- Do not install `EasternJournalist/utils3d@3fab839f0be9931dac7c8488eb0e1600c236e183`
+  for Pixal3D. That newer commit has the MoGe-style import shape after alias
+  repair, but it drops `utils3d.torch.intrinsics_from_fov_xy`, which Pixal3D and
+  TRELLIS.2 render/projection code still call.
+
+Installer/update behavior after `0.1.43`:
+
+- `install_pixal3d.sh` installs the official Pixal3D `utils3d` wheel and verifies
+  `utils3d.torch.intrinsics_from_fov_xy`.
+- `pixal3d_update.sh` now checks the installed shared venv and repairs only
+  `utils3d` if the wrong API is present.
+- This update path should not rebuild FlashAttention or NATTEN.
+- Smoke/runtime validation now imports `utils3d.torch`, `utils3d.pt`, and
+  `utils3d.np`, and fails fast if `intrinsics_from_fov_xy` is missing.
+
+Test/dev WSL reminder:
+
+- User-facing Manager tests run in the `NymphsCore` WSL distro, not the dev WSL.
+- From dev WSL, inspect test WSL with:
+
+```bash
+WSL_INTEROP=/run/WSL/1_interop /mnt/c/WINDOWS/system32/wsl.exe -d NymphsCore --cd /home/nymph -- bash -lc '...'
+```
+
+Current Nymphs Ui flow:
+
+- `Nymphs Ui` opens `/nymph`; `Official Ui` opens `/official`.
+- The source image should preprocess on image selection when the optional
+  `Prepare source image` checkbox is enabled.
+- Turning `Prepare source image` off sends the original image to generation.
+- `Use GPU for RMBG` belongs to the preprocess stage.
+- Keep a single progress surface in the top/right result strip; do not duplicate
+  a progress card in the left controls.
