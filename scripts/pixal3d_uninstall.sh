@@ -33,6 +33,10 @@ fi
 
 printf 'Would remove:\n'
 printf '  %s\n' "${targets[@]}"
+printf 'Would preserve shared runtime:\n'
+printf '  %s\n' "${PIXAL3D_TRELLIS_VENV_DIR}"
+printf '  %s\n' "${PIXAL3D_TRELLIS_RUNTIME_ROOT}/runtime"
+printf '  %s\n' "${PIXAL3D_GGUF_RUNTIME_DIR}"
 if [[ "${dry_run}" == "true" ]]; then
   exit 0
 fi
@@ -42,3 +46,4 @@ for target in "${targets[@]}"; do
   [[ -n "${target}" && -e "${target}" ]] && rm -rf "${target}"
 done
 echo "Pixal3D uninstall complete."
+echo "Shared TRELLIS.2/Pixal3D runtime preserved at ${PIXAL3D_TRELLIS_VENV_DIR}."

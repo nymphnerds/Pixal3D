@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.52",
+  "version": "0.1.53",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -322,12 +322,12 @@
       "logs",
       "config",
       "Hugging Face cache",
-      "Torch cache"
+      "Torch cache",
+      "shared TRELLIS.2/Pixal3D runtime venv"
     ],
     "removes_by_default": [
-      "runtime source files",
-      ".venv",
-      "generated module scripts"
+      "Pixal3D module source files",
+      "Pixal3D generated module scripts"
     ]
   },
   "notes": [
@@ -367,6 +367,7 @@
     "v0.1.50 uses compact Weight Profile display labels in Nymphs Ui so the two-column parameter controls stay readable.",
     "v0.1.51 moves the main generation progress strip below the preview and repairs missing nvdiffrec_render during install/update.",
     "v0.1.52 treats nvdiffrec_render as a shared TRELLIS.2/Pixal3D runtime dependency and installs it after nvdiffrast with CUDA arch scoping.",
+    "v0.1.53 makes Pixal3D uninstall output and metadata explicit that the shared TRELLIS.2/Pixal3D runtime venv is preserved.",
     "Do not vendor model weights into this repo."
   ]
 }
