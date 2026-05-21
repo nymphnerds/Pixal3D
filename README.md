@@ -83,8 +83,18 @@ files before repairing the shared runtime.
 The NymphsCore UI is the supported local app surface for this module. It exposes
 optimized run profiles for 16 GB GPUs, the low-VRAM toggle, max-token budget,
 texture NAF size, face target, texture size, per-stage sampling controls, and a
-manual **Free Pipeline** action for clearing cached models before higher-risk
-runs. The upstream HTML app is kept in the repository only as reference code.
+manual **Clear GPU Memory** action for resetting the backend before changing
+runtime memory settings. The upstream HTML app is kept in the repository only
+as reference code.
+
+Runtime-memory settings such as **Low VRAM**, **Texture NAF**, and presets that
+change those values are treated as process-bound settings. If they change after
+the model is already warmed, pressing **Warm Up** restarts and reconnects the
+Pixal3D backend in the background before loading the new settings. **Clear GPU
+Memory** performs the same clean backend reset manually, so settings can be
+changed safely before the next warmup. Normal generation/export settings such
+as seed, guidance, steps, resolution, texture size, face target, and FOV remain
+editable between runs without a backend reset.
 
 The NymphsCore runtime is performance-first and expects `flash_attn` to be
 installed in the shared venv. Do not treat SDPA/naive attention as a normal

@@ -23,6 +23,11 @@ that is the fresh dev build. Watch item: one launch briefly reported zero
 installed module markers after mixed Desktop-release/dev-publish launch testing;
 reopening showed all six modules installed/current again.
 
+Updated: 2026-05-21 after Pixal3D `0.1.76`. Warmup/runtime setting changes now
+use a clean backend process boundary: **Warm Up** restarts/reconnects the
+backend automatically when Low VRAM, Texture NAF, or a runtime preset changes
+after a previous warmup. **Clear GPU Memory** is the manual clean reset path.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -307,6 +312,16 @@ Nymph UI optimization implementation 2026-05-21:
   change. Source/run buttons are compact horizontal commands again, and the
   source image preview/drop zone is the square element. The source and run
   command rows use thin fitted button strips inside the locked rail.
+- Follow-up runtime-state hardening: `v0.1.75` prevents source replacement and
+  GPU-memory clearing during active work, vendors the `model-viewer`/Lucide
+  browser assets locally, shows the prepared image in the existing source pane
+  after `Prepare Source`, preserves low-VRAM/Texture NAF settings through GLB
+  export, and surfaces generation/export backend errors in the UI.
+- Follow-up restart-safe warmup: `v0.1.76` adds deeper startup progress before
+  the heavy generation call, reduces the ready warmup copy to `Warmed`,
+  preserves the current GLB when the same source image is touched/selected
+  again, and makes runtime-memory setting changes safe by restarting and
+  reconnecting the backend before warming with the new settings.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that
@@ -3645,11 +3660,21 @@ Current Nymphs Ui flow:
   is enabled, preprocessing is manual via `Prepare Source` after warmup is
   ready so it does not secretly become the warmup path or overwrite warmup
   progress.
+- After `Prepare Source`, the prepared image replaces the original inside the
+  existing source pane. No separate source window is opened.
 - Turning `Prepare source image` off sends the original image to generation.
 - `Use GPU for RMBG` belongs to the preprocess stage.
 - Warmup has its own top progress strip directly under the Pixal3D status bar.
 - Source prep, generation, and GLB export share the separate progress strip
   underneath the preview.
+- The warmed state text is intentionally short: `Warmed`.
+- Runtime-memory settings are process-bound. If Low VRAM, Texture NAF, or a
+  runtime preset changes after warmup, pressing `Warm Up` restarts/reconnects
+  the Pixal3D backend in the background, then warms the new settings. `Clear GPU
+  Memory` performs the same clean backend reset manually so the user can change
+  settings before the next warmup. Do not implement in-process heavy reloads for
+  these controls in the Blender addon; copy this one-button restart/reconnect
+  contract instead.
 
 ## 2026-05-21 Update: Nymphs Ui Startup Chrome Cleanup
 
@@ -3715,7 +3740,7 @@ Latest behavior state:
 
 ## 2026-05-21 End-Of-Session Pickup
 
-Published state:
+Superseded published state:
 
 - Pixal3D module version: `0.1.74`
 - Pixal3D commit: `71dfac3` (`Remove Pixal3D preview frame path`)
@@ -3755,6 +3780,46 @@ First tests for the next session:
 5. Click `Generate` and confirm it does not render a preview-frame filmstrip.
 6. Confirm the GLB appears in the full-size embedded model viewer and survives
    window resizing.
+
+## 2026-05-21 Pixal3D 0.1.76 Pickup
+
+Published state:
+
+- Pixal3D module version: `0.1.76`
+- Pixal3D commit: `0c40bc2` (`Make Pixal3D warmup restart-safe`)
+- Registry commit: `67ef202` (`Publish Pixal3D 0.1.76`)
+- Registry version: `95`
+- Registry Pixal3D manifest hash:
+  `45800b67a03b0903fb8bd64ed9e989efc6a69fb7cd1f1ad95e1e6b7ef62a5755`
+
+What changed:
+
+- Generation startup progress now starts before the runtime lock and mirrors
+  expensive model-load stages into the existing progress strip, so the UI no
+  longer sits on vague `Queued` text during slow startup.
+- The warmup ready state now shows `Warmed`.
+- Selecting/touching the same source image no longer clears the current GLB
+  preview. A real different source file still resets generation state.
+- `Warm Up` detects changed runtime-memory settings and performs a backend
+  restart/reconnect before warming with those settings. The visible UI stays
+  open and polls `/health` until the replacement backend is ready.
+- `Clear GPU Memory` restarts/reconnects the backend as a manual clean reset,
+  clears the warmed runtime key, and lets the user change runtime settings
+  safely before the next warmup.
+- Backend `/health`, `/server_info`, and `/api/restart_runtime` were added to
+  support the restart/reconnect handshake from the already-loaded WebView page.
+
+Test next through Manager:
+
+1. Update Pixal3D to `0.1.76` from the registry path.
+2. Open the Nymphs UI and confirm warmup reaches `Warmed`.
+3. Prepare a source, generate, and confirm GLB export loads in the existing
+   model viewer.
+4. Touch/select the same source image and confirm the GLB preview remains.
+5. Change Low VRAM or Texture NAF after warmup, then press `Warm Up`; the UI
+   should show restart/reconnect progress, stay open, and warm the new settings.
+6. Press `Clear GPU Memory`, change a runtime-memory setting, then press
+   `Warm Up`; this should also warm from a clean backend process.
 
 Workflow reminder for future agents:
 
