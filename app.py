@@ -25,8 +25,10 @@ try:
 except ImportError:
     pass
 
-# Lock for model initialization
+# Locks for model initialization and runtime operations. Runtime operations share
+# one global Pixal3D pipeline, so frees/reloads must not interleave with a run.
 init_lock = threading.Lock()
+runtime_op_lock = threading.Lock()
 
 os.environ['OPENCV_IO_ENABLE_OPENEXR'] = '1'
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -207,7 +209,8 @@ def _warmup_snapshot():
 
 def _warm_models_worker(low_vram: bool | None = None, texture_naf_target_size: int | None = None):
     try:
-        init_models(low_vram=low_vram, texture_naf_target_size=texture_naf_target_size)
+        with runtime_op_lock:
+            init_models(low_vram=low_vram, texture_naf_target_size=texture_naf_target_size)
     except Exception as exc:
         print(f"[Warmup] Pixal3D model warmup failed: {exc}")
 
@@ -494,7 +497,7 @@ def _preprocessed_file(session_id: str) -> str:
 
 def _progress_file(session_id: str) -> str:
     """Return path to a session's progress JSON file."""
-    return os.path.join(PROGRESS_DIR, f"{session_id}.json")
+    return os.path.join(PROGRESS_DIR, f"{_safe_session_id(session_id)}.json")
 
 def _reset_progress(session_id: str):
     _thread_local.active_session = session_id
@@ -710,49 +713,61 @@ async def preprocess_nymph_api(request: Request):
 @app.post("/api/generate_3d")
 async def generate_3d_nymph_api(request: Request):
     payload = await _request_payload(request)
-    result = generate_3d(
-        image=_payload_file(payload),
-        seed=int(payload.get("seed") or 42),
-        resolution=int(payload.get("resolution") or 1024),
-        ss_guidance_strength=float(payload.get("ss_guidance_strength") or 7.5),
-        ss_guidance_rescale=float(payload.get("ss_guidance_rescale") or 0.7),
-        ss_sampling_steps=int(payload.get("ss_sampling_steps") or 12),
-        ss_rescale_t=float(payload.get("ss_rescale_t") or 5.0),
-        shape_slat_guidance_strength=float(payload.get("shape_slat_guidance_strength") or 7.5),
-        shape_slat_guidance_rescale=float(payload.get("shape_slat_guidance_rescale") or 0.5),
-        shape_slat_sampling_steps=int(payload.get("shape_slat_sampling_steps") or 12),
-        shape_slat_rescale_t=float(payload.get("shape_slat_rescale_t") or 3.0),
-        tex_slat_guidance_strength=float(payload.get("tex_slat_guidance_strength") or 1.0),
-        tex_slat_guidance_rescale=float(payload.get("tex_slat_guidance_rescale") or 0.0),
-        tex_slat_sampling_steps=int(payload.get("tex_slat_sampling_steps") or 12),
-        tex_slat_rescale_t=float(payload.get("tex_slat_rescale_t") or 3.0),
-        manual_fov=float(payload.get("manual_fov") or -1.0),
-        fov_unit=str(payload.get("fov_unit") or "deg"),
-        source_preprocessed=_as_bool(payload.get("source_preprocessed"), True),
-        session_id=str(payload.get("session_id") or ""),
-        profile_id=str(payload.get("profile_id") or "balanced_16gb"),
-        low_vram=_as_bool(payload.get("low_vram"), True),
-        max_num_tokens=int(payload.get("max_num_tokens") or CASCADE_MAX_NUM_TOKENS),
-        texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
-    )
-    if "render_paths" in result:
-        result["render_paths"] = {
-            mode: [_file_response(_file_path(file)) for file in files]
-            for mode, files in result.get("render_paths", {}).items()
-        }
-    return JSONResponse({"data": [result]})
+    try:
+        result = generate_3d(
+            image=_payload_file(payload),
+            seed=int(payload.get("seed") or 42),
+            resolution=int(payload.get("resolution") or 1024),
+            ss_guidance_strength=float(payload.get("ss_guidance_strength") or 7.5),
+            ss_guidance_rescale=float(payload.get("ss_guidance_rescale") or 0.7),
+            ss_sampling_steps=int(payload.get("ss_sampling_steps") or 12),
+            ss_rescale_t=float(payload.get("ss_rescale_t") or 5.0),
+            shape_slat_guidance_strength=float(payload.get("shape_slat_guidance_strength") or 7.5),
+            shape_slat_guidance_rescale=float(payload.get("shape_slat_guidance_rescale") or 0.5),
+            shape_slat_sampling_steps=int(payload.get("shape_slat_sampling_steps") or 12),
+            shape_slat_rescale_t=float(payload.get("shape_slat_rescale_t") or 3.0),
+            tex_slat_guidance_strength=float(payload.get("tex_slat_guidance_strength") or 1.0),
+            tex_slat_guidance_rescale=float(payload.get("tex_slat_guidance_rescale") or 0.0),
+            tex_slat_sampling_steps=int(payload.get("tex_slat_sampling_steps") or 12),
+            tex_slat_rescale_t=float(payload.get("tex_slat_rescale_t") or 3.0),
+            manual_fov=float(payload.get("manual_fov") or -1.0),
+            fov_unit=str(payload.get("fov_unit") or "deg"),
+            source_preprocessed=_as_bool(payload.get("source_preprocessed"), True),
+            session_id=str(payload.get("session_id") or ""),
+            profile_id=str(payload.get("profile_id") or "balanced_16gb"),
+            low_vram=_as_bool(payload.get("low_vram"), True),
+            max_num_tokens=int(payload.get("max_num_tokens") or CASCADE_MAX_NUM_TOKENS),
+            texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+        )
+        if "render_paths" in result:
+            result["render_paths"] = {
+                mode: [_file_response(_file_path(file)) for file in files]
+                for mode, files in result.get("render_paths", {}).items()
+            }
+        return JSONResponse({"data": [result]})
+    except Exception as exc:
+        print("[NymphUI] Generation failed:")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc) or exc.__class__.__name__) from exc
 
 
 @app.post("/api/extract_glb_api")
 async def extract_glb_nymph_api(request: Request):
     payload = await request.json()
-    result = extract_glb_api(
-        state_path=str(payload.get("state_path") or ""),
-        decimation_target=int(payload.get("decimation_target") or 1000000),
-        texture_size=int(payload.get("texture_size") or DEFAULT_TEXTURE_SIZE),
-        session_id=str(payload.get("session_id") or ""),
-    )
-    return JSONResponse({"data": [_file_response(_file_path(result))]})
+    try:
+        result = extract_glb_api(
+            state_path=str(payload.get("state_path") or ""),
+            decimation_target=int(payload.get("decimation_target") or 1000000),
+            texture_size=int(payload.get("texture_size") or DEFAULT_TEXTURE_SIZE),
+            session_id=str(payload.get("session_id") or ""),
+            low_vram=_as_bool(payload.get("low_vram"), LOW_VRAM),
+            texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+        )
+        return JSONResponse({"data": [_file_response(_file_path(result))]})
+    except Exception as exc:
+        print("[NymphUI] GLB export failed:")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc) or exc.__class__.__name__) from exc
 
 
 @app.post("/api/free_pipeline_api")
@@ -770,21 +785,22 @@ def preprocess(
     low_vram: bool = True,
     texture_naf_target_size: int = 0,
 ) -> FileData:
-    _reset_progress(session_id)
-    _update_progress("Loading Pixal3D models", 0, 3)
-    init_models(
-        low_vram=bool(low_vram),
-        texture_naf_target_size=int(texture_naf_target_size) or None,
-    )
-    _update_progress("Preprocessing source image", 1, 3)
-    img = Image.open(_file_path(image))
-    os.environ["PIXAL3D_REMBG_KEEP_GPU"] = "1" if rembg_keep_gpu else "0"
-    processed = pipeline.preprocess_image(img)
-    _update_progress("Saving preprocessed image", 2, 3)
-    out_path = _preprocessed_file(session_id) if session_id else os.path.join(TMP_DIR, f"preprocessed_{int(time.time()*1000)}.png")
-    processed.save(out_path)
-    _finish_progress("Source preprocessed")
-    return FileData(path=out_path)
+    with runtime_op_lock:
+        _reset_progress(session_id)
+        _update_progress("Loading Pixal3D models", 0, 3)
+        init_models(
+            low_vram=bool(low_vram),
+            texture_naf_target_size=int(texture_naf_target_size) or None,
+        )
+        _update_progress("Preprocessing source image", 1, 3)
+        img = Image.open(_file_path(image))
+        os.environ["PIXAL3D_REMBG_KEEP_GPU"] = "1" if rembg_keep_gpu else "0"
+        processed = pipeline.preprocess_image(img)
+        _update_progress("Saving preprocessed image", 2, 3)
+        out_path = _preprocessed_file(session_id) if session_id else os.path.join(TMP_DIR, f"preprocessed_{int(time.time()*1000)}.png")
+        processed.save(out_path)
+        _finish_progress("Source preprocessed")
+        return FileData(path=out_path)
 
 @app.api()
 @spaces.GPU(duration=120)
@@ -813,129 +829,142 @@ def generate_3d(
     max_num_tokens: int = CASCADE_MAX_NUM_TOKENS,
     texture_naf_target_size: int = 0,
 ) -> Dict:
-    _reset_progress(session_id)
-    _update_progress("Loading Pixal3D models", 0, 8)
-    active_profile = get_profile(profile_id)
-    effective_low_vram = bool(low_vram)
-    effective_texture_naf = int(texture_naf_target_size or active_profile["texture_naf_target_size"])
-    effective_max_tokens = int(max_num_tokens or active_profile["max_num_tokens"])
-    init_models(
-        low_vram=effective_low_vram,
-        texture_naf_target_size=effective_texture_naf,
-    )
-    
-    torch.manual_seed(seed)
-    hr_resolution = int(resolution)
-    
-    if source_preprocessed:
-        _update_progress("Using preprocessed source image", 1, 8)
-    else:
-        _update_progress("Using original source image", 1, 8)
-    image_preprocessed = Image.open(_file_path(image)).convert("RGBA")
-    _update_progress("Saving prepared image", 2, 8)
-    temp_processed_path = os.path.join(TMP_DIR, f"temp_proc_{session_id[:8]}_{int(time.time()*1000)}.png")
-    image_preprocessed.save(temp_processed_path)
-    
-    if manual_fov > 0:
-        _update_progress("Using manual camera FOV", 3, 8)
-        # Convert to radians based on unit
-        if fov_unit == "rad":
-            camera_angle_x = float(manual_fov)
-            fov_deg = math.degrees(manual_fov)
-        else:
-            camera_angle_x = math.radians(manual_fov)
-            fov_deg = float(manual_fov)
-        grid_point = torch.tensor([-1.0, 0.0, 0.0])
-        distance = distance_from_fov(
-            camera_angle_x, grid_point,
-            torch.tensor([0 - WILD_EXTEND_PIXEL, WILD_IMAGE_RESOLUTION - 1 + WILD_EXTEND_PIXEL]),
-            WILD_MESH_SCALE, WILD_IMAGE_RESOLUTION
-        )["distance_from_x"]
-        camera_params = {'camera_angle_x': camera_angle_x, 'distance': distance, 'mesh_scale': WILD_MESH_SCALE}
-        print(f"[Camera] Using manual FOV: {fov_deg:.2f}° ({camera_angle_x:.4f} rad), distance: {distance:.4f}")
-    else:
-        _update_progress("Estimating camera with MoGe", 3, 8)
-        camera_params = get_camera_params_wild_moge(
-            temp_processed_path, device="cuda",
-            mesh_scale=WILD_MESH_SCALE, extend_pixel=WILD_EXTEND_PIXEL,
-            image_resolution=WILD_IMAGE_RESOLUTION,
+    with runtime_op_lock:
+        _reset_progress(session_id)
+        _update_progress("Loading Pixal3D models", 0, 8)
+        active_profile = get_profile(profile_id)
+        effective_low_vram = bool(low_vram)
+        effective_texture_naf = int(texture_naf_target_size or active_profile["texture_naf_target_size"])
+        effective_max_tokens = int(max_num_tokens or active_profile["max_num_tokens"])
+        init_models(
+            low_vram=effective_low_vram,
+            texture_naf_target_size=effective_texture_naf,
         )
-    _update_progress("Camera ready", 4, 6)
-    
-    ss_sampler_override = {"steps": ss_sampling_steps, "guidance_strength": ss_guidance_strength,
-                           "guidance_rescale": ss_guidance_rescale, "rescale_t": ss_rescale_t}
-    shape_sampler_override = {"steps": shape_slat_sampling_steps, "guidance_strength": shape_slat_guidance_strength,
-                              "guidance_rescale": shape_slat_guidance_rescale, "rescale_t": shape_slat_rescale_t}
-    tex_sampler_override = {"steps": tex_slat_sampling_steps, "guidance_strength": tex_slat_guidance_strength,
-                            "guidance_rescale": tex_slat_guidance_rescale, "rescale_t": tex_slat_rescale_t}
 
-    pipeline_type = f"{hr_resolution}_cascade"
-    _update_progress("Generating 3D latent model", 5, 6)
-    _mesh_list, (shape_slat, tex_slat, res) = pipeline.run(
-        image_preprocessed,
-        camera_params=camera_params,
-        seed=seed,
-        sparse_structure_sampler_params=ss_sampler_override,
-        shape_slat_sampler_params=shape_sampler_override,
-        tex_slat_sampler_params=tex_sampler_override,
-        preprocess_image=False,
-        return_latent=True,
-        pipeline_type=pipeline_type,
-        max_num_tokens=effective_max_tokens,
-    )
-    
-    _update_progress("Packing model state for GLB export", 6, 6)
-    state_path = pack_state(shape_slat, tex_slat, res)
+        torch.manual_seed(seed)
+        hr_resolution = int(resolution)
 
-    _finish_progress("Model state ready")
-    return {
-        "state_path": os.path.abspath(state_path),
-        "camera_angle_x": camera_params['camera_angle_x'],
-        "distance": camera_params['distance'],
-    }
+        if source_preprocessed:
+            _update_progress("Using preprocessed source image", 1, 8)
+        else:
+            _update_progress("Using original source image", 1, 8)
+        image_preprocessed = Image.open(_file_path(image)).convert("RGBA")
+        _update_progress("Saving prepared image", 2, 8)
+        temp_processed_path = os.path.join(TMP_DIR, f"temp_proc_{_safe_session_id(session_id)[:8]}_{int(time.time()*1000)}.png")
+        image_preprocessed.save(temp_processed_path)
+
+        if manual_fov > 0:
+            _update_progress("Using manual camera FOV", 3, 8)
+            # Convert to radians based on unit
+            if fov_unit == "rad":
+                camera_angle_x = float(manual_fov)
+                fov_deg = math.degrees(manual_fov)
+            else:
+                camera_angle_x = math.radians(manual_fov)
+                fov_deg = float(manual_fov)
+            grid_point = torch.tensor([-1.0, 0.0, 0.0])
+            distance = distance_from_fov(
+                camera_angle_x, grid_point,
+                torch.tensor([0 - WILD_EXTEND_PIXEL, WILD_IMAGE_RESOLUTION - 1 + WILD_EXTEND_PIXEL]),
+                WILD_MESH_SCALE, WILD_IMAGE_RESOLUTION
+            )["distance_from_x"]
+            camera_params = {'camera_angle_x': camera_angle_x, 'distance': distance, 'mesh_scale': WILD_MESH_SCALE}
+            print(f"[Camera] Using manual FOV: {fov_deg:.2f}° ({camera_angle_x:.4f} rad), distance: {distance:.4f}")
+        else:
+            _update_progress("Estimating camera with MoGe", 3, 8)
+            camera_params = get_camera_params_wild_moge(
+                temp_processed_path, device="cuda",
+                mesh_scale=WILD_MESH_SCALE, extend_pixel=WILD_EXTEND_PIXEL,
+                image_resolution=WILD_IMAGE_RESOLUTION,
+            )
+        _update_progress("Camera ready", 4, 6)
+
+        ss_sampler_override = {"steps": ss_sampling_steps, "guidance_strength": ss_guidance_strength,
+                               "guidance_rescale": ss_guidance_rescale, "rescale_t": ss_rescale_t}
+        shape_sampler_override = {"steps": shape_slat_sampling_steps, "guidance_strength": shape_slat_guidance_strength,
+                                  "guidance_rescale": shape_slat_guidance_rescale, "rescale_t": shape_slat_rescale_t}
+        tex_sampler_override = {"steps": tex_slat_sampling_steps, "guidance_strength": tex_slat_guidance_strength,
+                                "guidance_rescale": tex_slat_guidance_rescale, "rescale_t": tex_slat_rescale_t}
+
+        pipeline_type = f"{hr_resolution}_cascade"
+        _update_progress("Generating 3D latent model", 5, 6)
+        _mesh_list, (shape_slat, tex_slat, res) = pipeline.run(
+            image_preprocessed,
+            camera_params=camera_params,
+            seed=seed,
+            sparse_structure_sampler_params=ss_sampler_override,
+            shape_slat_sampler_params=shape_sampler_override,
+            tex_slat_sampler_params=tex_sampler_override,
+            preprocess_image=False,
+            return_latent=True,
+            pipeline_type=pipeline_type,
+            max_num_tokens=effective_max_tokens,
+        )
+
+        _update_progress("Packing model state for GLB export", 6, 6)
+        state_path = pack_state(shape_slat, tex_slat, res)
+
+        _finish_progress("Model state ready")
+        return {
+            "state_path": os.path.abspath(state_path),
+            "camera_angle_x": camera_params['camera_angle_x'],
+            "distance": camera_params['distance'],
+        }
 
 @app.api()
 @spaces.GPU(duration=240)
-def extract_glb_api(state_path: str, decimation_target: int, texture_size: int, session_id: str = "") -> FileData:
-    _reset_progress(session_id)
-    _update_progress("Loading Pixal3D models", 0, 4)
-    init_models()
-    _update_progress("Decoding latent mesh", 1, 4)
-    
-    shape_slat, tex_slat, res = unpack_state(state_path)
-    mesh = pipeline.decode_latent(shape_slat, tex_slat, res)[0]
-    _update_progress("Building GLB mesh and textures", 2, 4)
-    
-    glb = o_voxel.postprocess.to_glb(
-        vertices=mesh.vertices, faces=mesh.faces, attr_volume=mesh.attrs,
-        coords=mesh.coords, attr_layout=pipeline.pbr_attr_layout,
-        grid_size=res, aabb=[[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
-        decimation_target=decimation_target, texture_size=texture_size,
-        remesh=True, remesh_band=1, remesh_project=0, use_tqdm=True,
-    )
-    rot = np.array([
-        [-1,  0,  0,  0],
-        [ 0,  0, -1,  0],
-        [ 0, -1,  0,  0],
-        [ 0,  0,  0,  1],
-    ], dtype=np.float64)
-    glb.apply_transform(rot)
-    
-    _update_progress("Exporting GLB file", 3, 4)
-    out_glb = os.path.join(OUTPUT_DIR, f"pixal3d_app_{int(time.time()*1000)}.glb")
-    glb.export(out_glb, extension_webp=False)
-    _finish_progress("GLB ready")
-    return FileData(path=out_glb)
+def extract_glb_api(
+    state_path: str,
+    decimation_target: int,
+    texture_size: int,
+    session_id: str = "",
+    low_vram: bool | None = None,
+    texture_naf_target_size: int = 0,
+) -> FileData:
+    with runtime_op_lock:
+        _reset_progress(session_id)
+        _update_progress("Loading Pixal3D models", 0, 4)
+        init_models(
+            low_vram=LOW_VRAM if low_vram is None else bool(low_vram),
+            texture_naf_target_size=int(texture_naf_target_size) or None,
+        )
+        _update_progress("Decoding latent mesh", 1, 4)
+
+        shape_slat, tex_slat, res = unpack_state(state_path)
+        mesh = pipeline.decode_latent(shape_slat, tex_slat, res)[0]
+        _update_progress("Building GLB mesh and textures", 2, 4)
+
+        glb = o_voxel.postprocess.to_glb(
+            vertices=mesh.vertices, faces=mesh.faces, attr_volume=mesh.attrs,
+            coords=mesh.coords, attr_layout=pipeline.pbr_attr_layout,
+            grid_size=res, aabb=[[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
+            decimation_target=decimation_target, texture_size=texture_size,
+            remesh=True, remesh_band=1, remesh_project=0, use_tqdm=True,
+        )
+        rot = np.array([
+            [-1,  0,  0,  0],
+            [ 0,  0, -1,  0],
+            [ 0, -1,  0,  0],
+            [ 0,  0,  0,  1],
+        ], dtype=np.float64)
+        glb.apply_transform(rot)
+
+        _update_progress("Exporting GLB file", 3, 4)
+        out_glb = os.path.join(OUTPUT_DIR, f"pixal3d_app_{int(time.time()*1000)}.glb")
+        glb.export(out_glb, extension_webp=False)
+        _finish_progress("GLB ready")
+        return FileData(path=out_glb)
 
 
 @app.api()
 def free_pipeline_api(session_id: str = "") -> Dict:
-    _reset_progress(session_id)
-    _update_progress("Freeing Pixal3D pipeline", 1, 1)
-    with init_lock:
-        _free_models_locked("manual frontend request")
-    _finish_progress("GPU memory cleared")
-    return {"freed": True}
+    with runtime_op_lock:
+        _reset_progress(session_id)
+        _update_progress("Freeing Pixal3D pipeline", 1, 1)
+        with init_lock:
+            _free_models_locked("manual frontend request")
+        _finish_progress("GPU memory cleared")
+        return {"freed": True}
 
 # Mount assets and tmp for direct access
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")

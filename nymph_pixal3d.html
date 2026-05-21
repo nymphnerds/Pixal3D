@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Pixal3D</title>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer/dist/model-viewer.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
+  <script type="module" src="/assets/vendor/model-viewer-4.0.0.min.js"></script>
+  <script src="/assets/vendor/lucide-0.468.0.min.js"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -650,9 +650,13 @@
     let modelReady = false;
     let prepFailed = false;
     let prepGeneration = 0;
+    let runGeneration = 0;
     let activeProfile = "low_vram_1024";
     let optimizationProfiles = {};
     let applyingRunProfile = false;
+    let warmupTargetKey = "";
+    let warmupDirtyDuringLoad = false;
+    let sourceObjectUrl = "";
 
     const $ = (id) => document.getElementById(id);
 
@@ -726,6 +730,7 @@
       prepareButton.innerHTML = prepFailed
         ? 'Retry Prep'
         : 'Prepare Source';
+      $("free-pipeline").disabled = busy || preprocessing || warmupActive;
     }
 
     function updateWarmupButton() {
@@ -741,16 +746,47 @@
     }
 
     function markWarmupDirty() {
-      if (!warmupActive) {
-        modelReady = false;
-        setWarmupUi("Warm-up required", "Settings changed. Run Warm Up again.", "0%");
-        updateWarmupButton();
-      }
+      const changedWhileLoading = warmupActive;
+      modelReady = false;
+      warmupTargetKey = "";
+      warmupDirtyDuringLoad = warmupDirtyDuringLoad || changedWhileLoading;
+      invalidatePreparedSource();
+      setWarmupUi(
+        "Warm-up required",
+        changedWhileLoading
+          ? "Settings changed while warm-up was running. Run Warm Up again after it settles."
+          : "Settings changed. Run Warm Up again.",
+        "0%"
+      );
+      updateWarmupButton();
     }
 
     function shouldPrepareSource() {
       const el = $("prepare-source");
       return !el || el.checked;
+    }
+
+    function currentWarmupKey() {
+      return JSON.stringify({
+        low_vram: $("low-vram").checked,
+        texture_naf_target_size: String($("texture-naf").value || "512"),
+      });
+    }
+
+    function invalidatePreparedSource() {
+      preparedFile = null;
+      prepFailed = false;
+      prepGeneration += 1;
+      updateGenerateState();
+    }
+
+    function showOriginalSourcePreview() {
+      if (!currentFile) return;
+      if (sourceObjectUrl) URL.revokeObjectURL(sourceObjectUrl);
+      sourceObjectUrl = URL.createObjectURL(currentFile);
+      $("source-preview").src = sourceObjectUrl;
+      $("source-preview").style.display = "block";
+      $("drop-hint").style.display = "none";
     }
 
     function setBusy(isBusy) {
@@ -934,10 +970,19 @@
           updateWarmupButton();
         } else if (data.status === "ready") {
           warmupActive = false;
-          modelReady = true;
-          setWarmupUi("Warm-up ready", "Prepare Source is available.", "100%");
-          if (canChangeStatus) {
-            setStatus("Model ready", "ok");
+          if (warmupDirtyDuringLoad || warmupTargetKey !== currentWarmupKey()) {
+            modelReady = false;
+            warmupDirtyDuringLoad = false;
+            warmupTargetKey = "";
+            invalidatePreparedSource();
+            setWarmupUi("Warm-up required", "Settings changed. Run Warm Up again.", "0%");
+            if (canChangeStatus) setStatus("Warm-up required", "");
+          } else {
+            modelReady = true;
+            setWarmupUi("Warm-up ready", "Prepare Source is available.", "100%");
+            if (canChangeStatus) {
+              setStatus("Model ready", "ok");
+            }
           }
           updateWarmupButton();
           clearInterval(warmupTimer);
@@ -996,7 +1041,15 @@
         preparedFile = result?.data?.[0] || null;
         prepFailed = false;
         stopProgress(true);
-        setProgressUi("Source ready", "Source preprocessed. Ready to generate.", "100%");
+        const preparedUrl = normalizeFileUrl(preparedFile);
+        if (preparedUrl) {
+          if (sourceObjectUrl) {
+            URL.revokeObjectURL(sourceObjectUrl);
+            sourceObjectUrl = "";
+          }
+          $("source-preview").src = preparedUrl;
+        }
+        setProgressUi("Source ready", "Prepared image shown. Ready to generate.", "100%");
         if (modelReady) setWarmupUi("Warm-up ready", "Generate is unlocked.", "100%");
         $("state-label").textContent = "Image ready";
         setStatus("Image ready", "ok");
@@ -1031,6 +1084,8 @@
         return;
       }
       setBusy(true);
+      const runId = ++runGeneration;
+      const sourceAtStart = currentFile;
       setStatus("Generating", "work");
       $("state-label").textContent = "Generating";
       $("output-label").textContent = "None";
@@ -1070,6 +1125,10 @@
           max_num_tokens: parseInt($("max-tokens").value || "32768", 10),
           texture_naf_target_size: parseInt($("texture-naf").value || "512", 10),
         });
+        if (runId !== runGeneration || currentFile !== sourceAtStart) {
+          stopProgress(false);
+          return;
+        }
 
         generationResult = result.data[0];
         $("camera-label").textContent = `fov ${Number(generationResult.camera_angle_x || 0).toFixed(3)}, distance ${Number(generationResult.distance || 0).toFixed(3)}`;
@@ -1077,19 +1136,19 @@
         $("extract").disabled = false;
         setStatus("Exporting GLB", "work");
         stopProgress(true, "Model state ready", "Exporting GLB next.");
-        await extract(true);
+        await extract(true, runId, sourceAtStart);
       } catch (err) {
         console.error(err);
         setStatus("Generation failed", "err");
         $("state-label").textContent = "Generation failed";
         stopProgress(false);
-        toast("Generation failed. Check Logs for the traceback.");
+        toast(errorMessage(err, "Generation failed. Check Logs for the traceback."));
       } finally {
         setBusy(false);
       }
     }
 
-    async function extract(auto = false) {
+    async function extract(auto = false, runId = runGeneration, sourceAtStart = currentFile) {
       if (!generationResult) return;
       setBusy(true);
       setStatus("Exporting GLB", "work");
@@ -1102,8 +1161,14 @@
           state_path: generationResult.state_path,
           decimation_target: parseInt($("faces").value || "1000000", 10),
           texture_size: parseInt($("texture-size").value || "1024", 10),
+          low_vram: $("low-vram").checked,
+          texture_naf_target_size: parseInt($("texture-naf").value || "512", 10),
           session_id: sessionId,
         });
+        if (runId !== runGeneration || currentFile !== sourceAtStart) {
+          stopProgress(false);
+          return;
+        }
 
         const file = result.data[0];
         outputUrl = normalizeFileUrl(file);
@@ -1119,7 +1184,7 @@
         setStatus("Export failed", "err");
         $("state-label").textContent = "Export failed";
         stopProgress(false);
-        toast("Export failed. Check Logs for the traceback.");
+        toast(errorMessage(err, "Export failed. Check Logs for the traceback."));
       } finally {
         $("extract").disabled = !generationResult;
         setBusy(false);
@@ -1127,6 +1192,10 @@
     }
 
     async function freePipeline() {
+      if (busy || preprocessing || warmupActive) {
+        toast("Wait for the current Pixal3D task to finish first.");
+        return;
+      }
       setBusy(true);
       setStatus("Clearing GPU memory", "work");
       $("state-label").textContent = "Clearing GPU memory";
@@ -1134,6 +1203,9 @@
         await client.predict("/free_pipeline_api", { session_id: sessionId });
         modelReady = false;
         warmupActive = false;
+        warmupTargetKey = "";
+        warmupDirtyDuringLoad = false;
+        invalidatePreparedSource();
         setWarmupUi("Warm-up required", "Clear GPU Memory unloaded the model. Run Warm Up again.", "0%");
         setStatus("GPU memory cleared", "ok");
         $("state-label").textContent = "GPU memory cleared";
@@ -1153,6 +1225,7 @@
       currentFile = null;
       preparedFile = null;
       generationResult = null;
+      runGeneration += 1;
       prepFailed = false;
       prepGeneration += 1;
       outputUrl = "";
@@ -1160,6 +1233,10 @@
       preprocessing = false;
       stopProgress(false);
       $("file").value = "";
+      if (sourceObjectUrl) {
+        URL.revokeObjectURL(sourceObjectUrl);
+        sourceObjectUrl = "";
+      }
       $("source-preview").removeAttribute("src");
       $("source-preview").style.display = "none";
       $("drop-hint").style.display = "grid";
@@ -1170,7 +1247,10 @@
       $("state-label").textContent = "No run yet";
       setResultEmpty("Generated GLB appears here.");
       setProgressUi("Idle", "Waiting for source image.", "0%");
-      setStatus(modelReady ? "Model ready" : "Warming up model", modelReady ? "ok" : "work");
+      setStatus(
+        modelReady ? "Model ready" : (warmupActive ? "Warming up model" : "Waiting for image"),
+        modelReady ? "ok" : (warmupActive ? "work" : "")
+      );
       if (modelReady) setWarmupUi("Warm-up ready", "Prepare Source is available.", "100%");
       updateGenerateState();
     }
@@ -1184,6 +1264,9 @@
     async function warmUp() {
       warmupActive = true;
       modelReady = false;
+      warmupDirtyDuringLoad = false;
+      warmupTargetKey = currentWarmupKey();
+      invalidatePreparedSource();
       updateWarmupButton();
       setStatus("Warming up model", "work");
       $("state-label").textContent = "Warming up";
@@ -1268,6 +1351,7 @@
         } else {
           preprocessing = false;
           stopProgress(false);
+          showOriginalSourcePreview();
           setProgressUi("Source ready", "Using original source image.", "0%");
           if (modelReady) setWarmupUi("Warm-up ready", "Generate is unlocked.", "100%");
           $("state-label").textContent = "Image ready";
@@ -1277,7 +1361,7 @@
       });
 
       $("generate").onclick = generate;
-      $("extract").onclick = () => extract(false);
+      $("extract").onclick = () => extract(false, runGeneration, currentFile);
       $("warm-up").onclick = warmUp;
       $("prepare-source-action").onclick = prepareSource;
       $("clear-source").onclick = clearSource;
@@ -1342,9 +1426,14 @@
     }
 
     function useFile(file) {
+      if (busy || preprocessing) {
+        toast("Wait for the current Pixal3D task to finish first.");
+        return;
+      }
       currentFile = file;
       preparedFile = null;
       generationResult = null;
+      runGeneration += 1;
       prepFailed = false;
       outputUrl = "";
       outputPath = "";
@@ -1354,10 +1443,7 @@
       $("extract").disabled = true;
       $("open-output").disabled = true;
       setResultEmpty("Waiting for generated GLB.");
-      $("source-preview").style.display = "block";
-      $("drop-hint").style.display = "none";
-      const localUrl = URL.createObjectURL(file);
-      $("source-preview").src = localUrl;
+      showOriginalSourcePreview();
       if (shouldPrepareSource()) {
         setProgressUi("Source selected", modelReady ? "Click Prepare Source." : "Warm-up is running.", "0%");
         $("state-label").textContent = modelReady ? "Source selected" : "Warm-up required";
