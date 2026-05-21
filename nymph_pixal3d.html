@@ -39,6 +39,33 @@
       letter-spacing: 0;
     }
 
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(0, 240, 216, 0.72) transparent;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(0, 240, 216, 0.62);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 240, 216, 0.9);
+    }
+
+    ::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
     .app {
       display: grid;
       grid-template-columns: minmax(260px, 300px) minmax(0, 1fr);
@@ -53,37 +80,6 @@
       border-right: 1px solid var(--line);
       background: #0b1514;
       overflow-y: auto;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    .badge {
-      width: 34px;
-      height: 34px;
-      display: grid;
-      place-items: center;
-      border: 1px solid #ffc840;
-      border-radius: 8px;
-      color: #ffc840;
-      font-weight: 800;
-      background: #111817;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: 20px;
-      line-height: 1.05;
-    }
-
-    .sub {
-      margin-top: 3px;
-      color: var(--muted);
-      font-size: 11px;
     }
 
     .section {
@@ -157,6 +153,12 @@
 
     .params .wide {
       grid-column: span 2;
+    }
+
+    .params select {
+      font-size: 13px;
+      padding-left: 12px;
+      padding-right: 24px;
     }
 
     label {
@@ -248,7 +250,7 @@
 
     .stage {
       display: grid;
-      grid-template-rows: auto auto minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
       min-width: 0;
       min-height: 0;
       height: 100%;
@@ -287,6 +289,56 @@
     .dot.ok { background: var(--ok); }
     .dot.err { background: var(--danger); }
 
+    .runtime-stack {
+      min-width: 128px;
+      display: grid;
+      gap: 4px;
+      justify-items: end;
+    }
+
+    .runtime-stack .status {
+      justify-content: end;
+    }
+
+    .warmup-mini {
+      width: min(150px, 28vw);
+      display: none;
+      grid-template-columns: minmax(0, 1fr) 38px;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1;
+    }
+
+    .warmup-mini.show {
+      display: grid;
+    }
+
+    .warmup-mini-label {
+      min-width: 0;
+      overflow: hidden;
+      text-align: right;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .warmup-mini-bar {
+      height: 3px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #213733;
+    }
+
+    .warmup-mini-bar span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      transition: width 0.28s ease;
+    }
+
     .top-progress {
       min-height: 40px;
       min-width: 0;
@@ -296,9 +348,9 @@
       align-items: center;
       column-gap: 10px;
       row-gap: 7px;
-      padding: 6px 16px;
-      border-bottom: 1px solid var(--line);
-      background: #0b1413;
+      padding: 8px 14px;
+      border-top: 1px solid var(--line);
+      background: #0f1716;
       color: var(--muted);
       font-size: 11px;
     }
@@ -354,7 +406,7 @@
       min-width: 0;
       min-height: 0;
       display: grid;
-      grid-template-rows: minmax(0, 1fr) minmax(82px, auto);
+      grid-template-rows: minmax(0, 1fr) auto minmax(82px, auto);
       height: 100%;
       background: #0d1514;
       overflow: hidden;
@@ -372,15 +424,7 @@
       min-width: 0;
       min-height: 0;
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
-      gap: 10px;
-    }
-
-    .pane-title {
-      color: var(--muted);
-      font-size: 11px;
-      font-weight: 800;
-      text-transform: uppercase;
+      grid-template-rows: minmax(0, 1fr);
     }
 
     .pane-body {
@@ -540,14 +584,6 @@
 <body>
   <main class="app">
     <aside class="sidebar">
-      <div class="brand">
-        <div class="badge">PX</div>
-        <div>
-          <h1>Pixal3D</h1>
-          <div class="sub">single image to textured GLB</div>
-        </div>
-      </div>
-
       <section class="section">
         <div class="section-title"><i data-lucide="image"></i> Source</div>
         <div class="drop" id="drop">
@@ -583,12 +619,12 @@
           <div class="field">
             <label for="weight-profile">Weight Profile</label>
             <select id="weight-profile">
-              <option value="low_vram_1024">Low VRAM 1024</option>
-              <option value="standard_1536">Standard 1536</option>
-              <option value="gguf_q4_k_m">GGUF Q4_K_M</option>
-              <option value="gguf_q5_k_m">GGUF Q5_K_M</option>
-              <option value="gguf_q6_k">GGUF Q6_K</option>
-              <option value="gguf_q8_0">GGUF Q8_0</option>
+              <option value="low_vram_1024">Low VRAM</option>
+              <option value="standard_1536">Standard</option>
+              <option value="gguf_q4_k_m">GGUF Q4</option>
+              <option value="gguf_q5_k_m">GGUF Q5</option>
+              <option value="gguf_q6_k">GGUF Q6</option>
+              <option value="gguf_q8_0">GGUF Q8</option>
             </select>
           </div>
           <div class="field">
@@ -699,23 +735,19 @@
           <span class="dot" id="dot"></span>
           <span id="status-text">Waiting for image</span>
         </div>
-        <div class="status" id="runtime-text">runtime</div>
-      </header>
-      <div class="top-progress">
-        <i class="top-progress-icon" data-lucide="activity"></i>
-        <span class="top-progress-stage" id="progress-stage">Idle</span>
-        <div class="top-progress-copy">
-          <span class="top-progress-text" id="top-progress-text">Idle</span>
-          <span class="top-progress-extra" id="top-progress-extra">Waiting for source image.</span>
+        <div class="runtime-stack">
+          <div class="status" id="runtime-text">runtime</div>
+          <div class="warmup-mini" id="warmup-mini" aria-live="polite">
+            <span class="warmup-mini-label" id="warmup-mini-label">warming model</span>
+            <span class="warmup-mini-bar"><span id="warmup-mini-bar"></span></span>
+          </div>
         </div>
-        <div class="bar"><span id="top-progress-bar"></span></div>
-      </div>
+      </header>
 
       <div class="workspace">
         <div class="preview">
           <div class="viewer">
             <div class="pane">
-              <div class="pane-title">Result</div>
               <div class="pane-body">
                 <div class="empty" id="empty">
                   <i data-lucide="box"></i>
@@ -725,6 +757,15 @@
                 <model-viewer id="model" camera-controls auto-rotate shadow-intensity="0.6" exposure="1"></model-viewer>
               </div>
             </div>
+          </div>
+          <div class="top-progress">
+            <i class="top-progress-icon" data-lucide="activity"></i>
+            <span class="top-progress-stage" id="progress-stage">Idle</span>
+            <div class="top-progress-copy">
+              <span class="top-progress-text" id="top-progress-text">Idle</span>
+              <span class="top-progress-extra" id="top-progress-extra">Waiting for source image.</span>
+            </div>
+            <div class="bar"><span id="top-progress-bar"></span></div>
           </div>
           <div class="filmstrip" id="filmstrip"></div>
         </div>
@@ -771,6 +812,12 @@
       $("top-progress-text").textContent = detail;
       $("top-progress-extra").textContent = label === detail ? "" : label;
       $("top-progress-bar").style.width = width;
+    }
+
+    function setWarmupMini(visible, label = "", width = "0%") {
+      $("warmup-mini").classList.toggle("show", visible);
+      $("warmup-mini-label").textContent = label;
+      $("warmup-mini-bar").style.width = width;
     }
 
     function shouldPrepareSource() {
@@ -908,23 +955,28 @@
         const response = await fetch("/warmup_status");
         if (!response.ok) return;
         const data = await response.json();
-        if (busy || preprocessing) return;
+        const canChangeStatus = !busy && !preprocessing && !currentFile && !generationResult;
 
         const total = Number(data.total || 0);
         const step = Number(data.step || 0);
         if (data.status === "loading") {
           const stage = data.stage || "Loading model";
           const width = total > 0 ? `${Math.min(100, (step / total) * 100)}%` : "12%";
-          setProgressUi(stage, stage, width);
-          if (!currentFile) setStatus("Preloading model", "work");
+          setWarmupMini(true, stage, width);
+          if (canChangeStatus) {
+            setStatus("Preloading model", "work");
+          }
         } else if (data.status === "ready") {
-          setProgressUi("Model ready", "Model is loaded and ready.", "100%");
-          if (!currentFile) setStatus("Model ready", "ok");
+          setWarmupMini(false);
+          if (canChangeStatus) {
+            setStatus("Model ready", "ok");
+          }
           clearInterval(warmupTimer);
         } else if (data.status === "error") {
-          const error = data.error || "Model preload failed.";
-          setProgressUi("Model preload failed", error, "0%");
-          if (!currentFile) setStatus("Preload failed", "err");
+          setWarmupMini(true, "warmup failed", "0%");
+          if (canChangeStatus) {
+            setStatus("Preload failed", "err");
+          }
           clearInterval(warmupTimer);
         }
       } catch {}

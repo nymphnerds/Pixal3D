@@ -42,6 +42,7 @@ PIXAL3D_TRELLIS2_GGUF_REPO_URL="${PIXAL3D_TRELLIS2_GGUF_REPO_URL:-https://github
 PIXAL3D_TRELLIS2_GGUF_REPO_REF="${PIXAL3D_TRELLIS2_GGUF_REPO_REF:-ed7245cba449c79e0a6703b7f09c0590328b4f77}"
 PIXAL3D_COMFYUI_GGUF_REPO_URL="${PIXAL3D_COMFYUI_GGUF_REPO_URL:-https://github.com/city96/ComfyUI-GGUF.git}"
 PIXAL3D_COMFYUI_GGUF_REPO_REF="${PIXAL3D_COMFYUI_GGUF_REPO_REF:-6ea2651e7df66d7585f6ffee804b20e92fb38b8a}"
+PIXAL3D_NVDIFFREC_REF="${PIXAL3D_NVDIFFREC_REF:-renderutils}"
 
 if [[ -f "${PIXAL3D_PROFILE_FILE}" ]]; then
   # shellcheck disable=SC1090
@@ -92,6 +93,36 @@ if not paths:
     raise SystemExit("Could not resolve site-packages for the shared Pixal3D venv.")
 print(paths[0])
 PY
+}
+
+pixal3d_detect_compute_cap() {
+  local compute_cap=""
+
+  if ! command -v nvidia-smi >/dev/null 2>&1; then
+    return 0
+  fi
+
+  compute_cap="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n 1 | tr -d '[:space:]' || true)"
+  if [[ "${compute_cap}" =~ ^[0-9]+\.[0-9]+$ ]]; then
+    echo "${compute_cap}"
+  fi
+}
+
+pixal3d_ensure_torch_cuda_arch_list() {
+  local detected_cc=""
+
+  if [[ -n "${TORCH_CUDA_ARCH_LIST:-}" ]]; then
+    return 0
+  fi
+  if [[ -n "${TRELLIS_CUDA_ARCH_LIST:-${NYMPHS3D_TRELLIS_CUDA_ARCH_LIST:-}}" ]]; then
+    export TORCH_CUDA_ARCH_LIST="${TRELLIS_CUDA_ARCH_LIST:-${NYMPHS3D_TRELLIS_CUDA_ARCH_LIST:-}}"
+    return 0
+  fi
+
+  detected_cc="$(pixal3d_detect_compute_cap)"
+  if [[ -n "${detected_cc}" ]]; then
+    export TORCH_CUDA_ARCH_LIST="${detected_cc}"
+  fi
 }
 
 pixal3d_repair_utils3d_compat() {
@@ -146,6 +177,25 @@ pixal3d_install_utils3d() {
   "$(pixal3d_pip)" install --force-reinstall --no-deps "${PIXAL3D_UTILS3D_WHEEL_URL}"
   pixal3d_repair_utils3d_compat "$(pixal3d_python)"
   pixal3d_validate_utils3d_api "$(pixal3d_python)"
+}
+
+pixal3d_validate_nvdiffrec_render() {
+  local python_bin="${1:-$(pixal3d_python)}"
+  [[ -x "${python_bin}" ]] || return 1
+
+  "${python_bin}" - <<'PY' >/dev/null 2>&1
+import importlib
+
+importlib.import_module("nvdiffrec_render.light")
+PY
+}
+
+pixal3d_install_nvdiffrec_render() {
+  echo "Installing TRELLIS/Pixal3D nvdiffrec renderer support"
+  pixal3d_ensure_torch_cuda_arch_list
+  "$(pixal3d_pip)" install --no-build-isolation \
+    "git+https://github.com/JeffreyXiang/nvdiffrec.git@${PIXAL3D_NVDIFFREC_REF}"
+  pixal3d_validate_nvdiffrec_render "$(pixal3d_python)"
 }
 
 pixal3d_load_hf_token() {
@@ -246,6 +296,7 @@ for module_name in (
     "flex_gemm",
     "o_voxel",
     "nvdiffrast.torch",
+    "nvdiffrec_render.light",
     "moge",
     "utils3d",
     "utils3d.torch",

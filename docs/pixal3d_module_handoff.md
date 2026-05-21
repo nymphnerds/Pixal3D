@@ -2,6 +2,9 @@
 
 Date: 2026-05-17
 
+Canonical location: `/home/nymph/Pixal3D/docs/pixal3d_module_handoff.md`.
+Older mirrored copies were removed to keep the Pixal3D handoff single-source.
+
 Updated: 2026-05-19 after merging upstream `TencentARC/Pixal3D` through
 `e3b2ac1` (`docs: add natten installation step in README`). The fork now
 includes the official Pixal3D training pipeline and data preparation toolkit.
@@ -3451,3 +3454,33 @@ Current Nymphs Ui flow:
   a progress card in the left controls.
 - As of `0.1.44`, the progress bar in that top/result strip spans the full strip
   width.
+
+## 2026-05-21 Update: Nymphs Ui Startup Chrome Cleanup
+
+Latest behavior state:
+
+- Pixal3D module: `0.1.52`
+- The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
+  no longer renders its own large sidebar title/subtitle block.
+- The inner result-pane `Result` label was removed because the top result/action
+  strip already identifies the workspace state.
+- Background model warmup no longer writes into the main result-strip progress.
+  It now uses a tiny separate topbar indicator beside the active runtime label.
+- The main result-strip progress is reserved for source prep, generation, and
+  GLB export so delayed preload stages such as `Loading MoGe camera model` do
+  not flash over `Image ready`.
+- Nymphs Ui scrollbars use thin teal thumbs with transparent tracks, matching
+  the rest of the app instead of the wide native gray scrollbar.
+- Weight Profile uses compact display labels such as `Low VRAM`, `Standard`,
+  and `GGUF Q5` because the resolution is already visible in the adjacent
+  control and full labels clip in the two-column parameter layout.
+- The main generation progress strip moved below the preview; the topbar is now
+  reserved for status, runtime, and the small background warmup indicator.
+- `nvdiffrec_render.light` is a required shared TRELLIS.2/Pixal3D runtime import.
+  Both Pixal3D and TRELLIS module install/update scripts should validate and
+  repair it in `$HOME/TRELLIS.2/.venv`.
+- Do not downgrade to the older upstream README CUDA/Torch path while fixing
+  this. The Nymph module remains validated on CUDA 13.0 with
+  `torch==2.11.0+cu130`; the `nvdiffrec` source branch is used because TRELLIS
+  renderers import `nvdiffrec_render`, not because the whole runtime should
+  follow the older official dependency profile.

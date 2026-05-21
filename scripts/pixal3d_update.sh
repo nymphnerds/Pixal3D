@@ -45,6 +45,9 @@ if [[ -x "$(pixal3d_python)" ]]; then
   if ! pixal3d_validate_utils3d_api "$(pixal3d_python)"; then
     pixal3d_install_utils3d
   fi
+  if ! pixal3d_validate_nvdiffrec_render "$(pixal3d_python)"; then
+    pixal3d_install_nvdiffrec_render
+  fi
 else
   echo "Pixal3D runtime venv is missing; run Install when ready."
 fi

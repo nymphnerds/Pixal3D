@@ -317,14 +317,7 @@ pixal3d_install_shared_trellis_runtime() {
   "$(pixal3d_pip)" install fastapi uvicorn pillow plyfile packaging psutil ninja
   pixal3d_install_utils3d
 
-  if [[ -n "${TRELLIS_CUDA_ARCH_LIST:-${NYMPHS3D_TRELLIS_CUDA_ARCH_LIST:-}}" ]]; then
-    export TORCH_CUDA_ARCH_LIST="${TRELLIS_CUDA_ARCH_LIST:-${NYMPHS3D_TRELLIS_CUDA_ARCH_LIST:-}}"
-  else
-    detected_cc="$(pixal3d_detect_compute_cap)"
-    if [[ -n "${detected_cc}" ]]; then
-      export TORCH_CUDA_ARCH_LIST="${detected_cc}"
-    fi
-  fi
+  pixal3d_ensure_torch_cuda_arch_list
 
   pixal3d_install_flash_attn
   pixal3d_install_natten
@@ -345,6 +338,9 @@ PY
       "git+https://github.com/NVlabs/nvdiffrast.git@${PIXAL3D_NVDIFFRAST_REF:-253ac4fcea7de5f396371124af597e6cc957bfae}"
 
     "$(pixal3d_pip)" install --no-build-isolation --no-deps "${PIXAL3D_TRELLIS_SOURCE_DIR}/o-voxel"
+  fi
+  if ! pixal3d_validate_nvdiffrec_render "$(pixal3d_python)"; then
+    pixal3d_install_nvdiffrec_render
   fi
 
   if ! pixal3d_validate_runtime_stack "$(pixal3d_python)"; then

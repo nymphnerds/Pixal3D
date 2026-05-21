@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.46",
+  "version": "0.1.52",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -361,6 +361,12 @@
     "v0.1.44 expands the Nymphs Ui top/result progress bar to the full result strip width.",
     "v0.1.45 stops the Pixal3D UI during module update and detects a running Gradio URL even when the pid file is stale, preventing fixed dependencies from being hidden by stale Python imports.",
     "v0.1.46 refreshes README and handoff docs with the utils3d and stale-Gradio-process lessons from test WSL validation.",
+    "v0.1.47 keeps delayed model warmup progress from overwriting the selected-image ready state in Nymphs Ui.",
+    "v0.1.48 removes duplicate in-app result/title labels and moves delayed model warmup into a tiny separate topbar indicator.",
+    "v0.1.49 styles Nymphs Ui scrollbars as thin teal thumbs with transparent tracks to match the rest of the app.",
+    "v0.1.50 uses compact Weight Profile display labels in Nymphs Ui so the two-column parameter controls stay readable.",
+    "v0.1.51 moves the main generation progress strip below the preview and repairs missing nvdiffrec_render during install/update.",
+    "v0.1.52 treats nvdiffrec_render as a shared TRELLIS.2/Pixal3D runtime dependency and installs it after nvdiffrast with CUDA arch scoping.",
     "Do not vendor model weights into this repo."
   ]
 }
