@@ -117,14 +117,24 @@
     .drop.drag { border-color: var(--lime); background-color: rgba(15, 32, 34, 0.9); }
     .drop img {
       display: none;
-      max-width: 100%;
-      max-height: 100%;
-      width: auto;
-      height: auto;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      padding: 10px;
       object-fit: contain;
       object-position: center;
+      background:
+        linear-gradient(45deg, rgba(255,255,255,0.025) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255,255,255,0.025) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.025) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.025) 75%);
+      background-size: 18px 18px;
+      background-position: 0 0, 0 9px, 9px -9px, -9px 0;
     }
     .drop-hint {
+      position: relative;
+      z-index: 1;
       display: grid;
       gap: 8px;
       justify-items: center;
@@ -535,8 +545,8 @@
 
       <section class="section run-strip primary-actions">
         <button class="btn secondary" id="warm-up"><i data-lucide="flame"></i> Warm Up</button>
-        <button class="btn primary" id="generate" disabled><i data-lucide="sparkles"></i> Generate Preview</button>
-        <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export GLB</button>
+        <button class="btn primary" id="generate" disabled><i data-lucide="sparkles"></i> Generate</button>
+        <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export</button>
       </section>
 
       <section class="section">
@@ -1013,13 +1023,9 @@
         }
         preparedFile = result?.data?.[0] || null;
         prepFailed = false;
-        const url = preparedFile?.url;
-        if (url) {
-          $("source-preview").src = url;
-        }
         stopProgress(true);
         setProgressUi("Source ready", "Source preprocessed. Ready to generate.", "100%");
-        if (modelReady) setWarmupUi("Warm-up ready", "Generate Preview is unlocked.", "100%");
+        if (modelReady) setWarmupUi("Warm-up ready", "Generate is unlocked.", "100%");
         $("state-label").textContent = "Image ready";
         setStatus("Image ready", "ok");
       } catch (err) {
@@ -1044,7 +1050,7 @@
 
     async function generate() {
       if (!modelReady) {
-        toast("Run Warm Up before Generate Preview.");
+        toast("Run Warm Up before Generate.");
         return;
       }
       const prepareSource = shouldPrepareSource();
@@ -1293,7 +1299,7 @@
           preprocessing = false;
           stopProgress(false);
           setProgressUi("Source ready", "Using original source image.", "0%");
-          if (modelReady) setWarmupUi("Warm-up ready", "Generate Preview is unlocked.", "100%");
+          if (modelReady) setWarmupUi("Warm-up ready", "Generate is unlocked.", "100%");
           $("state-label").textContent = "Image ready";
           setStatus("Image ready", "ok");
           setBusy(false);

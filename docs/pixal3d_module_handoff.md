@@ -3654,7 +3654,7 @@ Current Nymphs Ui flow:
 
 Latest behavior state:
 
-- Pixal3D module: `0.1.71`
+- Pixal3D module: `0.1.72`
 - The Manager module page already supplies the Pixal3D title, so the Nymphs Ui
   no longer renders its own large sidebar title/subtitle block.
 - The inner result-pane `Result` label was removed because the top result/action
@@ -3684,6 +3684,12 @@ Latest behavior state:
 - `v0.1.71` restores horizontal command buttons and makes the source preview
   square. The source/run command buttons are thin fitted strips, not square
   tiles.
+- `v0.1.72` keeps the square source preview but forces the original image to
+  render contained inside it, so transparent PNGs and tall sources are not
+  clipped. Prep now stores the preprocessed file internally without replacing
+  the visible source preview, shortens the run labels to `Generate` and
+  `Export`, and fixes the Nymphs custom API `FileData` path handling used by
+  prep/generation.
 - The main generation progress strip moved below the preview; the topbar area
   now contains status/runtime plus the separate warmup strip.
 - `nvdiffrec_render.light` is a required shared TRELLIS.2/Pixal3D runtime import.

@@ -258,3 +258,7 @@ design process from this brief.
 - `v0.1.71` corrects the button misunderstanding: the source preview/drop zone
   is square, while source/run buttons are thin compact horizontal command
   strips that fit neatly in the rail.
+- `v0.1.72` preserves the square source preview while containing the original
+  image inside it, keeps preprocessed output internal, shortens the run buttons
+  to `Generate` and `Export`, and fixes prep/generation `FileData` path handling
+  for the Nymphs custom API.

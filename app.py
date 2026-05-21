@@ -642,7 +642,10 @@ def _file_response(path: str) -> Dict[str, str]:
 def _file_path(file: Any) -> str:
     if isinstance(file, dict):
         return str(file["path"])
-    return str(file.path)
+    path = getattr(file, "path", None)
+    if path:
+        return str(path)
+    raise ValueError("Missing file path")
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -773,7 +776,7 @@ def preprocess(
         texture_naf_target_size=int(texture_naf_target_size) or None,
     )
     _update_progress("Preprocessing source image", 1, 3)
-    img = Image.open(image["path"])
+    img = Image.open(_file_path(image))
     os.environ["PIXAL3D_REMBG_KEEP_GPU"] = "1" if rembg_keep_gpu else "0"
     processed = pipeline.preprocess_image(img)
     _update_progress("Saving preprocessed image", 2, 3)
@@ -827,7 +830,7 @@ def generate_3d(
         _update_progress("Using preprocessed source image", 1, 8)
     else:
         _update_progress("Using original source image", 1, 8)
-    image_preprocessed = Image.open(image["path"]).convert("RGBA")
+    image_preprocessed = Image.open(_file_path(image)).convert("RGBA")
     _update_progress("Saving prepared image", 2, 8)
     temp_processed_path = os.path.join(TMP_DIR, f"temp_proc_{session_id[:8]}_{int(time.time()*1000)}.png")
     image_preprocessed.save(temp_processed_path)
