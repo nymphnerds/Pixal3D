@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.59",
+  "version": "0.1.60",
   "description": "Local Pixal3D image-to-3D backend and Nymphs UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -374,6 +374,7 @@
     "v0.1.57 serves the NymphsCore UI directly through FastAPI endpoints so Pixal3D no longer depends on the removed Gradio Server/app.api path in Gradio 6.",
     "v0.1.58 widens the Run Profile selector, places Resolution next to Low VRAM, renames Free Pipeline to Clear GPU Memory, and prevents stale source-prep progress from lingering after prep is disabled.",
     "v0.1.59 adds a visible Stop module action for the running Pixal3D UI/API process.",
+    "v0.1.60 adds a manual Warm Up control to the NymphsCore UI and a backend warmup endpoint while keeping optional warm-on-open support.",
     "Do not vendor model weights into this repo."
   ]
 }

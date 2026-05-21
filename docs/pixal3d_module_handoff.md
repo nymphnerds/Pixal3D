@@ -256,6 +256,10 @@ Nymph UI optimization implementation 2026-05-21:
 - Follow-up module action fix: `v0.1.59` adds a visible `Stop` module action
   that runs the module `stop` entrypoint, so users can stop Pixal3D from the
   module actions row without opening the side manage menu.
+- Follow-up warmup UX fix: `v0.1.60` adds a manual `Warm Up` control in the
+  NymphsCore UI. It calls a new backend warmup endpoint, shows model loading in
+  the header and progress strip, and leaves the existing optional warm-on-open
+  path available for future defaults/settings.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that

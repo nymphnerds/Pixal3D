@@ -601,6 +601,8 @@
       </section>
 
       <section class="section">
+        <button class="btn secondary" id="warm-up"><i data-lucide="flame"></i> Warm Up</button>
+        <div style="height:10px"></div>
         <button class="btn" id="generate" disabled><i data-lucide="sparkles"></i> Generate Preview</button>
         <div style="height:10px"></div>
         <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export GLB</button>
@@ -815,6 +817,8 @@
     let warmupTimer = null;
     let busy = false;
     let preprocessing = false;
+    let warmupActive = false;
+    let modelReady = false;
     let prepGeneration = 0;
     let activeProfile = "low_vram_1024";
     let optimizationProfiles = {};
@@ -870,6 +874,24 @@
       $("warmup-mini-bar").style.width = width;
     }
 
+    function updateWarmupButton() {
+      const button = $("warm-up");
+      button.disabled = busy || preprocessing || warmupActive || modelReady;
+      button.innerHTML = warmupActive
+        ? '<i data-lucide="flame"></i> Warming Up...'
+        : modelReady
+          ? '<i data-lucide="check"></i> Model Ready'
+          : '<i data-lucide="flame"></i> Warm Up';
+      lucide.createIcons();
+    }
+
+    function markWarmupDirty() {
+      if (!warmupActive) {
+        modelReady = false;
+        updateWarmupButton();
+      }
+    }
+
     function shouldPrepareSource() {
       const el = $("prepare-source");
       return !el || el.checked;
@@ -879,6 +901,7 @@
       busy = isBusy;
       $("generate").disabled = isBusy || preprocessing || !currentFile || (shouldPrepareSource() && !preparedFile);
       $("extract").disabled = isBusy || preprocessing || !generationResult;
+      updateWarmupButton();
     }
 
     function updateSliderLabels() {
@@ -1060,22 +1083,37 @@
         if (data.status === "loading") {
           const stage = data.stage || "Loading model";
           const width = total > 0 ? `${Math.min(100, (step / total) * 100)}%` : "12%";
+          warmupActive = true;
+          modelReady = false;
           setWarmupMini(true, stage, width);
           if (canChangeStatus) {
-            setStatus("Preloading model", "work");
+            setStatus("Warming up model", "work");
+            setProgressUi("Warming up", stage, width);
           }
+          updateWarmupButton();
         } else if (data.status === "ready") {
+          warmupActive = false;
+          modelReady = true;
           setWarmupMini(false);
           if (canChangeStatus) {
             setStatus("Model ready", "ok");
+            setProgressUi("Model ready", "Pixal3D is warmed up.", "100%");
           }
+          updateWarmupButton();
           clearInterval(warmupTimer);
         } else if (data.status === "error") {
+          warmupActive = false;
+          modelReady = false;
           setWarmupMini(true, "warmup failed", "0%");
           if (canChangeStatus) {
             setStatus("Preload failed", "err");
+            setProgressUi("Warmup failed", data.error || "Check Logs for the traceback.", "0%");
           }
+          updateWarmupButton();
           clearInterval(warmupTimer);
+        } else {
+          warmupActive = false;
+          updateWarmupButton();
         }
       } catch {}
     }
@@ -1248,9 +1286,12 @@
       $("state-label").textContent = "Clearing GPU memory";
       try {
         await client.predict("/free_pipeline_api", { session_id: sessionId });
+        modelReady = false;
+        warmupActive = false;
         setStatus("GPU memory cleared", "ok");
         $("state-label").textContent = "GPU memory cleared";
         setWarmupMini(false);
+        setProgressUi("Idle", "GPU memory cleared.", "0%");
         toast("Pixal3D GPU memory cleared.");
       } catch (err) {
         console.error(err);
@@ -1259,6 +1300,33 @@
         toast("Could not clear GPU memory. Check Logs.");
       } finally {
         setBusy(false);
+      }
+    }
+
+    async function warmUp() {
+      warmupActive = true;
+      modelReady = false;
+      updateWarmupButton();
+      setStatus("Warming up model", "work");
+      $("state-label").textContent = "Warming up";
+      setProgressUi("Warming up", "Starting Pixal3D warmup.", "8%");
+      setWarmupMini(true, "starting warmup", "8%");
+      try {
+        await client.predict("/warmup", {
+          session_id: sessionId,
+          low_vram: $("low-vram").checked,
+          texture_naf_target_size: $("texture-naf").value,
+        });
+        startWarmupPolling();
+      } catch (err) {
+        console.error(err);
+        warmupActive = false;
+        modelReady = false;
+        updateWarmupButton();
+        setStatus("Warmup failed", "err");
+        $("state-label").textContent = "Warmup failed";
+        setWarmupMini(true, "warmup failed", "0%");
+        toast("Warmup failed. Check Logs for the traceback.");
       }
     }
 
@@ -1299,6 +1367,10 @@
         $(id).addEventListener("input", setCustomProfile);
         $(id).addEventListener("change", setCustomProfile);
       }
+      for (const id of ["run-profile", "low-vram", "texture-naf"]) {
+        $(id).addEventListener("input", markWarmupDirty);
+        $(id).addEventListener("change", markWarmupDirty);
+      }
 
       $("auto-fov").addEventListener("change", () => {
         const manual = !$("auto-fov").checked;
@@ -1324,6 +1396,7 @@
 
       $("generate").onclick = generate;
       $("extract").onclick = extract;
+      $("warm-up").onclick = warmUp;
       $("free-pipeline").onclick = freePipeline;
       $("open-output").onclick = () => {
         if (outputUrl) window.open(outputUrl, "_blank");

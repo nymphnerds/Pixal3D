@@ -185,6 +185,8 @@ warmup_state = {
     "done": False,
     "error": "",
 }
+warmup_thread_lock = threading.Lock()
+warmup_thread = None
 
 def _set_warmup(status: str, stage: str, step: int, total: int = 5, *, done: bool = False, error: str = ""):
     with warmup_lock:
@@ -200,6 +202,47 @@ def _set_warmup(status: str, stage: str, step: int, total: int = 5, *, done: boo
 def _warmup_snapshot():
     with warmup_lock:
         return dict(warmup_state)
+
+
+def _warm_models_worker(low_vram: bool | None = None, texture_naf_target_size: int | None = None):
+    try:
+        init_models(low_vram=low_vram, texture_naf_target_size=texture_naf_target_size)
+    except Exception as exc:
+        print(f"[Warmup] Pixal3D model warmup failed: {exc}")
+
+
+def start_model_warmup(low_vram: bool | None = None, texture_naf_target_size: int | None = None) -> Dict[str, Any]:
+    global warmup_thread
+    snapshot = _warmup_snapshot()
+    if snapshot.get("status") == "loading":
+        return snapshot
+
+    if (
+        pipeline is not None
+        and runtime_settings["low_vram"] == (LOW_VRAM if low_vram is None else bool(low_vram))
+        and runtime_settings["texture_naf_target_size"] == resolve_texture_naf_target_size(
+            LOW_VRAM if low_vram is None else bool(low_vram),
+            texture_naf_target_size,
+        )
+    ):
+        _set_warmup("ready", "Model ready", 5, done=True)
+        return _warmup_snapshot()
+
+    _set_warmup("loading", "Starting Pixal3D warmup", 0)
+    with warmup_thread_lock:
+        if warmup_thread is not None and warmup_thread.is_alive():
+            return _warmup_snapshot()
+        warmup_thread = threading.Thread(
+            target=_warm_models_worker,
+            kwargs={
+                "low_vram": low_vram,
+                "texture_naf_target_size": texture_naf_target_size,
+            },
+            name="pixal3d-manual-warmup",
+            daemon=True,
+        )
+        warmup_thread.start()
+    return _warmup_snapshot()
 
 def configure_cuda_memory_limit():
     raw_value = os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION")
@@ -566,6 +609,16 @@ async def progress_poll(request: Request):
 @app.get("/warmup_status")
 async def warmup_status():
     return JSONResponse(_warmup_snapshot())
+
+
+@app.post("/api/warmup")
+async def warmup_nymph_api(request: Request):
+    payload = await request.json()
+    snapshot = start_model_warmup(
+        low_vram=_as_bool(payload.get("low_vram"), LOW_VRAM),
+        texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+    )
+    return JSONResponse({"data": [snapshot]})
 
 
 def _file_url(path: str) -> str:
@@ -969,7 +1022,7 @@ if __name__ == "__main__":
         ensure_utils3d_moge_aliases()
     
     if args.warm_on_start:
-        threading.Thread(target=init_models, name="pixal3d-model-warmup", daemon=True).start()
+        start_model_warmup()
     elif args.lazy_load and args.warmup_delay > 0:
         threading.Thread(target=delayed_init_models, args=(args.warmup_delay,), name="pixal3d-model-delayed-warmup", daemon=True).start()
     elif not args.lazy_load:
