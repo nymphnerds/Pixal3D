@@ -232,6 +232,12 @@ Nymph UI optimization implementation 2026-05-21:
 - Added `scripts/benchmark_pixal3d_profiles.py` to run selected profiles against
   one image and append JSONL records with elapsed time, success/failure, output
   path, settings, and `nvidia-smi` memory samples.
+- Follow-up install fix: `nvdiffrec_render` compiled its CUDA objects on WSL but
+  failed the final link with `/usr/bin/ld: cannot find -lcuda`. The NVIDIA
+  driver stub exists at `/usr/lib/wsl/lib/libcuda.so`, so `v0.1.55` adds that
+  path to `LIBRARY_PATH` and `LD_LIBRARY_PATH` only for the
+  `nvdiffrec_render` build. Dev validation built and imported
+  `nvdiffrec_render.light` and `nvdiffrec_render.renderutils._C` successfully.
 
 The production module contract now intentionally uses the shared
 `$HOME/TRELLIS.2/.venv` runtime. Pixal3D and TRELLIS.2 both create/repair that

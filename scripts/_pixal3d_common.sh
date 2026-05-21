@@ -193,7 +193,12 @@ PY
 pixal3d_install_nvdiffrec_render() {
   echo "Installing TRELLIS/Pixal3D nvdiffrec renderer support"
   pixal3d_ensure_torch_cuda_arch_list
-  "$(pixal3d_pip)" install --no-build-isolation \
+  local -a nvdiffrec_env=()
+  if [[ -d /usr/lib/wsl/lib ]]; then
+    nvdiffrec_env+=("LIBRARY_PATH=/usr/lib/wsl/lib:${LIBRARY_PATH:-}")
+    nvdiffrec_env+=("LD_LIBRARY_PATH=/usr/lib/wsl/lib:${LD_LIBRARY_PATH:-}")
+  fi
+  env "${nvdiffrec_env[@]}" "$(pixal3d_pip)" install --no-build-isolation \
     "git+https://github.com/JeffreyXiang/nvdiffrec.git@${PIXAL3D_NVDIFFREC_REF}"
   pixal3d_validate_nvdiffrec_render "$(pixal3d_python)"
 }

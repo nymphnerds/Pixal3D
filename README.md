@@ -87,6 +87,11 @@ The NymphsCore runtime is performance-first and expects `flash_attn` to be
 installed in the shared venv. Do not treat SDPA/naive attention as a normal
 generation path for this module.
 
+Pixal3D also builds the Pixal-specific `nvdiffrec_render` helper into the shared
+venv. On WSL, that build must link against the NVIDIA driver stub in
+`/usr/lib/wsl/lib`; the installer adds that library path only for this renderer
+build.
+
 ### Installation
 
 #### Step 1: Follow TRELLIS.2 Installation

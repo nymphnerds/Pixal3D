@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.54",
+  "version": "0.1.55",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -363,6 +363,7 @@
     "v0.1.52 treats nvdiffrec_render as a shared TRELLIS.2/Pixal3D runtime dependency and installs it after nvdiffrast with CUDA arch scoping.",
     "v0.1.53 makes Pixal3D uninstall output and metadata explicit that the shared TRELLIS.2/Pixal3D runtime venv is preserved.",
     "v0.1.54 makes the NymphsCore UI the only advertised Pixal3D app surface, adds optimized run profiles, exposes max tokens and texture NAF controls, adds manual Free Pipeline, removes the default CUDA memory fraction cap, and exports GLB textures as PNG.",
+    "v0.1.55 adds the WSL CUDA driver library path while building nvdiffrec_render so the Pixal3D-specific renderer can link against libcuda.so.",
     "Do not vendor model weights into this repo."
   ]
 }
