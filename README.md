@@ -67,6 +67,16 @@ missing. Installing TRELLIS.2 uses the same venv and also leaves it
 Pixal3D-ready. Pixal3D does not require TRELLIS model weights; Pixal3D model
 files are fetched separately into the shared `NymphsData` cache.
 
+Pixal3D uses the official `utils3d-0.0.2` wheel from the upstream README, then
+adds `utils3d.pt` and `utils3d.np` aliases for MoGe auto-camera compatibility.
+Do not replace it with MoGe's newer pinned `utils3d` commit for Pixal3D; that
+commit lacks `utils3d.torch.intrinsics_from_fov_xy`, which Pixal3D render and
+projection paths still call.
+
+Module updates stop the local Pixal3D UI before syncing files or repairing
+Python dependencies. This is intentional: a running Gradio/Python process can
+keep stale imports alive even after the shared venv has been repaired.
+
 ### Installation
 
 #### Step 1: Follow TRELLIS.2 Installation

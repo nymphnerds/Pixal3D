@@ -3381,15 +3381,15 @@ Correction to the app shell routing:
   - `Official Ui` -> `/official`
   - `Nymphs Ui` -> `/nymph`
 
-## 2026-05-21 Update: Utils3d Dependency Fix
+## 2026-05-21 Update: Utils3d Dependency And Stale UI Fixes
 
-Latest published state:
+Latest behavior state:
 
-- Pixal3D module: `0.1.43`
-- Registry: `registry_version` 63
-- Pixal3D commit: `fd9f18798c1a1d790d2a0ee8ab68eabaa1cb92e5`
+- Pixal3D module: `0.1.45`
+- Registry: `registry_version` 65
+- Pixal3D commit: `3146bc14343ea559c44db552f88f0a3950b6581f`
 - Manifest hash:
-  `3a67ea2203978f4bcc7580192fc26d224bc52ebc29d97a274614117a0b44f87d`
+  `e1243d74b15cd943f33a5b616b6e14af5c13002ea68cb1ce856098c433f780d9`
 
 Failure that triggered this update:
 
@@ -3400,6 +3400,10 @@ Failure that triggered this update:
   `AttributeError: module 'utils3d.torch' has no attribute 'intrinsics_from_fov_xy'`.
 - This was not a NATTEN/FlashAttention failure and not a hidden preprocessing
   handoff failure. The dependency stack had the wrong `utils3d` API for Pixal3D.
+- After the venv was repaired, a still-running Gradio process continued failing
+  with the same traceback because it had already imported the old `utils3d`
+  module. Fresh Python in the test WSL could call
+  `utils3d.torch.intrinsics_from_fov_xy`; the live UI process could not.
 
 Correct dependency rule:
 
@@ -3412,15 +3416,20 @@ Correct dependency rule:
   repair, but it drops `utils3d.torch.intrinsics_from_fov_xy`, which Pixal3D and
   TRELLIS.2 render/projection code still call.
 
-Installer/update behavior after `0.1.43`:
+Installer/update behavior after `0.1.45`:
 
 - `install_pixal3d.sh` installs the official Pixal3D `utils3d` wheel and verifies
   `utils3d.torch.intrinsics_from_fov_xy`.
-- `pixal3d_update.sh` now checks the installed shared venv and repairs only
+- `pixal3d_update.sh` stops the Pixal3D UI before syncing files or repairing
+  Python dependencies so Gradio reloads changed module code and fixed imports on
+  next launch.
+- `pixal3d_update.sh` checks the installed shared venv and repairs only
   `utils3d` if the wrong API is present.
 - This update path should not rebuild FlashAttention or NATTEN.
 - Smoke/runtime validation now imports `utils3d.torch`, `utils3d.pt`, and
   `utils3d.np`, and fails fast if `intrinsics_from_fov_xy` is missing.
+- `pixal3d_gradio_is_running` checks both the pid file and the local Gradio URL
+  so a stale/missing pid file does not hide a running UI on port 8097.
 
 Test/dev WSL reminder:
 
@@ -3440,3 +3449,5 @@ Current Nymphs Ui flow:
 - `Use GPU for RMBG` belongs to the preprocess stage.
 - Keep a single progress surface in the top/right result strip; do not duplicate
   a progress card in the left controls.
+- As of `0.1.44`, the progress bar in that top/result strip spans the full strip
+  width.

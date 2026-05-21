@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.45",
+  "version": "0.1.46",
   "description": "Local Pixal3D image-to-3D backend and Gradio UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -357,6 +357,10 @@
     "v0.1.40 keeps Nymphs Ui on the official preprocess-then-generate flow, removes the left progress card, and moves the activity icon, stage, detail text, and progress bar into the top-right result strip.",
     "v0.1.41 adds a Prepare source image toggle. It defaults on for the official preprocess-then-generate path, while advanced users can turn it off to generate from the original source image without hidden preprocessing.",
     "v0.1.42 passes the server-side preprocessed file path into Generate instead of its localhost URL, avoiding Gradio safehttpx localhost validation failures.",
+    "v0.1.43 installs the official Pixal3D utils3d wheel, verifies intrinsics_from_fov_xy, and creates utils3d.pt/np aliases for MoGe instead of installing the incompatible newer MoGe utils3d commit.",
+    "v0.1.44 expands the Nymphs Ui top/result progress bar to the full result strip width.",
+    "v0.1.45 stops the Pixal3D UI during module update and detects a running Gradio URL even when the pid file is stale, preventing fixed dependencies from being hidden by stale Python imports.",
+    "v0.1.46 refreshes README and handoff docs with the utils3d and stale-Gradio-process lessons from test WSL validation.",
     "Do not vendor model weights into this repo."
   ]
 }
