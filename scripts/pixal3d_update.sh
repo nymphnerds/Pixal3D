@@ -15,6 +15,11 @@ print(str(manifest.get("version", "unknown")).strip() or "unknown")
 PY
 )"
 
+if pixal3d_gradio_is_running; then
+  echo "Stopping Pixal3D UI before update so Python reloads changed module code and dependencies."
+  "${SCRIPT_DIR}/pixal3d_stop_gradio.sh" || true
+fi
+
 if [[ -d "${PIXAL3D_INSTALL_ROOT}/.git" ]]; then
   git -C "${PIXAL3D_INSTALL_ROOT}" pull --ff-only
 elif [[ -d "${MODULE_ROOT}/pixal3d" ]]; then

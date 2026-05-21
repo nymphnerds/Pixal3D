@@ -214,6 +214,7 @@ pixal3d_gradio_is_running() {
       return 0
     fi
   fi
+  pixal3d_probe_url "${PIXAL3D_GRADIO_URL}" >/dev/null 2>&1 && return 0
   return 1
 }
 
