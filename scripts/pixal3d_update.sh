@@ -35,5 +35,14 @@ else
   echo "Pixal3D source is missing from update root: ${MODULE_ROOT}" >&2
   exit 1
 fi
+
+if [[ -x "$(pixal3d_python)" ]]; then
+  if ! pixal3d_validate_utils3d_api "$(pixal3d_python)"; then
+    pixal3d_install_utils3d
+  fi
+else
+  echo "Pixal3D runtime venv is missing; run Install when ready."
+fi
+
 printf '%s\n' "${module_version}" > "${PIXAL3D_INSTALL_ROOT}/.nymph-module-version"
 echo "installed_module_version=${module_version}"

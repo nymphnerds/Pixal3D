@@ -190,10 +190,11 @@ Do this:
   `accelerate==1.13.0`, `gradio`, `plyfile==1.1.3`, and a NATTEN wheel matching
   the chosen Torch/CUDA ABI. For local CUDA 13 validation this was
   `natten==0.21.6+torch2110cu130`.
-- For auto camera estimation, use MoGe's pinned `utils3d` git dependency
-  (`EasternJournalist/utils3d@3fab839f0be9931dac7c8488eb0e1600c236e183`), not
-  only the Pixal3D README `utils3d-0.0.2` wheel. The README wheel lacks the
-  `utils3d.pt` alias that MoGe calls.
+- Install the official Pixal3D README `utils3d-0.0.2` wheel, then create the
+  `utils3d.pt`/`utils3d.np` aliases that MoGe calls. Do not install
+  `EasternJournalist/utils3d@3fab839f0be9931dac7c8488eb0e1600c236e183`; that
+  newer API drops `utils3d.torch.intrinsics_from_fov_xy`, which Pixal3D and
+  TRELLIS.2 rendering code still call.
 - Fetch Pixal3D and auxiliary models into `$HOME/NymphsData` caches.
 - Add Pixal3D as a full third Blender service with start/stop/probe/generate UI.
 - Preserve upstream `train.py`, `configs/gen/*.json`, and `data_toolkit/` in
@@ -225,9 +226,8 @@ Official Pixal3D README:
   Upstream removed `natten==0.21.0` from `requirements.txt` and added explicit
   pins for basics such as `pillow`, `imageio`, `opencv-python-headless`,
   `trimesh`, `transformers`, `zstandard`, `kornia`, and `timm`.
-- Then install the `utils3d` wheel. Local validation found that MoGe auto-FOV
-  additionally needs MoGe's pinned `utils3d` git commit because it exposes
-  `utils3d.pt`.
+- Then install the `utils3d` wheel. Local validation found MoGe auto-FOV also
+  needs `utils3d.pt`; the module creates that alias after installing the wheel.
 - Low-VRAM mode is supported.
 - Default resolution is 1536 normally and 1024 in low-VRAM mode.
 - Upstream documents `ATTN_BACKEND=sdpa` as a fallback when flash-attn is absent,
@@ -656,11 +656,11 @@ Use native action groups for model/profile fetch:
    `imageio`, `imageio-ffmpeg`, `tqdm`, `easydict`, `opencv-python-headless`,
    `ninja`, `trimesh`, `transformers`, `gradio==6.0.1`, `tensorboard`,
    `pandas`, `lpips`, `zstandard`, `kornia`, `timm`.
-7. Install `utils3d`. For full auto-camera support, prefer MoGe's pinned git
-   dependency:
-   `git+https://github.com/EasternJournalist/utils3d.git@3fab839f0be9931dac7c8488eb0e1600c236e183`.
-   Pixal3D's README wheel (`utils3d-0.0.2`) worked for manual-FOV generation but
-   failed MoGe inference because it lacks `utils3d.pt`.
+7. Install `utils3d` from Pixal3D's README wheel:
+   `https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl`.
+   Then create `utils3d.pt` and `utils3d.np` aliases for MoGe compatibility.
+   Do not use `EasternJournalist/utils3d@3fab839f0be9931dac7c8488eb0e1600c236e183`;
+   it lacks `utils3d.torch.intrinsics_from_fov_xy`.
 8. Install Pixal3D requirements:
    `git+https://github.com/microsoft/MoGe.git`,
    `diffusers==0.37.1`, `accelerate==1.13.0`, `gradio`, `plyfile==1.1.3`.
@@ -2169,17 +2169,15 @@ transformers==4.57.3 works and exposes DINOv3ViTModel.layer.
 The README-level `natten==0.21.0` is not the validated CUDA 13 target. Use the
 Torch/CUDA-matched NATTEN wheel from https://whl.natten.org.
 
-Pixal3D README utils3d-0.0.2 wheel works for manual-FOV generation but fails
-MoGe auto camera:
-ModuleNotFoundError: No module named 'utils3d.pt'
+Pixal3D README utils3d-0.0.2 wheel includes the legacy
+`utils3d.torch.intrinsics_from_fov_xy` API needed by Pixal3D/TRELLIS.2 render
+paths. MoGe auto camera also needs `utils3d.pt`, so the module creates
+`utils3d.pt` and `utils3d.np` aliases after installing the wheel.
 
-MoGe's pinned utils3d commit works:
-git+https://github.com/EasternJournalist/utils3d.git@3fab839f0be9931dac7c8488eb0e1600c236e183
-
-Do not launch upstream `app.py` unmodified for the Nymph service. Its `__main__`
-block force-reinstalls the Pixal3D README `utils3d-0.0.2` wheel, which can undo
-the MoGe-compatible `utils3d` install and break auto camera estimation. Build the
-Nymph API server around `inference.py`/pipeline calls instead.
+Do not install `EasternJournalist/utils3d@3fab839f0be9931dac7c8488eb0e1600c236e183`
+for Pixal3D. It satisfies the newer MoGe-style import shape after alias repair
+but lacks `intrinsics_from_fov_xy`, causing generation to finish sampling and
+then fail during render/projection.
 ```
 
 Implementation lessons learned:

@@ -315,8 +315,7 @@ pixal3d_install_shared_trellis_runtime() {
 
   "$(pixal3d_pip)" install -r "${PIXAL3D_INSTALL_ROOT}/requirements.txt"
   "$(pixal3d_pip)" install fastapi uvicorn pillow plyfile packaging psutil ninja
-  "$(pixal3d_pip)" install --force-reinstall --no-deps "git+https://github.com/EasternJournalist/utils3d.git@${PIXAL3D_UTILS3D_REF}"
-  pixal3d_repair_utils3d_compat "$(pixal3d_python)"
+  pixal3d_install_utils3d
 
   if [[ -n "${TRELLIS_CUDA_ARCH_LIST:-${NYMPHS3D_TRELLIS_CUDA_ARCH_LIST:-}}" ]]; then
     export TORCH_CUDA_ARCH_LIST="${TRELLIS_CUDA_ARCH_LIST:-${NYMPHS3D_TRELLIS_CUDA_ARCH_LIST:-}}"

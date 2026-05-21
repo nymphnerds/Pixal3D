@@ -36,7 +36,7 @@ PIXAL3D_TEXTURE_NAF_TARGET_SIZE="${PIXAL3D_TEXTURE_NAF_TARGET_SIZE:-}"
 PIXAL3D_TEXTURE_SIZE="${PIXAL3D_TEXTURE_SIZE:-1024}"
 PIXAL3D_REMBG_KEEP_GPU="${PIXAL3D_REMBG_KEEP_GPU:-0}"
 PIXAL3D_CUDA_MEMORY_FRACTION="${PIXAL3D_CUDA_MEMORY_FRACTION:-0.92}"
-PIXAL3D_UTILS3D_REF="${PIXAL3D_UTILS3D_REF:-3fab839f0be9931dac7c8488eb0e1600c236e183}"
+PIXAL3D_UTILS3D_WHEEL_URL="${PIXAL3D_UTILS3D_WHEEL_URL:-https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl}"
 PIXAL3D_GGUF_RUNTIME_DIR="${PIXAL3D_GGUF_RUNTIME_DIR:-$PIXAL3D_TRELLIS_RUNTIME_ROOT/.cache/trellis-gguf-runtime}"
 PIXAL3D_TRELLIS2_GGUF_REPO_URL="${PIXAL3D_TRELLIS2_GGUF_REPO_URL:-https://github.com/Aero-Ex/ComfyUI-Trellis2-GGUF.git}"
 PIXAL3D_TRELLIS2_GGUF_REPO_REF="${PIXAL3D_TRELLIS2_GGUF_REPO_REF:-ed7245cba449c79e0a6703b7f09c0590328b4f77}"
@@ -124,6 +124,28 @@ if missing:
 importlib.import_module("utils3d.pt")
 importlib.import_module("utils3d.np")
 PY
+}
+
+pixal3d_validate_utils3d_api() {
+  local python_bin="${1:-$(pixal3d_python)}"
+  [[ -x "${python_bin}" ]] || return 1
+
+  "${python_bin}" - <<'PY' >/dev/null 2>&1
+import importlib
+
+utils3d_torch = importlib.import_module("utils3d.torch")
+if not hasattr(utils3d_torch, "intrinsics_from_fov_xy"):
+    raise SystemExit(1)
+importlib.import_module("utils3d.pt")
+importlib.import_module("utils3d.np")
+PY
+}
+
+pixal3d_install_utils3d() {
+  echo "Installing Pixal3D-compatible utils3d"
+  "$(pixal3d_pip)" install --force-reinstall --no-deps "${PIXAL3D_UTILS3D_WHEEL_URL}"
+  pixal3d_repair_utils3d_compat "$(pixal3d_python)"
+  pixal3d_validate_utils3d_api "$(pixal3d_python)"
 }
 
 pixal3d_load_hf_token() {
@@ -225,9 +247,14 @@ for module_name in (
     "nvdiffrast.torch",
     "moge",
     "utils3d",
+    "utils3d.torch",
     "utils3d.pt",
+    "utils3d.np",
 ):
     importlib.import_module(module_name)
+
+if not hasattr(importlib.import_module("utils3d.torch"), "intrinsics_from_fov_xy"):
+    raise SystemExit("utils3d.torch.intrinsics_from_fov_xy is missing")
 PY
 }
 

@@ -12,6 +12,7 @@ import base64
 import io
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import *
 from PIL import Image
 
@@ -683,6 +684,34 @@ app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/tmp", StaticFiles(directory=TMP_DIR), name="tmp")
 app.mount("/outputs", StaticFiles(directory=OUTPUT_DIR), name="outputs")
 
+def ensure_utils3d_moge_aliases():
+    import importlib
+    import utils3d
+
+    missing = []
+    for alias_name in ("pt", "np"):
+        try:
+            importlib.import_module(f"utils3d.{alias_name}")
+        except ModuleNotFoundError:
+            missing.append(alias_name)
+
+    if missing:
+        importlib.import_module("utils3d.torch")
+        importlib.import_module("utils3d.numpy")
+        package_root = Path(utils3d.__file__).resolve().parent
+        if "pt" in missing:
+            (package_root / "pt.py").write_text("from .torch import *\n", encoding="utf-8")
+        if "np" in missing:
+            (package_root / "np.py").write_text("from .numpy import *\n", encoding="utf-8")
+        importlib.invalidate_caches()
+
+    utils3d_torch = importlib.import_module("utils3d.torch")
+    if not hasattr(utils3d_torch, "intrinsics_from_fov_xy"):
+        raise RuntimeError("Installed utils3d is missing intrinsics_from_fov_xy")
+    importlib.import_module("utils3d.pt")
+    importlib.import_module("utils3d.np")
+
+
 if __name__ == "__main__":
     import sys
     parser = argparse.ArgumentParser(description="Pixal3D Demo Server")
@@ -706,6 +735,7 @@ if __name__ == "__main__":
             sys.executable, "-m", "pip", "install", "--force-reinstall", "--no-deps",
             "https://github.com/LDYang694/Storages/releases/download/20260430/utils3d-0.0.2-py3-none-any.whl"
         ], check=True)
+        ensure_utils3d_moge_aliases()
     
     if args.warm_on_start:
         threading.Thread(target=init_models, name="pixal3d-model-warmup", daemon=True).start()
