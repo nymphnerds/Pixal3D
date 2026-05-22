@@ -272,3 +272,6 @@ design process from this brief.
 - `v0.1.77` moves `Open GLB` and `Clear GPU Memory` into the top command strip,
   defaults `Use GPU for RMBG` on, and stops all Pixal3D module backends when
   the Nymphs UI/WebView unloads.
+- `v0.1.78` keeps those controls near the top but splits them into a primary
+  run row and a secondary output/memory utility row so the command area reads
+  cleaner in the fixed rail.

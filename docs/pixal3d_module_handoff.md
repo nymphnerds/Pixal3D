@@ -33,6 +33,10 @@ Updated: 2026-05-22 after Pixal3D `0.1.77`. `Open GLB` and
 defaults on, and closing the Nymphs UI/WebView asks Pixal3D to stop all module
 backends through the normal stop script.
 
+Updated: 2026-05-22 after Pixal3D `0.1.78`. The top command strip now groups
+`Warm Up` / `Generate` / `Export` separately from the lower-priority
+`Open GLB` / `Clear GPU Memory` utilities.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -3862,3 +3866,19 @@ Test next through Manager after publish:
    then leaves warmup required.
 5. Close the Pixal3D UI/Manager app and confirm Pixal3D API/UI processes are no
    longer running.
+
+## 2026-05-22 Pixal3D 0.1.78 Pickup
+
+Local source state, pending publish at the time of this note:
+
+- Pixal3D module version: `0.1.78`
+- The command area under source prep is split into two visual groups:
+  `Warm Up`, `Generate`, and `Export` share the primary run row; `Open GLB` and
+  `Clear GPU Memory` sit together as the lower-priority utility row.
+- No backend behavior changed from `0.1.77`.
+
+Test next through Manager after publish:
+
+1. Update Pixal3D to `0.1.78` from the registry path.
+2. Open the Nymphs UI and confirm the source, run, and utility command groups
+   read as distinct, tidy rows in the 360px rail.
