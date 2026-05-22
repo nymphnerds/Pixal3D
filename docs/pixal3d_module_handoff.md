@@ -88,6 +88,10 @@ Updated: 2026-05-22 after Pixal3D `0.1.90`. Kept the details copy minimal and
 allowed the BRIA form action to remain visible during status timeout/checking so
 the form link is not hidden when the module is still sorting itself out.
 
+Updated: 2026-05-22 after Pixal3D `0.1.91`. Clarified the first/pre-install
+details page: before Fetch Models, users must open the BRIA form and accept
+access with the same Hugging Face account used for their token.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can

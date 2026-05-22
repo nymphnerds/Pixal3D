@@ -3,8 +3,8 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.90",
-  "description": "Local Pixal3D image-to-3D backend and Nymphs UI. Install sets up the runtime; Fetch Models downloads weights after BRIA RMBG-2.0 Hugging Face access is accepted.",
+  "version": "0.1.91",
+  "description": "Pixal3D turns one image into a textured GLB. Before Fetch Models, open the BRIA form and accept access with the same Hugging Face account used for your token.",
   "category": "3d",
   "packaging": "repo",
   "repo": {
@@ -17,7 +17,7 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D turns one source image into a textured GLB model.",
+    "body": "Pixal3D turns one image into a textured GLB.\n\nBefore Fetch Models: open the BRIA form and accept access with the same Hugging Face account used for your token. Fetch Models needs that approval to download BRIA RMBG-2.0.",
     "links": [
       {
         "label": "Fill BRIA form",
@@ -397,6 +397,7 @@
     "v0.1.88 adds a module-owned installed NEXT STEP action that opens the BRIA form before Fetch Models.",
     "v0.1.89 moves the BRIA form next step into the Manager Details-pane primary action contract.",
     "v0.1.90 keeps Pixal3D details copy minimal and shows the BRIA form action while model download or status checking is needed.",
+    "v0.1.91 makes the pre-install BRIA form requirement clearer on the first details page.",
     "Do not vendor model weights into this repo."
   ]
 }
