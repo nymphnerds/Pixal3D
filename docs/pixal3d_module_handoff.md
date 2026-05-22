@@ -64,6 +64,11 @@ onto worker threads so the FastAPI event loop can keep answering `/progress`
 during generation/export. The UI can now show backend stages instead of sitting
 at `Queued`.
 
+Updated: 2026-05-22 after Pixal3D `0.1.85`. Added conservative per-run CUDA
+cleanup and memory breadcrumbs around MoGe camera estimation, latent generation,
+and GLB export. This is aimed at the common second-run OOM failure without
+changing install/runtime dependencies.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -3869,7 +3874,7 @@ Workflow reminder for future agents:
 
 ## 2026-05-22 Pixal3D 0.1.77 Pickup
 
-Local source state, pending publish at the time of this note:
+Source changes prepared for publish:
 
 - Pixal3D module version: `0.1.77`
 - UI layout: `Open GLB` and `Clear GPU Memory` moved from the Status section
@@ -4023,3 +4028,24 @@ Test next through Manager after publish:
 2. Start generation and confirm the status strip advances beyond `Queued`.
 3. During export, confirm it shows backend stages such as decoding/building
    mesh/exporting rather than staying on a generic wait state.
+
+## 2026-05-22 Pixal3D 0.1.85 Pickup
+
+Local source state, pending publish at the time of this note:
+
+- Pixal3D module version: `0.1.85`
+- Keeps the `0.1.84` worker-thread progress responsiveness.
+- Adds CUDA memory breadcrumbs before/after generation and GLB export.
+- Explicitly drops large per-run references after generation and export:
+  preprocessed image, generated mesh list, shape/texture latents, decoded mesh,
+  GLB scene, and state-file arrays.
+- Calls `gc.collect()`, `torch.cuda.empty_cache()`, and `torch.cuda.ipc_collect()`
+  after MoGe camera estimation, generation cleanup, and GLB export cleanup.
+
+Test next through Manager after publish:
+
+1. Update Pixal3D to `0.1.85` from the registry path.
+2. Generate/export once, then generate/export a second time without restarting.
+3. Check logs for `[CUDA] ... allocated/reserved/max_allocated` breadcrumbs.
+4. If second-run OOM remains, compare the cleanup logs; next likely mitigation
+   is a controlled backend restart after completed GLB export.

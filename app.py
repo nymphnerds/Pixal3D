@@ -304,6 +304,33 @@ def _free_models_locked(reason: str = ""):
     _set_warmup("idle", "Pipeline freed", 0, done=False)
 
 
+def _cuda_memory_report(label: str):
+    if not torch.cuda.is_available():
+        return
+    try:
+        allocated = torch.cuda.memory_allocated() / 1024**3
+        reserved = torch.cuda.memory_reserved() / 1024**3
+        max_allocated = torch.cuda.max_memory_allocated() / 1024**3
+        print(
+            f"[CUDA] {label}: allocated={allocated:.2f} GB, "
+            f"reserved={reserved:.2f} GB, max_allocated={max_allocated:.2f} GB",
+            flush=True,
+        )
+    except Exception as exc:
+        print(f"[CUDA] {label}: memory report failed: {exc}", flush=True)
+
+
+def _cleanup_cuda_stage(label: str):
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        try:
+            torch.cuda.ipc_collect()
+        except Exception:
+            pass
+    _cuda_memory_report(label)
+
+
 def init_models(low_vram: bool | None = None, texture_naf_target_size: int | None = None, force_reload: bool = False):
     global pipeline, moge_model, envmap
     global LOW_VRAM
@@ -489,6 +516,8 @@ def get_camera_params_wild_moge(image_path, device="cuda", mesh_scale=1.0, exten
         torch.tensor([0 - extend_pixel, image_resolution - 1 + extend_pixel]),
         mesh_scale, image_resolution
     )["distance_from_x"]
+    del output, image_tensor, image_np, pil_image, grid_point
+    _cleanup_cuda_stage("after MoGe camera estimation")
     return {'camera_angle_x': camera_angle_x, 'distance': distance, 'mesh_scale': mesh_scale}
 
 def pack_state(shape_slat, tex_slat, res):
@@ -504,13 +533,14 @@ def pack_state(shape_slat, tex_slat, res):
     return state_path
 
 def unpack_state(state_path):
-    data = np.load(state_path)
-    shape_slat = SparseTensor(
-        feats=torch.from_numpy(data['shape_slat_feats']).cuda(),
-        coords=torch.from_numpy(data['coords']).cuda(),
-    )
-    tex_slat = shape_slat.replace(torch.from_numpy(data['tex_slat_feats']).cuda())
-    return shape_slat, tex_slat, int(data['res'])
+    with np.load(state_path) as data:
+        shape_slat = SparseTensor(
+            feats=torch.from_numpy(data['shape_slat_feats']).cuda(),
+            coords=torch.from_numpy(data['coords']).cuda(),
+        )
+        tex_slat = shape_slat.replace(torch.from_numpy(data['tex_slat_feats']).cuda())
+        res = int(data['res'])
+    return shape_slat, tex_slat, res
 
 # ============================================================================
 # Progress Tracking (file-based, cross-process safe for @spaces.GPU)
@@ -973,6 +1003,12 @@ def generate_3d(
     texture_naf_target_size: int = 0,
 ) -> Dict:
     _reset_progress(session_id)
+    image_preprocessed = None
+    camera_params = None
+    _mesh_list = None
+    shape_slat = None
+    tex_slat = None
+    res = None
     if runtime_op_lock.acquire(blocking=False):
         lock_acquired = True
         _update_progress("Pixal3D runtime lock acquired", 1, 12)
@@ -995,6 +1031,9 @@ def generate_3d(
         )
 
         torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.reset_peak_memory_stats()
+        _cuda_memory_report("before generation")
         hr_resolution = int(resolution)
 
         if source_preprocessed:
@@ -1041,21 +1080,23 @@ def generate_3d(
 
         pipeline_type = f"{hr_resolution}_cascade"
         _update_progress("Starting Pixal3D samplers", 11, 12)
-        _mesh_list, (shape_slat, tex_slat, res) = pipeline.run(
-            image_preprocessed,
-            camera_params=camera_params,
-            seed=seed,
-            sparse_structure_sampler_params=ss_sampler_override,
-            shape_slat_sampler_params=shape_sampler_override,
-            tex_slat_sampler_params=tex_sampler_override,
-            preprocess_image=False,
-            return_latent=True,
-            pipeline_type=pipeline_type,
-            max_num_tokens=effective_max_tokens,
-        )
+        with torch.inference_mode():
+            _mesh_list, (shape_slat, tex_slat, res) = pipeline.run(
+                image_preprocessed,
+                camera_params=camera_params,
+                seed=seed,
+                sparse_structure_sampler_params=ss_sampler_override,
+                shape_slat_sampler_params=shape_sampler_override,
+                tex_slat_sampler_params=tex_sampler_override,
+                preprocess_image=False,
+                return_latent=True,
+                pipeline_type=pipeline_type,
+                max_num_tokens=effective_max_tokens,
+            )
 
         _update_progress("Packing model state for GLB export", 12, 12)
         state_path = pack_state(shape_slat, tex_slat, res)
+        _cuda_memory_report("after latent generation")
 
         _finish_progress("Model state ready")
         return {
@@ -1064,6 +1105,8 @@ def generate_3d(
             "distance": camera_params['distance'],
         }
     finally:
+        del image_preprocessed, camera_params, _mesh_list, shape_slat, tex_slat, res
+        _cleanup_cuda_stage("after generation cleanup")
         if lock_acquired:
             runtime_op_lock.release()
 
@@ -1078,38 +1121,53 @@ def extract_glb_api(
     texture_naf_target_size: int = 0,
 ) -> FileData:
     with runtime_op_lock:
+        shape_slat = None
+        tex_slat = None
+        mesh = None
+        glb = None
+        res = None
         _reset_progress(session_id)
-        _update_progress("Loading Pixal3D models", 0, 4)
-        init_models(
-            low_vram=LOW_VRAM if low_vram is None else bool(low_vram),
-            texture_naf_target_size=int(texture_naf_target_size) or None,
-        )
-        _update_progress("Decoding latent mesh", 1, 4)
+        try:
+            _update_progress("Loading Pixal3D models", 0, 4)
+            init_models(
+                low_vram=LOW_VRAM if low_vram is None else bool(low_vram),
+                texture_naf_target_size=int(texture_naf_target_size) or None,
+            )
+            if torch.cuda.is_available():
+                torch.cuda.reset_peak_memory_stats()
+            _cuda_memory_report("before GLB export")
+            _update_progress("Decoding latent mesh", 1, 4)
 
-        shape_slat, tex_slat, res = unpack_state(state_path)
-        mesh = pipeline.decode_latent(shape_slat, tex_slat, res)[0]
-        _update_progress("Building GLB mesh and textures", 2, 4)
+            shape_slat, tex_slat, res = unpack_state(state_path)
+            with torch.inference_mode():
+                mesh = pipeline.decode_latent(shape_slat, tex_slat, res)[0]
+            _cuda_memory_report("after latent decode")
+            _update_progress("Building GLB mesh and textures", 2, 4)
 
-        glb = o_voxel.postprocess.to_glb(
-            vertices=mesh.vertices, faces=mesh.faces, attr_volume=mesh.attrs,
-            coords=mesh.coords, attr_layout=pipeline.pbr_attr_layout,
-            grid_size=res, aabb=[[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
-            decimation_target=decimation_target, texture_size=texture_size,
-            remesh=True, remesh_band=1, remesh_project=0, use_tqdm=True,
-        )
-        rot = np.array([
-            [-1,  0,  0,  0],
-            [ 0,  0, -1,  0],
-            [ 0, -1,  0,  0],
-            [ 0,  0,  0,  1],
-        ], dtype=np.float64)
-        glb.apply_transform(rot)
+            glb = o_voxel.postprocess.to_glb(
+                vertices=mesh.vertices, faces=mesh.faces, attr_volume=mesh.attrs,
+                coords=mesh.coords, attr_layout=pipeline.pbr_attr_layout,
+                grid_size=res, aabb=[[-0.5, -0.5, -0.5], [0.5, 0.5, 0.5]],
+                decimation_target=decimation_target, texture_size=texture_size,
+                remesh=True, remesh_band=1, remesh_project=0, use_tqdm=True,
+            )
+            _cuda_memory_report("after GLB mesh build")
+            rot = np.array([
+                [-1,  0,  0,  0],
+                [ 0,  0, -1,  0],
+                [ 0, -1,  0,  0],
+                [ 0,  0,  0,  1],
+            ], dtype=np.float64)
+            glb.apply_transform(rot)
 
-        _update_progress("Exporting GLB file", 3, 4)
-        out_glb = os.path.join(OUTPUT_DIR, f"pixal3d_app_{int(time.time()*1000)}.glb")
-        glb.export(out_glb, extension_webp=False)
-        _finish_progress("GLB ready")
-        return FileData(path=out_glb)
+            _update_progress("Exporting GLB file", 3, 4)
+            out_glb = os.path.join(OUTPUT_DIR, f"pixal3d_app_{int(time.time()*1000)}.glb")
+            glb.export(out_glb, extension_webp=False)
+            _finish_progress("GLB ready")
+            return FileData(path=out_glb)
+        finally:
+            del shape_slat, tex_slat, mesh, glb, res
+            _cleanup_cuda_stage("after GLB export cleanup")
 
 
 @app.api()
