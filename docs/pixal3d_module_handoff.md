@@ -116,6 +116,11 @@ plain `INSTALL OPTIONS` so BRIA guidance stays with Details/Model Fetch, and
 made fresh installs add the Python 3.10 apt source fallback before creating the
 shared runtime venv.
 
+Updated: 2026-05-22 after Pixal3D `0.1.97`. Added a short Details-pane note
+explaining that the install options control the FlashAttention build, with
+Auto-detect recommended and lower Max jobs/NVCC threads suggested after memory
+failures.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
