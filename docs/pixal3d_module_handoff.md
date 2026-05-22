@@ -103,6 +103,10 @@ wrapper so `snapshot_download` receives `repo_id` only once, then fixed status
 so the shared Low VRAM 1024/Standard 1536 safetensors profiles remain visible
 as cached when only BRIA RMBG is missing.
 
+Updated: 2026-05-22 after Pixal3D `0.1.94`. Tightened the available-state
+Details copy so the official Pixal3D description and BRIA setup step do not
+repeat each other.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can

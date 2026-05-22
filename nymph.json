@@ -3,8 +3,8 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.93",
-  "description": "Pixal3D turns one image into a textured GLB. Before Fetch Models, open the BRIA form and accept access with the same Hugging Face account used for your token.",
+  "version": "0.1.94",
+  "description": "Pixal3D generates high-fidelity textured 3D assets from a single image.",
   "category": "3d",
   "packaging": "repo",
   "repo": {
@@ -17,7 +17,7 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D turns one image into a textured GLB.\n\nBefore Fetch Models: open the BRIA form and accept access with the same Hugging Face account used for your token. Fetch Models needs that approval to download BRIA RMBG-2.0.",
+    "body": "Install sets up the local Pixal3D runtime. Fetch Models downloads the Pixal3D checkpoints and helper models.\n\nBefore Fetch Models, fill the BRIA RMBG-2.0 form with the same Hugging Face account used for your token.",
     "links": [
       {
         "label": "Fill BRIA form",
@@ -383,6 +383,7 @@
     "v0.1.91 makes the pre-install BRIA form requirement clearer on the first details page.",
     "v0.1.92 removes GGUF choices from the normal Fetch Models UI/status for now and emits a clear BRIA next-step failure when RMBG access is missing.",
     "v0.1.93 fixes Fetch Models argument handling and status reporting so Low VRAM 1024 and Standard 1536 show as cached when the shared Pixal3D safetensors cache is present, even while BRIA RMBG remains missing.",
+    "v0.1.94 tightens the available-state Details copy so the Pixal3D description and BRIA setup step are clear without repeating.",
     "Do not vendor model weights into this repo."
   ]
 }
