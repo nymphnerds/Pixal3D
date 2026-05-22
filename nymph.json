@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.94",
+  "version": "0.1.95",
   "description": "Pixal3D generates high-fidelity textured 3D assets from a single image.",
   "category": "3d",
   "packaging": "repo",
@@ -205,9 +205,6 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "show_when": {
-          "state": "model_download_needed"
-        },
         "description": "Download the Pixal3D model files.",
         "links": [
           {
@@ -384,6 +381,7 @@
     "v0.1.92 removes GGUF choices from the normal Fetch Models UI/status for now and emits a clear BRIA next-step failure when RMBG access is missing.",
     "v0.1.93 fixes Fetch Models argument handling and status reporting so Low VRAM 1024 and Standard 1536 show as cached when the shared Pixal3D safetensors cache is present, even while BRIA RMBG remains missing.",
     "v0.1.94 tightens the available-state Details copy so the Pixal3D description and BRIA setup step are clear without repeating.",
+    "v0.1.95 keeps the Model Fetch controls available after models are cached; only the temporary BRIA next-step prompt is state-gated.",
     "Do not vendor model weights into this repo."
   ]
 }
