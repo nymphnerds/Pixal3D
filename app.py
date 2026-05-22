@@ -915,7 +915,7 @@ async def free_pipeline_nymph_api(request: Request):
 @spaces.GPU(duration=30)
 def preprocess(
     image: FileData,
-    rembg_keep_gpu: bool = False,
+    rembg_keep_gpu: bool = True,
     session_id: str = "",
     low_vram: bool = True,
     texture_naf_target_size: int = 0,

@@ -159,23 +159,21 @@
     .commands {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
-      margin-top: 10px;
+      margin-top: 8px;
     }
     .run-strip {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
+      display: grid;
+      gap: 6px;
       padding-top: 0;
-      padding-bottom: 10px;
+      padding-bottom: 14px;
       border-top: 0;
     }
 
     .run-strip + .section {
-      border-top: 0;
-      padding-top: 10px;
+      border-top: 1px solid rgba(33, 71, 74, 0.58);
+      padding-top: 14px;
     }
 
     .btn {
@@ -225,45 +223,45 @@
     .action-cluster .btn {
       width: 100%;
       min-width: 0;
-      height: 30px;
-      min-height: 30px;
-      padding: 4px 6px;
-      font-size: 10px;
-      white-space: normal;
+      height: 28px;
+      min-height: 28px;
+      padding: 3px 6px;
+      font-size: 9.5px;
+      white-space: nowrap;
       flex-direction: row;
       text-align: center;
     }
 
     .run-actions {
-      grid-template-columns: 0.95fr 1.15fr 0.9fr;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
     }
 
     .utility-actions {
-      grid-template-columns: 0.92fr 1.08fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 6px;
-      padding-top: 7px;
-      border-top: 1px solid rgba(33, 71, 74, 0.42);
+      padding-top: 2px;
     }
 
     .utility-actions .btn {
       height: 28px;
       min-height: 28px;
-      font-size: 9.5px;
+      font-size: 9.3px;
     }
 
     .source-tools {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
+      gap: 6px;
     }
 
     .source-tools .btn {
       width: 100%;
       min-width: 0;
-      height: 30px;
-      min-height: 30px;
-      padding: 4px 6px;
-      font-size: 10px;
+      height: 28px;
+      min-height: 28px;
+      padding: 3px 6px;
+      font-size: 9.4px;
       white-space: nowrap;
       flex-direction: row;
       text-align: center;
@@ -755,9 +753,9 @@
       button.disabled = busy || preprocessing || warmupActive || modelReady;
       button.innerHTML = warmupActive
         ? 'Warming Up'
-        : modelReady
-          ? 'Model Ready'
-          : 'Warm Up';
+          : modelReady
+            ? 'Warmed'
+            : 'Warm Up';
       updateGenerateState();
       lucide.createIcons();
     }
@@ -1533,7 +1531,7 @@
         $("max-tokens").value = String(cfg.max_num_tokens || $("max-tokens").value || 32768);
         $("faces").value = String(cfg.decimation_target || $("faces").value || 200000);
         applyRunProfile($("run-profile").value);
-        $("rembg-keep-gpu").checked = cfg.rembg_keep_gpu === true;
+        $("rembg-keep-gpu").checked = true;
         setWeightProfileUi(cfg);
         $("runtime-text").textContent = cfg.weight_format === "gguf-experimental"
           ? `GGUF ${cfg.gguf_quant}${cfg.gguf_supported ? "" : " fetched"}`
