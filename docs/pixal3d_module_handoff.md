@@ -28,6 +28,11 @@ use a clean backend process boundary: **Warm Up** restarts/reconnects the
 backend automatically when Low VRAM, Texture NAF, or a runtime preset changes
 after a previous warmup. **Clear GPU Memory** is the manual clean reset path.
 
+Updated: 2026-05-22 after Pixal3D `0.1.77`. `Open GLB` and
+`Clear GPU Memory` now live in the top command strip, `Use GPU for RMBG`
+defaults on, and closing the Nymphs UI/WebView asks Pixal3D to stop all module
+backends through the normal stop script.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -3830,3 +3835,30 @@ Workflow reminder for future agents:
   registry, then let the user update through Manager.
 - Inspecting/log tailing is fine. Major design or behavior changes must be
   discussed first and agreed before editing.
+
+## 2026-05-22 Pixal3D 0.1.77 Pickup
+
+Local source state, pending publish at the time of this note:
+
+- Pixal3D module version: `0.1.77`
+- UI layout: `Open GLB` and `Clear GPU Memory` moved from the Status section
+  into the top command strip with `Warm Up`, `Generate`, and `Export`.
+- `Clear GPU Memory` remains the current `0.1.76` clean reset path: it restarts
+  and reconnects the backend, then leaves the model cold until the user presses
+  `Warm Up`.
+- Closing/unloading the Nymphs UI now sends `/api/stop_runtime` by
+  `sendBeacon`/keepalive fetch. The backend endpoint launches
+  `scripts/pixal3d_stop.sh`, so both the Pixal3D API backend and the Nymphs UI
+  backend are stopped.
+- `Use GPU for RMBG` defaults on in both the server config and the HTML fallback
+  checkbox state.
+
+Test next through Manager after publish:
+
+1. Update Pixal3D to `0.1.77` from the registry path.
+2. Open the Nymphs UI and confirm the five top commands are arranged neatly.
+3. Confirm `Use GPU for RMBG` is checked by default.
+4. Press `Clear GPU Memory` and confirm it still performs the clean reset flow,
+   then leaves warmup required.
+5. Close the Pixal3D UI/Manager app and confirm Pixal3D API/UI processes are no
+   longer running.

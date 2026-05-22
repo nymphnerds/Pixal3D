@@ -632,7 +632,7 @@ async def get_config():
         "weight_format": os.environ.get("PIXAL3D_WEIGHT_FORMAT", "safetensors"),
         "gguf_quant": os.environ.get("PIXAL3D_QUANT", "Q5_K_M"),
         "gguf_supported": os.environ.get("PIXAL3D_QUANT_RUNTIME_SUPPORTED", "0") == "1",
-        "rembg_keep_gpu": os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "0") == "1",
+        "rembg_keep_gpu": os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "1") == "1",
         "cuda_memory_fraction": os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", ""),
     })
 
@@ -730,6 +730,34 @@ echo $! > "${pid_file}"
 
     threading.Thread(target=_exit_current_process, name="pixal3d-self-restart", daemon=True).start()
     return JSONResponse({"data": [{"restarting": True, "pid": old_pid}]})
+
+
+@app.post("/api/stop_runtime")
+async def stop_runtime_nymph_api(request: Request):
+    old_pid = os.getpid()
+    install_root = os.path.abspath(os.environ.get("PIXAL3D_INSTALL_ROOT") or os.path.dirname(os.path.abspath(__file__)))
+    stop_script = os.path.join(install_root, "scripts", "pixal3d_stop.sh")
+
+    def _stop_all_pixal3d_processes():
+        time.sleep(0.2)
+        if os.path.exists(stop_script):
+            try:
+                subprocess.Popen(
+                    ["/bin/bash", stop_script],
+                    cwd=install_root,
+                    env=os.environ.copy(),
+                    start_new_session=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                )
+                time.sleep(1.0)
+            except Exception as exc:
+                print(f"[Stop] Could not launch Pixal3D stop script: {exc}")
+        os._exit(0)
+
+    threading.Thread(target=_stop_all_pixal3d_processes, name="pixal3d-stop-all", daemon=True).start()
+    return JSONResponse({"data": [{"stopping": True, "pid": old_pid, "all_backends": True}]})
 
 
 def _file_url(path: str) -> str:

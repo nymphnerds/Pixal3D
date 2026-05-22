@@ -218,7 +218,7 @@
 
     .primary-actions {
       display: grid;
-      grid-template-columns: 1fr 1.34fr 0.92fr;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 7px;
     }
 
@@ -234,9 +234,15 @@
       text-align: center;
     }
 
-    .primary-actions #generate {
-      width: 100%;
-      min-width: 0;
+    .primary-actions #warm-up,
+    .primary-actions #generate,
+    .primary-actions #extract {
+      grid-column: span 2;
+    }
+
+    .primary-actions #open-output,
+    .primary-actions #free-pipeline {
+      grid-column: span 3;
     }
 
     .source-tools {
@@ -537,6 +543,8 @@
         <button class="btn secondary" id="warm-up"><i data-lucide="flame"></i> Warm Up</button>
         <button class="btn primary" id="generate" disabled><i data-lucide="sparkles"></i> Generate</button>
         <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export</button>
+        <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
+        <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Clear GPU Memory</button>
       </section>
 
       <section class="section">
@@ -582,7 +590,7 @@
             <div class="field"><label for="fov">FOV</label><input id="fov" type="number" value="0.2" step="0.01" min="0.0175" max="2.9671" disabled></div>
             <div class="field"><label for="fov-unit">Unit</label><select id="fov-unit" disabled><option value="rad" selected>rad</option><option value="deg">deg</option></select></div>
             <div class="toggle-row wide"><span>Auto camera with MoGe</span><input id="auto-fov" type="checkbox" checked></div>
-            <div class="toggle-row wide"><span>Use GPU for RMBG</span><input id="rembg-keep-gpu" type="checkbox"></div>
+            <div class="toggle-row wide"><span>Use GPU for RMBG</span><input id="rembg-keep-gpu" type="checkbox" checked></div>
           </div>
         </details>
       </section>
@@ -593,10 +601,6 @@
           <div><strong>State</strong> <span id="state-label">No run yet</span></div>
           <div><strong>Camera</strong> <span id="camera-label">Auto</span></div>
           <div><strong>Output</strong> <span id="output-label">None</span></div>
-        </div>
-        <div class="commands status-actions">
-          <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
-          <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Clear GPU Memory</button>
         </div>
         <p class="note" id="runtime-note"></p>
       </section>
@@ -659,6 +663,7 @@
     let warmupTargetKey = "";
     let warmupDirtyDuringLoad = false;
     let sourceObjectUrl = "";
+    let backendStopSent = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -1249,6 +1254,24 @@
       }
     }
 
+    function stopBackendOnClose() {
+      if (backendStopSent) return;
+      backendStopSent = true;
+      const payload = JSON.stringify({ reason: "ui_closed", session_id: sessionId });
+      if (navigator.sendBeacon) {
+        try {
+          const blob = new Blob([payload], { type: "application/json" });
+          if (navigator.sendBeacon("/api/stop_runtime", blob)) return;
+        } catch {}
+      }
+      fetch("/api/stop_runtime", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        keepalive: true,
+      }).catch(() => {});
+    }
+
     function clearSource() {
       currentFile = null;
       preparedFile = null;
@@ -1460,6 +1483,8 @@
       $("model").addEventListener("load", () => {
         if (typeof $("model").updateFraming === "function") $("model").updateFraming();
       });
+      window.addEventListener("pagehide", stopBackendOnClose);
+      window.addEventListener("beforeunload", stopBackendOnClose);
       window.addEventListener("resize", () => {
         if ($("model").style.display === "block" && typeof $("model").updateFraming === "function") {
           requestAnimationFrame(() => $("model").updateFraming());

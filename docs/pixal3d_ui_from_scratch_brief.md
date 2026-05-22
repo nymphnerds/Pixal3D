@@ -269,3 +269,6 @@ design process from this brief.
 - `v0.1.74` removes preview frame generation and the filmstrip from the Nymphs
   path. The backend returns only the model state needed for GLB export, and the
   full result area belongs to the interactive model viewer.
+- `v0.1.77` moves `Open GLB` and `Clear GPU Memory` into the top command strip,
+  defaults `Use GPU for RMBG` on, and stops all Pixal3D module backends when
+  the Nymphs UI/WebView unloads.
