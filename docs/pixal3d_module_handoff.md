@@ -53,7 +53,11 @@ compacted the in-UI source/run/utility command rows.
 
 Updated: 2026-05-22 after Pixal3D `0.1.82`. Fixed the killed-during-warmup UI
 state: Kill now clears stale warmup/progress timers, leaves Warm enabled, and
-Warm restarts the backend through the Manager action bridge before warming.
+Warm restarts the backend through the module action bridge before warming.
+
+Updated: 2026-05-22 after Pixal3D `0.1.83`. Clarified the killed-state recovery:
+users stay in the same Pixal3D UI. After Kill, pressing Warm starts Pixal3D
+again, reconnects, and warms without telling the user to reopen the UI.
 
 ## Goal
 
@@ -3970,7 +3974,7 @@ Local source state, pending publish at the time of this note:
 - Fixed stale UI state when `Kill` is pressed during warmup.
 - `Kill` immediately resets `busy`, `warmupActive`, `modelReady`, warmup timers,
   and progress timers, then shows a consistent `Killed` state.
-- Pressing `Warm` after `Kill` starts Pixal3D through the Manager action bridge,
+- Pressing `Warm` after `Kill` starts Pixal3D through the module action bridge,
   waits for the backend to answer, then runs warmup.
 
 Test next through Manager after publish:
@@ -3980,3 +3984,19 @@ Test next through Manager after publish:
 3. Confirm the warmup strip changes to `Killed` and the `Warm` button is
    enabled.
 4. Press `Warm` again and confirm Pixal3D restarts and warms normally.
+
+## 2026-05-22 Pixal3D 0.1.83 Pickup
+
+Local source state, pending publish at the time of this note:
+
+- Pixal3D module version: `0.1.83`
+- Removes the confusing killed-state copy that told users to reopen/open the UI.
+- After `Kill`, the same visible `Warm` button is the recovery path: it starts
+  Pixal3D again through the module action bridge, reconnects, then warms.
+
+Test next through Manager after publish:
+
+1. Update Pixal3D to `0.1.83` from the registry path.
+2. Start Warm, press in-UI `Kill`, confirm the UI says `Killed`.
+3. Press `Warm` again in the same UI. It should start Pixal3D, reconnect, and
+   warm without requiring Open UI/reopen.

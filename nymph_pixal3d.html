@@ -662,7 +662,7 @@
 
     const $ = (id) => document.getElementById(id);
 
-    function postManagerModuleAction(action, args = {}) {
+    function postModuleAction(action, args = {}) {
       const bridge = window.chrome && window.chrome.webview;
       if (!bridge || typeof bridge.postMessage !== "function") return "";
       const requestId = `${action}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -679,7 +679,7 @@
       }
     }
 
-    function setupManagerBridge() {
+    function setupModuleActionBridge() {
       const bridge = window.chrome && window.chrome.webview;
       if (!bridge || typeof bridge.addEventListener !== "function") return;
       bridge.addEventListener("message", (event) => {
@@ -705,7 +705,7 @@
             backendKilled = true;
             setStatus("Restart failed", "err");
             $("state-label").textContent = "Restart failed";
-            setWarmupUi("Killed", "Backend stopped. Use Open UI if restart failed.", "0%");
+            setWarmupUi("Killed", "Backend stopped. Click Warm to try again.", "0%");
             updateWarmupButton();
             toast(data.error || "Could not restart Pixal3D.");
           }
@@ -1354,7 +1354,7 @@
 
     function killBackend() {
       applyKilledState();
-      const requestId = postManagerModuleAction("kill", {
+      const requestId = postModuleAction("kill", {
         reason: "ui_kill",
         session_id: sessionId,
       });
@@ -1369,7 +1369,7 @@
     function stopBackendOnClose() {
       if (backendStopSent) return;
       backendStopSent = true;
-      const requestId = postManagerModuleAction("kill", {
+      const requestId = postModuleAction("kill", {
         reason: "ui_closed",
         session_id: sessionId,
       });
@@ -1483,7 +1483,7 @@
       if (!reconnected) {
         setStatus("Reconnect failed", "err");
         setWarmupUi("Reconnect failed", "Pixal3D did not come back before timeout.", "0%");
-        toast("Pixal3D did not come back before timeout. Use Open UI again.");
+        toast("Pixal3D did not come back before timeout. Try Warm again.");
         busy = false;
         warmupActive = false;
         updateWarmupButton();
@@ -1515,15 +1515,15 @@
     }
 
     function startBackendAfterKill() {
-      const requestId = postManagerModuleAction("open_nymph_ui", {
+      const requestId = postModuleAction("open_nymph_ui", {
         reason: "warm_after_kill",
         session_id: sessionId,
       });
       if (!requestId) {
         setStatus("Restart unavailable", "err");
         $("state-label").textContent = "Restart unavailable";
-        setWarmupUi("Killed", "Use Open UI to restart Pixal3D.", "0%");
-        toast("Use Open UI to restart Pixal3D.");
+        setWarmupUi("Killed", "Cannot start Pixal3D from this host.", "0%");
+        toast("Cannot start Pixal3D from this host.");
         return false;
       }
       warmAfterBackendStart = true;
@@ -1546,10 +1546,10 @@
         backendKilled = true;
         setStatus("Reconnect failed", "err");
         $("state-label").textContent = "Reconnect failed";
-        setWarmupUi("Killed", "Backend restart did not answer. Use Open UI.", "0%");
+        setWarmupUi("Killed", "Backend restart did not answer. Try Warm again.", "0%");
         setProgressUi("Killed", "Backend stopped.", "0%");
         updateWarmupButton();
-        toast("Pixal3D did not come back before timeout. Use Open UI.");
+        toast("Pixal3D did not come back before timeout. Try Warm again.");
         return;
       }
       backendKilled = false;
@@ -1563,7 +1563,7 @@
 
     async function init() {
       lucide.createIcons();
-      setupManagerBridge();
+      setupModuleActionBridge();
       updateSliderLabels();
       for (const id of ["ss-steps", "shape-steps", "tex-steps"]) {
         $(id).addEventListener("input", updateSliderLabels);
