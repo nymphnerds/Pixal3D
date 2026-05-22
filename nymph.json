@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.91",
+  "version": "0.1.92",
   "description": "Pixal3D turns one image into a textured GLB. Before Fetch Models, open the BRIA form and accept access with the same Hugging Face account used for your token.",
   "category": "3d",
   "packaging": "repo",
@@ -233,26 +233,6 @@
                 "label": "Standard 1536",
                 "value": "standard_1536",
                 "description": "Heavier profile for high VRAM systems"
-              },
-              {
-                "label": "GGUF Q4_K_M (experimental)",
-                "value": "gguf_q4_k_m",
-                "description": "Fetch community Pixal3D GGUF Q4 weights for adapter testing; current runtime remains safetensors"
-              },
-              {
-                "label": "GGUF Q5_K_M (experimental)",
-                "value": "gguf_q5_k_m",
-                "description": "Fetch community Pixal3D GGUF Q5 weights for adapter testing; current runtime remains safetensors"
-              },
-              {
-                "label": "GGUF Q6_K (experimental)",
-                "value": "gguf_q6_k",
-                "description": "Fetch community Pixal3D GGUF Q6 weights for adapter testing; current runtime remains safetensors"
-              },
-              {
-                "label": "GGUF Q8_0 (experimental)",
-                "value": "gguf_q8_0",
-                "description": "Fetch community Pixal3D GGUF Q8 weights for adapter testing; current runtime remains safetensors"
               }
             ]
           },
@@ -398,6 +378,7 @@
     "v0.1.89 moves the BRIA form next step into the Manager Details-pane primary action contract.",
     "v0.1.90 keeps Pixal3D details copy minimal and shows the BRIA form action while model download or status checking is needed.",
     "v0.1.91 makes the pre-install BRIA form requirement clearer on the first details page.",
+    "v0.1.92 removes GGUF choices from the normal Fetch Models UI/status for now and emits a clear BRIA next-step failure when RMBG access is missing.",
     "Do not vendor model weights into this repo."
   ]
 }

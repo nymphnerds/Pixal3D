@@ -92,6 +92,12 @@ Updated: 2026-05-22 after Pixal3D `0.1.91`. Clarified the first/pre-install
 details page: before Fetch Models, users must open the BRIA form and accept
 access with the same Hugging Face account used for their token.
 
+Updated: 2026-05-22 after Pixal3D `0.1.92`. Removed GGUF choices from the
+normal Fetch Models UI/status because the released Pixal3D path only needs the
+safetensors model caches right now. BRIA RMBG failures now emit a short
+machine-readable next step so Manager can show `Fill BRIA form` instead of a
+generic model-fetch failure.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can

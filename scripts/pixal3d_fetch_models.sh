@@ -232,13 +232,25 @@ for index, (repo_id, allow_patterns) in enumerate(repos, start=1):
     except Exception as exc:
         stop_event.set()
         reporter.join(timeout=1)
-        print(f"MODEL FETCH FAILED: step {index}/{total} could not download {repo_id}.", flush=True)
         if repo_id == "briaai/RMBG-2.0":
+            print(
+                "MODEL FETCH FAILED: "
+                f"step={index}/{total} repo={repo_id} status=failed "
+                "error=bria_access_needed "
+                "next_step=Fill BRIA form, accept access, then run Fetch Models again. "
+                "link=https://huggingface.co/briaai/RMBG-2.0",
+                flush=True,
+            )
             raise SystemExit(
-                "BRIA RMBG-2.0 download failed. Open https://huggingface.co/briaai/RMBG-2.0 "
-                "with the same Hugging Face account, complete the access form, then rerun Fetch Models.\n"
+                "BRIA access needed. Fill BRIA form, accept access, then run Fetch Models again.\n"
+                "https://huggingface.co/briaai/RMBG-2.0\n"
                 f"Original error: {exc}"
             )
+        print(
+            "MODEL FETCH FAILED: "
+            f"step={index}/{total} repo={repo_id} status=failed error=download_failed",
+            flush=True,
+        )
         raise
     stop_event.set()
     reporter.join(timeout=1)
