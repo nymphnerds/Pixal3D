@@ -75,6 +75,10 @@ the BRIA Hugging Face access form with the same account used for the saved token
 before Fetch Models can complete. The details-page BRIA link is labeled as the
 next step.
 
+Updated: 2026-05-22 after Pixal3D `0.1.88`. Added a module-owned installed
+`NEXT STEP` action group that opens the BRIA form before Fetch Models. Keep this
+in Pixal3D's `nymph.json`; do not hardcode Pixal3D/BRIA details in Manager.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -391,8 +395,8 @@ Install repair note:
 
 Manager/registry status:
 
-- `NymphsModules/nymphs-registry` has a `pixal3d` entry and publishes the BRIA
-  form link in details.
+- `NymphsModules/nymphs-registry` has a `pixal3d` entry. The Pixal3D module
+  manifest owns the installed `NEXT STEP` BRIA form action.
 - NymphsCore now treats display `kind`, content `category`, and install
   `packaging` as separate manifest/registry concepts. This lets modules show
   `// image` or `// 3d` while still installing as `repo`.

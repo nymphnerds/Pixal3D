@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.87",
+  "version": "0.1.88",
   "description": "Local Pixal3D image-to-3D backend and Nymphs UI. Install sets up the runtime; Fetch Models downloads weights after BRIA RMBG-2.0 Hugging Face access is accepted.",
   "category": "3d",
   "packaging": "repo",
@@ -17,10 +17,10 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D turns one source image into a textured GLB model.\n\nInstall sets up the shared TRELLIS.2/Pixal3D runtime. Model weights are downloaded later with Fetch Models.\n\nNext step before Fetch Models: fill the BRIA RMBG-2.0 Hugging Face access form, then use a Hugging Face token from that same account. Fetch Models downloads BRIA RMBG-2.0 for background removal and will fail without accepted BRIA access.\n\nRecommended first fetch/run: Low VRAM 1024 on 16 GB GPUs.",
+    "body": "Pixal3D turns one source image into a textured GLB model.\n\nInstall sets up the shared TRELLIS.2/Pixal3D runtime. Model weights are downloaded later with Fetch Models.\n\nNEXT STEP: Fill the BRIA form before Fetch Models, then use a Hugging Face token from that same account. Fetch Models downloads BRIA RMBG-2.0 for background removal and will fail without accepted BRIA access.\n\nRecommended first fetch/run: Low VRAM 1024 on 16 GB GPUs.",
     "links": [
       {
-        "label": "Next step: fill BRIA RMBG-2.0 access form",
+        "label": "Fill BRIA form",
         "url": "https://huggingface.co/briaai/RMBG-2.0"
       },
       {
@@ -45,7 +45,7 @@
     ]
   },
   "install": {
-    "title": "INSTALL OPTIONS - BRIA ACCESS NEEDED FOR FETCH MODELS",
+    "title": "INSTALL OPTIONS - BRIA FORM BEFORE FETCH MODELS",
     "root": "$HOME/Pixal3D",
     "entrypoint": "scripts/install_pixal3d.sh",
     "version_marker": "$HOME/Pixal3D/.nymph-module-version",
@@ -171,6 +171,7 @@
     "open_nymph_ui": "scripts/pixal3d_nymph_ui.sh",
     "logs": "scripts/pixal3d_logs.sh",
     "fetch_models": "scripts/pixal3d_fetch_models.sh",
+    "open_bria_form": "scripts/pixal3d_open_bria_form.sh",
     "smoke_test": "scripts/pixal3d_smoke_test.sh",
     "uninstall": "scripts/pixal3d_uninstall.sh",
     "open_weights": "scripts/pixal3d_open_weights.sh",
@@ -189,16 +190,28 @@
     },
     "manager_action_groups": [
       {
+        "id": "bria_next_step",
+        "title": "NEXT STEP",
+        "layout": "compact",
+        "entrypoint": "open_bria_form",
+        "result": "open_external_browser",
+        "visibility": "installed",
+        "description": "BRIA form needs filling before Fetch Models.",
+        "submit": {
+          "label": "Fill BRIA form"
+        }
+      },
+      {
         "id": "model_fetch",
         "title": "Model Fetch",
         "layout": "compact",
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Download Pixal3D checkpoints and helper models into the shared NymphsData cache. Next step first: fill the BRIA RMBG-2.0 Hugging Face access form with the same account used for the saved token. Fetch Models downloads BRIA RMBG-2.0 for background removal and will fail with a gated repo / 401 / 403 error if BRIA access is not accepted. Start with Low VRAM 1024 on 16 GB GPUs.",
+        "description": "Download Pixal3D checkpoints and helper models into the shared NymphsData cache. First fill the BRIA form with the same account used for the saved token. Fetch Models downloads BRIA RMBG-2.0 for background removal and will fail with a gated repo / 401 / 403 error if BRIA access is not accepted. Start with Low VRAM 1024 on 16 GB GPUs.",
         "links": [
           {
-            "label": "Next step: fill BRIA RMBG-2.0 access form",
+            "label": "Fill BRIA form",
             "url": "https://huggingface.co/briaai/RMBG-2.0"
           },
           {
@@ -384,6 +397,7 @@
     "v0.1.85 adds conservative per-run CUDA cleanup and memory breadcrumbs after generation, camera estimation, and GLB export to reduce second-run OOM risk.",
     "v0.1.86 makes BRIA RMBG-2.0/Hugging Face access requirements explicit in install-facing copy and Fetch Models text, including that BRIA is downloaded during Fetch Models and requires the same HF account to accept access first.",
     "v0.1.87 replaces the long Pixal3D details text with concise user-facing setup guidance and makes the BRIA form the explicit next step before Fetch Models.",
+    "v0.1.88 adds a module-owned installed NEXT STEP action that opens the BRIA form before Fetch Models.",
     "Do not vendor model weights into this repo."
   ]
 }
