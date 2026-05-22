@@ -126,6 +126,10 @@ install order: Pixal3D can install `utils3d` before `nvdiffrast` exists, then
 the final full runtime validation checks `utils3d.pt` after native TRELLIS
 extensions have been built.
 
+Updated: 2026-05-22 after Pixal3D `0.1.99`. Made standalone Pixal3D install
+self-heal a missing CUDA 13 toolkit/nvcc before building FlashAttention, using
+the same WSL CUDA repository/keyring path as Base Runtime.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can

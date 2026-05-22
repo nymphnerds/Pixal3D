@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.98",
+  "version": "0.1.99",
   "description": "Pixal3D generates high-fidelity textured 3D assets from a single image.",
   "category": "3d",
   "packaging": "repo",
@@ -385,6 +385,7 @@
     "v0.1.96 restores the plain install-options title and makes fresh installs self-heal missing Python 3.10 venv/dev apt packages before creating the shared runtime.",
     "v0.1.97 adds a short Details-pane note explaining that the install options control the FlashAttention build.",
     "v0.1.98 fixes standalone shared-venv install order so utils3d is validated before nvdiffrast is required, while final runtime validation still checks the full Pixal3D stack.",
+    "v0.1.99 makes standalone Pixal3D install self-heal a missing CUDA 13 toolkit/nvcc before building FlashAttention.",
     "Do not vendor model weights into this repo."
   ]
 }
