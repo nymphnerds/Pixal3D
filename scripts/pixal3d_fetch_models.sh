@@ -192,7 +192,7 @@ def print_fetch_status(step, total, repo_id, path, start_bytes, stop_event):
     while not stop_event.wait(5):
         emit_fetch_status(step, total, repo_id, path, start_bytes)
 
-def snapshot_download_with_retries(step, total, repo_id, **kwargs):
+def snapshot_download_with_retries(step, total, display_repo_id, **kwargs):
     attempts = 3
     for attempt in range(1, attempts + 1):
         try:
@@ -202,7 +202,7 @@ def snapshot_download_with_retries(step, total, repo_id, **kwargs):
                 raise
             print(
                 "MODEL FETCH STATUS: "
-                f"step {step}/{total} {repo_id} download was interrupted ({type(exc).__name__}). "
+                f"step {step}/{total} {display_repo_id} download was interrupted ({type(exc).__name__}). "
                 f"Retrying attempt {attempt + 1}/{attempts} using the existing cache.",
                 flush=True,
             )

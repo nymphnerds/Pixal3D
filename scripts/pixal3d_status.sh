@@ -194,13 +194,16 @@ esac
 
 display_downloaded_profiles=()
 display_missing_profiles=()
-if [[ "${models_ready}" == "true" && "${aux_models_ready}" == "true" ]]; then
+if [[ "${models_ready}" == "true" ]]; then
   display_downloaded_profiles+=("Low VRAM 1024" "Standard 1536")
   if [[ "${weight_profile_selected}" == "Low VRAM 1024" || "${weight_profile_selected}" == "Standard 1536" ]]; then
     weight_profile_ready=true
   fi
 else
   display_missing_profiles+=("Low VRAM 1024" "Standard 1536")
+  if [[ "${weight_profile_selected}" == "Low VRAM 1024" || "${weight_profile_selected}" == "Standard 1536" ]]; then
+    weight_profile_ready=false
+  fi
 fi
 weight_profiles_downloaded="$([[ ${#display_downloaded_profiles[@]} -gt 0 ]] && (IFS=,; printf '%s' "${display_downloaded_profiles[*]}") || printf 'none')"
 weight_profiles_missing="$([[ ${#display_missing_profiles[@]} -gt 0 ]] && (IFS=,; printf '%s' "${display_missing_profiles[*]}") || printf 'none')"

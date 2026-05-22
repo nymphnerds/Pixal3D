@@ -98,6 +98,11 @@ safetensors model caches right now. BRIA RMBG failures now emit a short
 machine-readable next step so Manager can show `Fill BRIA form` instead of a
 generic model-fetch failure.
 
+Updated: 2026-05-22 after Pixal3D `0.1.93`. Fixed the normal Fetch Models
+wrapper so `snapshot_download` receives `repo_id` only once, then fixed status
+so the shared Low VRAM 1024/Standard 1536 safetensors profiles remain visible
+as cached when only BRIA RMBG is missing.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
