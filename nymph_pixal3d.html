@@ -657,6 +657,8 @@
     let warmupDirtyDuringLoad = false;
     let sourceObjectUrl = "";
     let backendStopSent = false;
+    let backendKilled = false;
+    let warmAfterBackendStart = false;
 
     const $ = (id) => document.getElementById(id);
 
@@ -682,16 +684,31 @@
       if (!bridge || typeof bridge.addEventListener !== "function") return;
       bridge.addEventListener("message", (event) => {
         const data = event.data;
-        if (!data || data.type !== "module_action_result" || data.action !== "kill") return;
-        if (data.ok) {
-          setStatus("Pixal3D killed", "ok");
-          $("state-label").textContent = "Pixal3D killed";
-          setProgressUi("Killed", "Backend stopped.", "0%");
-          toast("Pixal3D killed.");
-        } else {
-          setStatus("Kill failed", "err");
-          $("state-label").textContent = "Kill failed";
-          toast(data.error || "Kill failed. Check Logs.");
+        if (!data || data.type !== "module_action_result") return;
+        if (data.action === "kill") {
+          if (data.ok) {
+            applyKilledState();
+            toast("Pixal3D killed.");
+          } else {
+            setStatus("Kill failed", "err");
+            $("state-label").textContent = "Kill failed";
+            toast(data.error || "Kill failed. Check Logs.");
+          }
+          return;
+        }
+        if (data.action === "open_nymph_ui" && warmAfterBackendStart) {
+          if (data.ok) {
+            reconnectAfterKillAndWarm();
+          } else {
+            warmAfterBackendStart = false;
+            busy = false;
+            backendKilled = true;
+            setStatus("Restart failed", "err");
+            $("state-label").textContent = "Restart failed";
+            setWarmupUi("Killed", "Backend stopped. Use Open UI if restart failed.", "0%");
+            updateWarmupButton();
+            toast(data.error || "Could not restart Pixal3D.");
+          }
         }
       });
     }
@@ -752,6 +769,33 @@
       $("warmup-title").textContent = title;
       $("warmup-detail").textContent = detail;
       $("warmup-bar").style.width = width;
+    }
+
+    function clearRunTimers() {
+      clearInterval(warmupTimer);
+      clearInterval(progressTimer);
+      warmupTimer = null;
+      progressTimer = null;
+    }
+
+    function applyKilledState() {
+      backendKilled = true;
+      warmAfterBackendStart = false;
+      busy = false;
+      preprocessing = false;
+      warmupActive = false;
+      modelReady = false;
+      runtimeStarted = false;
+      warmedRuntimeKey = "";
+      warmupTargetKey = "";
+      warmupDirtyDuringLoad = false;
+      clearRunTimers();
+      setStatus("Pixal3D killed", "ok");
+      $("state-label").textContent = "Pixal3D killed";
+      setWarmupUi("Killed", "Backend stopped. Click Warm to restart.", "0%");
+      setProgressUi("Killed", "Backend stopped.", "0%");
+      updateWarmupButton();
+      updateGenerateState();
     }
 
     function updateGenerateState() {
@@ -962,11 +1006,16 @@
 
     function startProgress(label = "Starting", detail = "Queued for Pixal3D worker.") {
       clearInterval(progressTimer);
+      if (backendKilled) return;
       $("progress-stage").textContent = label;
       $("top-progress-text").textContent = detail;
       $("top-progress-extra").textContent = label === detail ? "" : label;
       $("top-progress-bar").style.width = "0%";
       progressTimer = setInterval(async () => {
+        if (backendKilled) {
+          stopProgress(false);
+          return;
+        }
         try {
           const response = await fetch(`/progress?session_id=${sessionId}`);
           if (!response.ok) return;
@@ -994,8 +1043,10 @@
     }
 
     async function pollWarmup() {
+      if (backendKilled) return;
       try {
         const response = await fetch("/warmup_status");
+        if (backendKilled) return;
         if (!response.ok) return;
         const data = await response.json();
         const canChangeStatus = !busy && !preprocessing && !currentFile && !generationResult;
@@ -1053,6 +1104,7 @@
 
     function startWarmupPolling() {
       clearInterval(warmupTimer);
+      if (backendKilled) return;
       pollWarmup();
       warmupTimer = setInterval(pollWarmup, 1000);
     }
@@ -1301,9 +1353,7 @@
     }
 
     function killBackend() {
-      setStatus("Killing Pixal3D", "work");
-      $("state-label").textContent = "Killing Pixal3D";
-      setProgressUi("Killing", "Stopping Pixal3D backend.", "18%");
+      applyKilledState();
       const requestId = postManagerModuleAction("kill", {
         reason: "ui_kill",
         session_id: sessionId,
@@ -1368,10 +1418,15 @@
     }
 
     async function warmUp() {
+      if (backendKilled) {
+        startBackendAfterKill();
+        return;
+      }
       if (runtimeStarted && warmedRuntimeKey && warmedRuntimeKey !== currentWarmupKey()) {
         await restartAndWarmUp();
         return;
       }
+      backendKilled = false;
       warmupActive = true;
       modelReady = false;
       warmupDirtyDuringLoad = false;
@@ -1403,6 +1458,7 @@
     }
 
     async function restartAndWarmUp() {
+      backendKilled = false;
       busy = true;
       warmupActive = true;
       modelReady = false;
@@ -1456,6 +1512,53 @@
         } catch {}
       }
       return false;
+    }
+
+    function startBackendAfterKill() {
+      const requestId = postManagerModuleAction("open_nymph_ui", {
+        reason: "warm_after_kill",
+        session_id: sessionId,
+      });
+      if (!requestId) {
+        setStatus("Restart unavailable", "err");
+        $("state-label").textContent = "Restart unavailable";
+        setWarmupUi("Killed", "Use Open UI to restart Pixal3D.", "0%");
+        toast("Use Open UI to restart Pixal3D.");
+        return false;
+      }
+      warmAfterBackendStart = true;
+      busy = true;
+      setStatus("Restarting Pixal3D", "work");
+      $("state-label").textContent = "Restarting Pixal3D";
+      setWarmupUi("Restarting", "Starting backend before warm-up.", "12%");
+      setProgressUi("Restarting", "Starting Pixal3D backend.", "12%");
+      updateWarmupButton();
+      return true;
+    }
+
+    async function reconnectAfterKillAndWarm() {
+      setWarmupUi("Restarting", "Waiting for backend.", "22%");
+      setProgressUi("Restarting", "Waiting for Pixal3D backend.", "22%");
+      const reconnected = await waitForBackend();
+      warmAfterBackendStart = false;
+      busy = false;
+      if (!reconnected) {
+        backendKilled = true;
+        setStatus("Reconnect failed", "err");
+        $("state-label").textContent = "Reconnect failed";
+        setWarmupUi("Killed", "Backend restart did not answer. Use Open UI.", "0%");
+        setProgressUi("Killed", "Backend stopped.", "0%");
+        updateWarmupButton();
+        toast("Pixal3D did not come back before timeout. Use Open UI.");
+        return;
+      }
+      backendKilled = false;
+      runtimeStarted = false;
+      warmedRuntimeKey = "";
+      warmupActive = false;
+      setWarmupUi("Warming up", "Backend restarted. Loading runtime.", "28%");
+      updateWarmupButton();
+      await warmUp();
     }
 
     async function init() {

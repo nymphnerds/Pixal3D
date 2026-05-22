@@ -51,6 +51,10 @@ into the Pixal3D UI command block, removed visible outer `Kill`/`Stop` module
 buttons, changed embedded UI close to run the module `kill` action, and
 compacted the in-UI source/run/utility command rows.
 
+Updated: 2026-05-22 after Pixal3D `0.1.82`. Fixed the killed-during-warmup UI
+state: Kill now clears stale warmup/progress timers, leaves Warm enabled, and
+Warm restarts the backend through the Manager action bridge before warming.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -3957,3 +3961,22 @@ Test next through Manager after publish:
    if the API is busy.
 4. Reopen Pixal3D, then close the embedded UI; confirm Pixal3D backend
    processes are stopped.
+
+## 2026-05-22 Pixal3D 0.1.82 Pickup
+
+Local source state, pending publish at the time of this note:
+
+- Pixal3D module version: `0.1.82`
+- Fixed stale UI state when `Kill` is pressed during warmup.
+- `Kill` immediately resets `busy`, `warmupActive`, `modelReady`, warmup timers,
+  and progress timers, then shows a consistent `Killed` state.
+- Pressing `Warm` after `Kill` starts Pixal3D through the Manager action bridge,
+  waits for the backend to answer, then runs warmup.
+
+Test next through Manager after publish:
+
+1. Update Pixal3D to `0.1.82` from the registry path.
+2. Open Pixal3D, start Warm, then press in-UI `Kill`.
+3. Confirm the warmup strip changes to `Killed` and the `Warm` button is
+   enabled.
+4. Press `Warm` again and confirm Pixal3D restarts and warms normally.

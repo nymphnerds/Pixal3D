@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.81",
+  "version": "0.1.82",
   "description": "Local Pixal3D image-to-3D backend and Nymphs UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -381,6 +381,7 @@
     "v0.1.79 forces Use GPU for RMBG on when the Nymphs UI loads, makes preprocessing default to GPU RMBG if no value is supplied, and aligns the command buttons into neat full-width source, run, and utility rows.",
     "v0.1.80 adds an always-present Manager Kill action that runs the hard Pixal3D stop script outside the blocked web backend.",
     "v0.1.81 moves the user-facing Kill switch into the Pixal3D UI, removes visible outer Kill/Stop module buttons, makes UI close run kill, and compacts the in-UI command rows.",
+    "v0.1.82 clears stale warmup/progress state after in-UI Kill and lets Warm restart the backend through the Manager action bridge before warming.",
     "Do not vendor model weights into this repo."
   ]
 }
