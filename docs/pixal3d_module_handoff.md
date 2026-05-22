@@ -111,6 +111,11 @@ Updated: 2026-05-22 after Pixal3D `0.1.95`. Restored the old module action
 pattern: Model Fetch remains available after weights are cached, while only the
 temporary BRIA `NEXT STEP` prompt is state-gated.
 
+Updated: 2026-05-22 after Pixal3D `0.1.96`. Restored the install heading to
+plain `INSTALL OPTIONS` so BRIA guidance stays with Details/Model Fetch, and
+made fresh installs add the Python 3.10 apt source fallback before creating the
+shared runtime venv.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can

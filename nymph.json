@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.95",
+  "version": "0.1.96",
   "description": "Pixal3D generates high-fidelity textured 3D assets from a single image.",
   "category": "3d",
   "packaging": "repo",
@@ -39,7 +39,7 @@
     "requirements": []
   },
   "install": {
-    "title": "INSTALL OPTIONS - BRIA FORM BEFORE FETCH MODELS",
+    "title": "INSTALL OPTIONS",
     "root": "$HOME/Pixal3D",
     "entrypoint": "scripts/install_pixal3d.sh",
     "version_marker": "$HOME/Pixal3D/.nymph-module-version",
@@ -382,6 +382,7 @@
     "v0.1.93 fixes Fetch Models argument handling and status reporting so Low VRAM 1024 and Standard 1536 show as cached when the shared Pixal3D safetensors cache is present, even while BRIA RMBG remains missing.",
     "v0.1.94 tightens the available-state Details copy so the Pixal3D description and BRIA setup step are clear without repeating.",
     "v0.1.95 keeps the Model Fetch controls available after models are cached; only the temporary BRIA next-step prompt is state-gated.",
+    "v0.1.96 restores the plain install-options title and makes fresh installs self-heal missing Python 3.10 venv/dev apt packages before creating the shared runtime.",
     "Do not vendor model weights into this repo."
   ]
 }

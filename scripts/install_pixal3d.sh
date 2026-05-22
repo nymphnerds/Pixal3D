@@ -93,6 +93,99 @@ pixal3d_normalize_flash_attn_cuda_archs() {
   echo "${selected_arch}"
 }
 
+pixal3d_has_apt_candidate() {
+  local package_name="$1"
+  local candidate
+  candidate="$(apt-cache policy "${package_name}" 2>/dev/null | awk '/Candidate:/ {print $2; exit}')"
+  [[ -n "${candidate}" && "${candidate}" != "(none)" ]]
+}
+
+pixal3d_apt_install() {
+  sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
+}
+
+pixal3d_python310_has_venv() {
+  local probe_dir
+  if ! command -v python3.10 >/dev/null 2>&1; then
+    return 1
+  fi
+  probe_dir="$(mktemp -d)"
+  if python3.10 -m venv "${probe_dir}/venv" >/dev/null 2>&1 &&
+     "${probe_dir}/venv/bin/python" -m pip --version >/dev/null 2>&1; then
+    rm -rf "${probe_dir}"
+    return 0
+  fi
+  rm -rf "${probe_dir}"
+  return 1
+}
+
+pixal3d_ensure_system_dependencies() {
+  local need_apt=0
+
+  for command_name in git curl cmake pkg-config; do
+    if ! command -v "${command_name}" >/dev/null 2>&1; then
+      need_apt=1
+    fi
+  done
+
+  if ! pixal3d_python310_has_venv ||
+     { ! command -v dpkg >/dev/null 2>&1 || ! dpkg -s python3.10-dev >/dev/null 2>&1; }; then
+    need_apt=1
+  fi
+
+  if [[ "${need_apt}" -ne 1 ]]; then
+    return 0
+  fi
+
+  echo "Installing Pixal3D system dependencies."
+
+  if ! command -v sudo >/dev/null 2>&1 ||
+     ! command -v apt-get >/dev/null 2>&1 ||
+     ! command -v apt-cache >/dev/null 2>&1; then
+    echo "Required system packages are missing and automatic apt installation is not available." >&2
+    echo "Install python3.10, python3.10-venv, python3.10-dev, git, curl, cmake, pkg-config, and build-essential, then retry." >&2
+    exit 1
+  fi
+
+  sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+  pixal3d_apt_install \
+    ca-certificates \
+    cmake \
+    git \
+    wget \
+    curl \
+    unzip \
+    build-essential \
+    pkg-config \
+    software-properties-common \
+    python3 \
+    python3-venv \
+    python3-pip \
+    libegl1-mesa-dev \
+    libgl1 \
+    libglib2.0-0 \
+    ccache \
+    ninja-build \
+    libjpeg-dev
+
+  if ! pixal3d_has_apt_candidate python3.10 ||
+     ! pixal3d_has_apt_candidate python3.10-venv ||
+     ! pixal3d_has_apt_candidate python3.10-dev; then
+    echo "Python 3.10 packages are not available in current apt sources. Adding deadsnakes PPA..."
+    sudo add-apt-repository -y ppa:deadsnakes/ppa
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get update
+  fi
+
+  pixal3d_apt_install \
+    python3.10 \
+    python3.10-venv \
+    python3.10-dev
+
+  if apt-cache show python3.10-distutils >/dev/null 2>&1; then
+    pixal3d_apt_install python3.10-distutils
+  fi
+}
+
 pixal3d_sync_trellis_runtime_source() {
   local source_dir="${PIXAL3D_TRELLIS_SOURCE_DIR}"
   local eigen_dir="${source_dir}/o-voxel/third_party/eigen"
@@ -392,8 +485,7 @@ if [[ ! -d "${PIXAL3D_INSTALL_ROOT}/pixal3d" ]]; then
 fi
 
 echo "Installing Pixal3D runtime profile: ${profile}"
-sudo apt-get update
-sudo apt-get install -y python3.10 python3.10-venv python3.10-dev git curl cmake build-essential pkg-config libegl1-mesa-dev libgl1 libglib2.0-0 ccache ninja-build libjpeg-dev
+pixal3d_ensure_system_dependencies
 
 if [[ "${profile}" == "trellis_runtime" ]]; then
   pixal3d_install_shared_trellis_runtime
