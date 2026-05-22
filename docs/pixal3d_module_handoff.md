@@ -79,6 +79,11 @@ Updated: 2026-05-22 after Pixal3D `0.1.88`. Added a module-owned installed
 `NEXT STEP` action group that opens the BRIA form before Fetch Models. Keep this
 in Pixal3D's `nymph.json`; do not hardcode Pixal3D/BRIA details in Manager.
 
+Updated: 2026-05-22 after Pixal3D `0.1.89`. Moved the BRIA form prompt to
+`ui.detail_primary_action` so the module owns the Details-pane `NEXT STEP`
+button while Manager owns only the generic slot. The prompt is temporary and
+shows only while Pixal3D reports `model_download_needed`.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can

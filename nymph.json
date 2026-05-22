@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.88",
+  "version": "0.1.89",
   "description": "Local Pixal3D image-to-3D backend and Nymphs UI. Install sets up the runtime; Fetch Models downloads weights after BRIA RMBG-2.0 Hugging Face access is accepted.",
   "category": "3d",
   "packaging": "repo",
@@ -188,19 +188,18 @@
       "start_action": "open_nymph_ui",
       "stop_action": "kill"
     },
+    "detail_primary_action": {
+      "id": "open_bria_form",
+      "label": "Fill BRIA form",
+      "entrypoint": "open_bria_form",
+      "result": "open_external_browser",
+      "heading": "NEXT STEP:",
+      "help": "BRIA form needs filling before Fetch Models.",
+      "show_when": {
+        "state": "model_download_needed"
+      }
+    },
     "manager_action_groups": [
-      {
-        "id": "bria_next_step",
-        "title": "NEXT STEP",
-        "layout": "compact",
-        "entrypoint": "open_bria_form",
-        "result": "open_external_browser",
-        "visibility": "installed",
-        "description": "BRIA form needs filling before Fetch Models.",
-        "submit": {
-          "label": "Fill BRIA form"
-        }
-      },
       {
         "id": "model_fetch",
         "title": "Model Fetch",
@@ -398,6 +397,7 @@
     "v0.1.86 makes BRIA RMBG-2.0/Hugging Face access requirements explicit in install-facing copy and Fetch Models text, including that BRIA is downloaded during Fetch Models and requires the same HF account to accept access first.",
     "v0.1.87 replaces the long Pixal3D details text with concise user-facing setup guidance and makes the BRIA form the explicit next step before Fetch Models.",
     "v0.1.88 adds a module-owned installed NEXT STEP action that opens the BRIA form before Fetch Models.",
+    "v0.1.89 moves the BRIA form next step into the Manager Details-pane primary action contract.",
     "Do not vendor model weights into this repo."
   ]
 }
