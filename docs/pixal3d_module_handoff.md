@@ -59,6 +59,11 @@ Updated: 2026-05-22 after Pixal3D `0.1.83`. Clarified the killed-state recovery:
 users stay in the same Pixal3D UI. After Kill, pressing Warm starts Pixal3D
 again, reconnects, and warms without telling the user to reopen the UI.
 
+Updated: 2026-05-22 after Pixal3D `0.1.84`. Moved blocking Nymph UI API calls
+onto worker threads so the FastAPI event loop can keep answering `/progress`
+during generation/export. The UI can now show backend stages instead of sitting
+at `Queued`.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -4000,3 +4005,21 @@ Test next through Manager after publish:
 2. Start Warm, press in-UI `Kill`, confirm the UI says `Killed`.
 3. Press `Warm` again in the same UI. It should start Pixal3D, reconnect, and
    warm without requiring Open UI/reopen.
+
+## 2026-05-22 Pixal3D 0.1.84 Pickup
+
+Local source state, pending publish at the time of this note:
+
+- Pixal3D module version: `0.1.84`
+- `preprocess`, `generate_3d`, `extract_glb_api`, and `free_pipeline_api` are
+  dispatched through worker threads from the Nymph UI FastAPI endpoints.
+- This keeps the event loop free to serve `/progress` while the backend is
+  loading models, estimating camera, sampling, decoding, remeshing, and
+  exporting GLB.
+
+Test next through Manager after publish:
+
+1. Update Pixal3D to `0.1.84` from the registry path.
+2. Start generation and confirm the status strip advances beyond `Queued`.
+3. During export, confirm it shows backend stages such as decoding/building
+   mesh/exporting rather than staying on a generic wait state.

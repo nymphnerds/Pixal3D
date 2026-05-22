@@ -14,6 +14,7 @@ import json
 import gc
 import traceback
 import sys
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from typing import *
@@ -831,7 +832,8 @@ def _payload_file(payload: Dict[str, Any]) -> FileData:
 async def preprocess_nymph_api(request: Request):
     payload = await _request_payload(request)
     try:
-        result = preprocess(
+        result = await asyncio.to_thread(
+            preprocess,
             image=_payload_file(payload),
             rembg_keep_gpu=_as_bool(payload.get("rembg_keep_gpu")),
             session_id=str(payload.get("session_id") or ""),
@@ -849,7 +851,8 @@ async def preprocess_nymph_api(request: Request):
 async def generate_3d_nymph_api(request: Request):
     payload = await _request_payload(request)
     try:
-        result = generate_3d(
+        result = await asyncio.to_thread(
+            generate_3d,
             image=_payload_file(payload),
             seed=int(payload.get("seed") or 42),
             resolution=int(payload.get("resolution") or 1024),
@@ -890,7 +893,8 @@ async def generate_3d_nymph_api(request: Request):
 async def extract_glb_nymph_api(request: Request):
     payload = await request.json()
     try:
-        result = extract_glb_api(
+        result = await asyncio.to_thread(
+            extract_glb_api,
             state_path=str(payload.get("state_path") or ""),
             decimation_target=int(payload.get("decimation_target") or 1000000),
             texture_size=int(payload.get("texture_size") or DEFAULT_TEXTURE_SIZE),
@@ -908,7 +912,11 @@ async def extract_glb_nymph_api(request: Request):
 @app.post("/api/free_pipeline_api")
 async def free_pipeline_nymph_api(request: Request):
     payload = await request.json()
-    return JSONResponse({"data": [free_pipeline_api(session_id=str(payload.get("session_id") or ""))]})
+    result = await asyncio.to_thread(
+        free_pipeline_api,
+        session_id=str(payload.get("session_id") or ""),
+    )
+    return JSONResponse({"data": [result]})
 
 
 @app.api()
