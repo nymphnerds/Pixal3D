@@ -152,7 +152,6 @@ if missing:
         (package_root / "np.py").write_text("from .numpy import *\n", encoding="utf-8")
     importlib.invalidate_caches()
 
-importlib.import_module("utils3d.pt")
 importlib.import_module("utils3d.np")
 PY
 }
@@ -167,7 +166,6 @@ import importlib
 utils3d_torch = importlib.import_module("utils3d.torch")
 if not hasattr(utils3d_torch, "intrinsics_from_fov_xy"):
     raise SystemExit(1)
-importlib.import_module("utils3d.pt")
 importlib.import_module("utils3d.np")
 PY
 }

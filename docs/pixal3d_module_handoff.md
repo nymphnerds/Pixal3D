@@ -121,6 +121,11 @@ explaining that the install options control the FlashAttention build, with
 Auto-detect recommended and lower Max jobs/NVCC threads suggested after memory
 failures.
 
+Updated: 2026-05-22 after Pixal3D `0.1.98`. Fixed standalone shared-venv
+install order: Pixal3D can install `utils3d` before `nvdiffrast` exists, then
+the final full runtime validation checks `utils3d.pt` after native TRELLIS
+extensions have been built.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
