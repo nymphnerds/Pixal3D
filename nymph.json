@@ -3,8 +3,8 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.85",
-  "description": "Local Pixal3D image-to-3D backend and Nymphs UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
+  "version": "0.1.86",
+  "description": "Local Pixal3D image-to-3D backend and Nymphs UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; Fetch Models later downloads Pixal3D plus BRIA RMBG-2.0, which requires accepted Hugging Face access.",
   "category": "3d",
   "packaging": "repo",
   "repo": {
@@ -17,7 +17,7 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D generates textured GLB assets from a single image.\n\nPixal3D opens the NymphsCore custom UI in the Manager WebView. Fetch Models downloads the Pixal3D checkpoints and required helper models into NymphsData. The module uses the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv, so TRELLIS.2 and Pixal3D do not build separate native stacks.\n\nLicense and access:\n- Pixal3D is MIT licensed for Tencent-published code, parameters, weights, and documentation.\n- Third-party components keep their own licenses.\n- BRIA RMBG-2.0 is gated on Hugging Face and may have separate access terms. Use the same Hugging Face account for the access form and module token.",
+    "body": "Pixal3D generates textured GLB assets from a single image.\n\nPixal3D opens the NymphsCore custom UI in the Manager WebView. Install sets up the shared TRELLIS.2/Pixal3D runtime venv; it does not download the large model weights. After install, Fetch Models downloads the Pixal3D checkpoints and required helper models into NymphsData, including BRIA RMBG-2.0 for background removal. The same Hugging Face account used for the module token must first open the BRIA access form and be approved, or Fetch Models will fail at the BRIA step. The module uses the shared TRELLIS.2/Pixal3D runtime venv at $HOME/TRELLIS.2/.venv, so TRELLIS.2 and Pixal3D do not build separate native stacks.\n\nLicense and access:\n- Pixal3D is MIT licensed for Tencent-published code, parameters, weights, and documentation.\n- Third-party components keep their own licenses.\n- BRIA RMBG-2.0 is gated on Hugging Face and may have separate access terms. A Hugging Face token alone is not enough: open https://huggingface.co/briaai/RMBG-2.0, complete the access form, then use a token from that same account for Fetch Models.",
     "links": [
       {
         "label": "Pixal3D source",
@@ -36,7 +36,7 @@
         "url": "https://huggingface.co/TencentARC/Pixal3D"
       },
       {
-        "label": "BRIA RMBG-2.0 access form",
+        "label": "Next step: accept BRIA RMBG-2.0 access form",
         "url": "https://huggingface.co/briaai/RMBG-2.0"
       }
     ],
@@ -44,11 +44,12 @@
       "Managed NymphsCore WSL distro",
       "CUDA-capable NVIDIA GPU",
       "Python 3.10 with venv",
-      "Shared TRELLIS.2/Pixal3D runtime venv; installed automatically if missing"
+      "Shared TRELLIS.2/Pixal3D runtime venv; installed automatically if missing",
+      "Hugging Face token from an account with accepted BRIA RMBG-2.0 access before Fetch Models"
     ]
   },
   "install": {
-    "title": "FLASH ATTENTION OPTIONS",
+    "title": "INSTALL OPTIONS - BRIA ACCESS NEEDED FOR FETCH MODELS",
     "root": "$HOME/Pixal3D",
     "entrypoint": "scripts/install_pixal3d.sh",
     "version_marker": "$HOME/Pixal3D/.nymph-module-version",
@@ -198,14 +199,14 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Download Pixal3D checkpoints and helper models into the shared NymphsData cache. Start with Low VRAM 1024 on 16 GB GPUs. GGUF profiles download experimental community quantized weights for future runtime testing; safetensors remain the active default until GGUF generation is fully verified. BRIA RMBG-2.0 access must be accepted on Hugging Face before its gated weights can download.",
+        "description": "Download Pixal3D checkpoints and helper models into the shared NymphsData cache. This action also fetches briaai/RMBG-2.0 for background removal. Before running it, open the BRIA RMBG-2.0 access form on Hugging Face, accept the terms with the same account used for the saved token, then rerun Fetch Models. Without accepted BRIA access, the Pixal3D/helper downloads may start but the BRIA step will fail with a gated repo / 401 / 403 error. Start with Low VRAM 1024 on 16 GB GPUs. GGUF profiles download experimental community quantized weights for future runtime testing; safetensors remain the active default until GGUF generation is fully verified.",
         "links": [
           {
             "label": "Pixal3D models",
             "url": "https://huggingface.co/TencentARC/Pixal3D"
           },
           {
-            "label": "BRIA RMBG-2.0 access form",
+            "label": "Next step: accept BRIA RMBG-2.0 access form",
             "url": "https://huggingface.co/briaai/RMBG-2.0"
           }
         ],
@@ -385,6 +386,7 @@
     "v0.1.83 keeps the killed-state recovery inside the Pixal3D UI: Warm starts Pixal3D again, reconnects, and warms without telling users to reopen the UI.",
     "v0.1.84 runs blocking Pixal3D UI API tasks on worker threads so /progress can report backend stages during generation and GLB export.",
     "v0.1.85 adds conservative per-run CUDA cleanup and memory breadcrumbs after generation, camera estimation, and GLB export to reduce second-run OOM risk.",
+    "v0.1.86 makes BRIA RMBG-2.0/Hugging Face access requirements explicit in install-facing copy and Fetch Models text, including that BRIA is downloaded during Fetch Models and requires the same HF account to accept access first.",
     "Do not vendor model weights into this repo."
   ]
 }

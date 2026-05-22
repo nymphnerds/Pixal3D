@@ -69,6 +69,12 @@ cleanup and memory breadcrumbs around MoGe camera estimation, latent generation,
 and GLB export. This is aimed at the common second-run OOM failure without
 changing install/runtime dependencies.
 
+Updated: 2026-05-22 after Pixal3D `0.1.86`. Clarified in install-facing copy
+that Fetch Models later downloads `briaai/RMBG-2.0`, and that users must accept
+the BRIA Hugging Face access form with the same account used for the saved token
+before Fetch Models can complete. The details-page BRIA link is labeled as the
+next step.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
