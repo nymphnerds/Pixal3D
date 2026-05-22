@@ -46,6 +46,11 @@ Updated: 2026-05-22 after Pixal3D `0.1.80`. Added a Manager `Kill` action
 mapped to `scripts/pixal3d_stop.sh`. This is intentionally separate from the
 web UI so it remains usable when FastAPI is blocked inside a long export.
 
+Updated: 2026-05-22 after Pixal3D `0.1.81`. Moved the user-facing kill switch
+into the Pixal3D UI command block, removed visible outer `Kill`/`Stop` module
+buttons, changed embedded UI close to run the module `kill` action, and
+compacted the in-UI source/run/utility command rows.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -3929,3 +3934,26 @@ Test next through Manager after publish:
 2. Confirm `// Kill` appears in the Manager action strip even before a run.
 3. During a stuck export, press `// Kill` and confirm Pixal3D API/UI processes
    are stopped.
+
+## 2026-05-22 Pixal3D 0.1.81 Pickup
+
+Local source state, pending publish at the time of this note:
+
+- Pixal3D module version: `0.1.81`
+- The Pixal3D UI command block now has compact source, run, and utility rows.
+- The visible `Kill` switch is inside the Pixal3D UI, beside `Open GLB` and
+  `Clear GPU`.
+- The installed `kill` entrypoint remains in `nymph.json`, but visible outer
+  `Kill` and `Stop` manager action buttons were removed from Pixal3D.
+- `ui.manager_ui.stop_action` now points at `kill`, so closing the embedded UI
+  runs the full Pixal3D stop script.
+
+Test next through Manager after publish:
+
+1. Update Pixal3D to `0.1.81` from the registry path.
+2. Open the Pixal3D UI and confirm the button rows are compact and aligned:
+   `Prepare/Clear`, `Warm/Generate/Export`, `Open GLB/Clear GPU/Kill`.
+3. Start an export and press the in-UI `Kill`; confirm the backend stops even
+   if the API is busy.
+4. Reopen Pixal3D, then close the embedded UI; confirm Pixal3D backend
+   processes are stopped.

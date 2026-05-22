@@ -156,22 +156,14 @@
     }
     input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--amber); }
 
-    .commands {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      align-items: center;
-      margin-top: 8px;
-    }
-    .run-strip {
+    .command-deck {
       display: grid;
-      gap: 6px;
-      padding-top: 0;
-      padding-bottom: 14px;
-      border-top: 0;
+      gap: 7px;
+      margin-top: 10px;
+      padding-bottom: 0;
     }
 
-    .run-strip + .section {
+    .source-section + .section {
       border-top: 1px solid rgba(33, 71, 74, 0.58);
       padding-top: 14px;
     }
@@ -205,6 +197,17 @@
       font-weight: 950;
     }
     .btn.primary::before { color: #06110f; }
+    .btn.danger {
+      color: #ffb15f;
+      border-color: rgba(255, 139, 39, 0.52);
+      background: rgba(37, 20, 12, 0.82);
+    }
+    .btn.danger::before { color: #ff8b27; }
+    .btn.danger:hover:not(:disabled) {
+      color: #ffd2a0;
+      border-color: rgba(255, 139, 39, 0.78);
+      background: rgba(55, 27, 12, 0.9);
+    }
     .btn:disabled {
       color: #5e7a75;
       border-color: #1f3637;
@@ -214,57 +217,39 @@
     }
     .btn:disabled::before { color: #355a56; }
 
-    .action-cluster {
+    .command-row {
       display: grid;
       gap: 7px;
-      align-items: center;
+      align-items: stretch;
     }
 
-    .action-cluster .btn {
+    .command-row .btn {
       width: 100%;
       min-width: 0;
-      height: 28px;
-      min-height: 28px;
-      padding: 3px 6px;
-      font-size: 9.5px;
+      height: 30px;
+      min-height: 30px;
+      padding: 3px 8px;
+      font-size: 9.8px;
       white-space: nowrap;
       flex-direction: row;
       text-align: center;
-    }
-
-    .run-actions {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 6px;
-    }
-
-    .utility-actions {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 6px;
-      padding-top: 2px;
-    }
-
-    .utility-actions .btn {
-      height: 28px;
-      min-height: 28px;
-      font-size: 9.3px;
     }
 
     .source-tools {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 6px;
+      grid-template-columns: 1.22fr 0.78fr;
     }
 
-    .source-tools .btn {
-      width: 100%;
-      min-width: 0;
-      height: 28px;
-      min-height: 28px;
-      padding: 3px 6px;
-      font-size: 9.4px;
-      white-space: nowrap;
-      flex-direction: row;
-      text-align: center;
+    .run-actions,
+    .utility-actions {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .utility-actions {
+      padding-top: 1px;
+    }
+
+    .utility-actions .btn {
+      font-size: 9.2px;
     }
 
     .status-actions .btn {
@@ -537,21 +522,21 @@
           <span>Prepare source image</span>
           <input id="prepare-source" type="checkbox" checked>
         </div>
-        <div class="commands source-tools">
-          <button class="btn secondary" id="prepare-source-action" disabled><i data-lucide="wand-sparkles"></i> Prepare Source</button>
-          <button class="btn secondary" id="clear-source" disabled><i data-lucide="x"></i> Clear Source</button>
-        </div>
-      </section>
-
-      <section class="section run-strip">
-        <div class="action-cluster run-actions">
-          <button class="btn secondary" id="warm-up"><i data-lucide="flame"></i> Warm Up</button>
-          <button class="btn primary" id="generate" disabled><i data-lucide="sparkles"></i> Generate</button>
-          <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export</button>
-        </div>
-        <div class="action-cluster utility-actions">
-          <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
-          <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Clear GPU Memory</button>
+        <div class="command-deck">
+          <div class="command-row source-tools">
+            <button class="btn secondary" id="prepare-source-action" disabled><i data-lucide="wand-sparkles"></i> Prepare</button>
+            <button class="btn secondary" id="clear-source" disabled><i data-lucide="x"></i> Clear</button>
+          </div>
+          <div class="command-row run-actions">
+            <button class="btn secondary" id="warm-up"><i data-lucide="flame"></i> Warm</button>
+            <button class="btn primary" id="generate" disabled><i data-lucide="sparkles"></i> Generate</button>
+            <button class="btn secondary" id="extract" disabled><i data-lucide="package"></i> Export</button>
+          </div>
+          <div class="command-row utility-actions">
+            <button class="btn secondary" id="open-output" disabled><i data-lucide="external-link"></i> Open GLB</button>
+            <button class="btn secondary" id="free-pipeline"><i data-lucide="power"></i> Clear GPU</button>
+            <button class="btn danger" id="kill-backend"><i data-lucide="octagon-x"></i> Kill</button>
+          </div>
         </div>
       </section>
 
@@ -675,6 +660,42 @@
 
     const $ = (id) => document.getElementById(id);
 
+    function postManagerModuleAction(action, args = {}) {
+      const bridge = window.chrome && window.chrome.webview;
+      if (!bridge || typeof bridge.postMessage !== "function") return "";
+      const requestId = `${action}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      try {
+        bridge.postMessage({
+          type: "module_action",
+          requestId,
+          action,
+          args,
+        });
+        return requestId;
+      } catch {
+        return "";
+      }
+    }
+
+    function setupManagerBridge() {
+      const bridge = window.chrome && window.chrome.webview;
+      if (!bridge || typeof bridge.addEventListener !== "function") return;
+      bridge.addEventListener("message", (event) => {
+        const data = event.data;
+        if (!data || data.type !== "module_action_result" || data.action !== "kill") return;
+        if (data.ok) {
+          setStatus("Pixal3D killed", "ok");
+          $("state-label").textContent = "Pixal3D killed";
+          setProgressUi("Killed", "Backend stopped.", "0%");
+          toast("Pixal3D killed.");
+        } else {
+          setStatus("Kill failed", "err");
+          $("state-label").textContent = "Kill failed";
+          toast(data.error || "Kill failed. Check Logs.");
+        }
+      });
+    }
+
     async function directPredict(path, payload) {
       const endpoint = path.replace(/^\//, "");
       const hasFile = Object.values(payload).some((value) => value instanceof File);
@@ -744,7 +765,7 @@
       prepareButton.disabled = !currentFile || preprocessing || busy || !shouldPrepareSource() || !modelReady;
       prepareButton.innerHTML = prepFailed
         ? 'Retry Prep'
-        : 'Prepare Source';
+        : 'Prepare';
       $("free-pipeline").disabled = busy || preprocessing || warmupActive;
     }
 
@@ -752,10 +773,10 @@
       const button = $("warm-up");
       button.disabled = busy || preprocessing || warmupActive || modelReady;
       button.innerHTML = warmupActive
-        ? 'Warming Up'
+        ? 'Warming'
           : modelReady
             ? 'Warmed'
-            : 'Warm Up';
+            : 'Warm';
       updateGenerateState();
       lucide.createIcons();
     }
@@ -1262,14 +1283,12 @@
       }
     }
 
-    function stopBackendOnClose() {
-      if (backendStopSent) return;
-      backendStopSent = true;
-      const payload = JSON.stringify({ reason: "ui_closed", session_id: sessionId });
+    function sendStopRuntime(reason) {
+      const payload = JSON.stringify({ reason, session_id: sessionId });
       if (navigator.sendBeacon) {
         try {
           const blob = new Blob([payload], { type: "application/json" });
-          if (navigator.sendBeacon("/api/stop_runtime", blob)) return;
+          if (navigator.sendBeacon("/api/stop_runtime", blob)) return true;
         } catch {}
       }
       fetch("/api/stop_runtime", {
@@ -1278,6 +1297,33 @@
         body: payload,
         keepalive: true,
       }).catch(() => {});
+      return true;
+    }
+
+    function killBackend() {
+      setStatus("Killing Pixal3D", "work");
+      $("state-label").textContent = "Killing Pixal3D";
+      setProgressUi("Killing", "Stopping Pixal3D backend.", "18%");
+      const requestId = postManagerModuleAction("kill", {
+        reason: "ui_kill",
+        session_id: sessionId,
+      });
+      if (requestId) {
+        toast("Kill sent.");
+        return;
+      }
+      sendStopRuntime("ui_kill");
+      toast("Kill sent.");
+    }
+
+    function stopBackendOnClose() {
+      if (backendStopSent) return;
+      backendStopSent = true;
+      const requestId = postManagerModuleAction("kill", {
+        reason: "ui_closed",
+        session_id: sessionId,
+      });
+      if (!requestId) sendStopRuntime("ui_closed");
     }
 
     function clearSource() {
@@ -1414,6 +1460,7 @@
 
     async function init() {
       lucide.createIcons();
+      setupManagerBridge();
       updateSliderLabels();
       for (const id of ["ss-steps", "shape-steps", "tex-steps"]) {
         $(id).addEventListener("input", updateSliderLabels);
@@ -1488,6 +1535,7 @@
       $("prepare-source-action").onclick = prepareSource;
       $("clear-source").onclick = clearSource;
       $("free-pipeline").onclick = freePipeline;
+      $("kill-backend").onclick = killBackend;
       $("model").addEventListener("load", () => {
         if (typeof $("model").updateFraming === "function") $("model").updateFraming();
       });
