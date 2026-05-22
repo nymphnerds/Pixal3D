@@ -42,6 +42,10 @@ when the Nymphs UI loads, even if a stale running process reports the previous
 RMBG env state as off. The command rows were also aligned into full-width
 source, run, and utility rows so they read more neatly in the fixed rail.
 
+Updated: 2026-05-22 after Pixal3D `0.1.80`. Added a Manager `Kill` action
+mapped to `scripts/pixal3d_stop.sh`. This is intentionally separate from the
+web UI so it remains usable when FastAPI is blocked inside a long export.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
@@ -3907,3 +3911,21 @@ Test next through Manager after publish:
    before touching any controls.
 3. Confirm the command rows are aligned, single-line, and visually separated
    from Runtime.
+
+## 2026-05-22 Pixal3D 0.1.80 Pickup
+
+Local source state, pending publish at the time of this note:
+
+- Pixal3D module version: `0.1.80`
+- Added `entrypoints.kill`, mapped to `scripts/pixal3d_stop.sh`.
+- Added a Manager action labeled `Kill`, using the `kill` entrypoint.
+- Purpose: give users an always-present out-of-process kill switch when the
+  Pixal3D UI/API is blocked during export and cannot answer `/health` or other
+  web requests.
+
+Test next through Manager after publish:
+
+1. Update Pixal3D to `0.1.80` from the registry path.
+2. Confirm `// Kill` appears in the Manager action strip even before a run.
+3. During a stuck export, press `// Kill` and confirm Pixal3D API/UI processes
+   are stopped.

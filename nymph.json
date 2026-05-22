@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.79",
+  "version": "0.1.80",
   "description": "Local Pixal3D image-to-3D backend and Nymphs UI packaged as an installable Nymph module. Install provisions the shared TRELLIS.2/Pixal3D runtime venv; TRELLIS model weights are not required.",
   "category": "3d",
   "packaging": "repo",
@@ -167,6 +167,7 @@
     "status": "scripts/pixal3d_status.sh",
     "start": "scripts/pixal3d_start.sh",
     "stop": "scripts/pixal3d_stop.sh",
+    "kill": "scripts/pixal3d_stop.sh",
     "stop_gradio": "scripts/pixal3d_stop_gradio.sh",
     "open": "scripts/pixal3d_open.sh",
     "open_gradio": "scripts/pixal3d_gradio.sh",
@@ -278,6 +279,12 @@
         "result": "open_in_manager"
       },
       {
+        "id": "kill",
+        "label": "Kill",
+        "entrypoint": "kill",
+        "result": "show_output"
+      },
+      {
         "id": "stop",
         "label": "Stop",
         "entrypoint": "stop",
@@ -384,6 +391,7 @@
     "v0.1.77 moves Open GLB and Clear GPU Memory into the top command strip, defaults Use GPU for RMBG on, and stops all Pixal3D backends when the Nymphs UI/WebView unloads.",
     "v0.1.78 groups the top Pixal3D commands into a tighter run cluster and a lower-priority output/memory utility cluster.",
     "v0.1.79 forces Use GPU for RMBG on when the Nymphs UI loads, makes preprocessing default to GPU RMBG if no value is supplied, and aligns the command buttons into neat full-width source, run, and utility rows.",
+    "v0.1.80 adds an always-present Manager Kill action that runs the hard Pixal3D stop script outside the blocked web backend.",
     "Do not vendor model weights into this repo."
   ]
 }
