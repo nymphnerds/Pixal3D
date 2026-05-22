@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.89",
+  "version": "0.1.90",
   "description": "Local Pixal3D image-to-3D backend and Nymphs UI. Install sets up the runtime; Fetch Models downloads weights after BRIA RMBG-2.0 Hugging Face access is accepted.",
   "category": "3d",
   "packaging": "repo",
@@ -17,7 +17,7 @@
     "ref": "master"
   },
   "overview": {
-    "body": "Pixal3D turns one source image into a textured GLB model.\n\nInstall sets up the shared TRELLIS.2/Pixal3D runtime. Model weights are downloaded later with Fetch Models.\n\nNEXT STEP: Fill the BRIA form before Fetch Models, then use a Hugging Face token from that same account. Fetch Models downloads BRIA RMBG-2.0 for background removal and will fail without accepted BRIA access.\n\nRecommended first fetch/run: Low VRAM 1024 on 16 GB GPUs.",
+    "body": "Pixal3D turns one source image into a textured GLB model.",
     "links": [
       {
         "label": "Fill BRIA form",
@@ -36,13 +36,7 @@
         "url": "https://github.com/TencentARC/Pixal3D/blob/master/LICENSE"
       }
     ],
-    "requirements": [
-      "Managed NymphsCore WSL distro",
-      "CUDA-capable NVIDIA GPU",
-      "Python 3.10 with venv",
-      "Shared TRELLIS.2/Pixal3D runtime venv; installed automatically if missing",
-      "Hugging Face token from an account with accepted BRIA RMBG-2.0 access before Fetch Models"
-    ]
+    "requirements": []
   },
   "install": {
     "title": "INSTALL OPTIONS - BRIA FORM BEFORE FETCH MODELS",
@@ -196,7 +190,11 @@
       "heading": "NEXT STEP:",
       "help": "BRIA form needs filling before Fetch Models.",
       "show_when": {
-        "state": "model_download_needed"
+        "state": [
+          "model_download_needed",
+          "checking_status",
+          "status_timeout"
+        ]
       }
     },
     "manager_action_groups": [
@@ -207,7 +205,7 @@
         "entrypoint": "fetch_models",
         "result": "show_logs",
         "visibility": "installed",
-        "description": "Download Pixal3D checkpoints and helper models into the shared NymphsData cache. First fill the BRIA form with the same account used for the saved token. Fetch Models downloads BRIA RMBG-2.0 for background removal and will fail with a gated repo / 401 / 403 error if BRIA access is not accepted. Start with Low VRAM 1024 on 16 GB GPUs.",
+        "description": "Download the Pixal3D model files.",
         "links": [
           {
             "label": "Fill BRIA form",
@@ -398,6 +396,7 @@
     "v0.1.87 replaces the long Pixal3D details text with concise user-facing setup guidance and makes the BRIA form the explicit next step before Fetch Models.",
     "v0.1.88 adds a module-owned installed NEXT STEP action that opens the BRIA form before Fetch Models.",
     "v0.1.89 moves the BRIA form next step into the Manager Details-pane primary action contract.",
+    "v0.1.90 keeps Pixal3D details copy minimal and shows the BRIA form action while model download or status checking is needed.",
     "Do not vendor model weights into this repo."
   ]
 }

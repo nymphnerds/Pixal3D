@@ -84,6 +84,10 @@ Updated: 2026-05-22 after Pixal3D `0.1.89`. Moved the BRIA form prompt to
 button while Manager owns only the generic slot. The prompt is temporary and
 shows only while Pixal3D reports `model_download_needed`.
 
+Updated: 2026-05-22 after Pixal3D `0.1.90`. Kept the details copy minimal and
+allowed the BRIA form action to remain visible during status timeout/checking so
+the form link is not hidden when the module is still sorting itself out.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
