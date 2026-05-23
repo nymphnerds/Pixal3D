@@ -880,7 +880,7 @@
     function setBusy(isBusy) {
       busy = isBusy;
       updateGenerateState();
-      $("extract").disabled = isBusy || preprocessing || !generationResult;
+      $("extract").disabled = isBusy || preprocessing || !generationResult?.state_path;
       updateWarmupButton();
     }
 
@@ -1129,6 +1129,7 @@
     }
 
     async function preprocess(file) {
+      if (preprocessing) return;
       preprocessing = true;
       prepFailed = false;
       const prepId = ++prepGeneration;
@@ -1157,6 +1158,7 @@
         }
         preparedFile = result?.data?.[0] || null;
         prepFailed = false;
+        startWarmupPolling();
         stopProgress(true);
         const preparedUrl = normalizeFileUrl(preparedFile);
         if (preparedUrl) {
@@ -1217,7 +1219,7 @@
         const preparedInput = prepareSource
           ? serverFile(preparedFile)
           : currentFile;
-        const result = await client.predict("/generate_3d", {
+        const result = await client.predict("/generate_glb", {
           image: preparedInput,
           seed: parseInt($("seed").value || "42", 10),
           resolution: parseInt($("resolution").value || "1024", 10),
@@ -1241,6 +1243,8 @@
           low_vram: $("low-vram").checked,
           max_num_tokens: parseInt($("max-tokens").value || "32768", 10),
           texture_naf_target_size: parseInt($("texture-naf").value || "512", 10),
+          decimation_target: parseInt($("faces").value || "1000000", 10),
+          texture_size: parseInt($("texture-size").value || "1024", 10),
         });
         if (runId !== runGeneration || currentFile !== sourceAtStart) {
           stopProgress(false);
@@ -1248,12 +1252,18 @@
         }
 
         generationResult = result.data[0];
+        const file = generationResult.file;
+        outputUrl = normalizeFileUrl(file);
+        outputPath = file.path || outputUrl;
+        renderModel(outputUrl);
         $("camera-label").textContent = `fov ${Number(generationResult.camera_angle_x || 0).toFixed(3)}, distance ${Number(generationResult.distance || 0).toFixed(3)}`;
-        $("state-label").textContent = "Exporting GLB";
-        $("extract").disabled = false;
-        setStatus("Exporting GLB", "work");
-        stopProgress(true, "Model state ready", "Exporting GLB next.");
-        await extract(true, runId, sourceAtStart);
+        $("output-label").textContent = outputPath.split(/[\\/]/).pop();
+        $("open-output").disabled = false;
+        $("extract").disabled = true;
+        $("state-label").textContent = "GLB ready";
+        setStatus("GLB ready", "ok");
+        startWarmupPolling();
+        stopProgress(true, "GLB ready", "Interactive model viewer loaded.");
       } catch (err) {
         console.error(err);
         setStatus("Generation failed", "err");
@@ -1303,7 +1313,7 @@
         stopProgress(false);
         toast(errorMessage(err, "Export failed. Check Logs for the traceback."));
       } finally {
-        $("extract").disabled = !generationResult;
+        $("extract").disabled = !generationResult?.state_path;
         setBusy(false);
       }
     }
@@ -1431,7 +1441,7 @@
     }
 
     function prepareSource() {
-      if (!currentFile || !modelReady || !shouldPrepareSource()) return;
+      if (!currentFile || !modelReady || !shouldPrepareSource() || preprocessing) return;
       prepFailed = false;
       preprocess(currentFile);
     }

@@ -144,6 +144,17 @@ runs. Next recommended fix: keep FlashAttention enabled, but automatically
 recycle/reconnect/prewarm the backend after successful export so a second
 generation never runs in the spent CUDA process.
 
+Updated: 2026-05-23 after Pixal3D `0.1.102`. Before runtime changes, the
+current semi-working state was snapshotted at pushed tag
+`pixal3d-0.1.101-second-run-oom-baseline`. `0.1.102` takes the stronger
+long-term path: the Manager custom UI keeps the web/control process alive, but
+runs Pixal3D CUDA work in isolated worker subprocesses. Warm starts a
+single-use preloaded worker, source prep runs in its own worker and then
+prewarms the next generation worker, and Generate now uses a combined
+generate/export endpoint that consumes one preloaded worker and exits it after
+the GLB is written. This keeps FlashAttention enabled while avoiding a second
+generation inside a spent CUDA process.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can

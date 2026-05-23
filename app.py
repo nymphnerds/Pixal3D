@@ -179,6 +179,7 @@ envmap = None
 LOW_VRAM = os.environ.get("PIXAL3D_LOW_VRAM", os.environ.get("LOW_VRAM", "1" if DEFAULT_PROFILE_SETTINGS["low_vram"] else "0")) == "1"
 AUTO_FREE_AFTER_GENERATION = os.environ.get("PIXAL3D_AUTO_FREE_AFTER_GENERATION", "0").strip().lower() in {"1", "true", "yes", "on"}
 AUTO_FREE_AFTER_EXPORT = os.environ.get("PIXAL3D_AUTO_FREE_AFTER_EXPORT", "0").strip().lower() in {"1", "true", "yes", "on"}
+WORKER_ISOLATION = os.environ.get("PIXAL3D_WORKER_ISOLATION", "1").strip().lower() not in {"0", "false", "no", "off"}
 runtime_settings = {
     "low_vram": None,
     "texture_naf_target_size": None,
@@ -198,6 +199,15 @@ warmup_state = {
 }
 warmup_thread_lock = threading.Lock()
 warmup_thread = None
+isolated_worker_lock = threading.Lock()
+isolated_worker_slot: Dict[str, Any] = {
+    "proc": None,
+    "dir": "",
+    "settings": None,
+    "ready": False,
+    "warming": False,
+    "error": "",
+}
 
 def _set_warmup(status: str, stage: str, step: int, total: int = 5, *, done: bool = False, error: str = ""):
     with warmup_lock:
@@ -523,7 +533,9 @@ def init_models(low_vram: bool | None = None, texture_naf_target_size: int | Non
 def delayed_init_models(delay_seconds: float):
     if delay_seconds > 0:
         time.sleep(delay_seconds)
-    if pipeline is None:
+    if WORKER_ISOLATION and os.environ.get("PIXAL3D_WORKER_CHILD") != "1":
+        start_isolated_worker_warmup()
+    elif pipeline is None:
         init_models()
 
 # ============================================================================
@@ -610,6 +622,8 @@ PROGRESS_DIR = os.path.join(TMP_DIR, '_progress')
 os.makedirs(PROGRESS_DIR, exist_ok=True)
 PREPROCESSED_DIR = os.path.join(TMP_DIR, '_preprocessed')
 os.makedirs(PREPROCESSED_DIR, exist_ok=True)
+WORKER_DIR = os.path.join(TMP_DIR, '_workers')
+os.makedirs(WORKER_DIR, exist_ok=True)
 
 _thread_local = threading.local()
 
@@ -648,6 +662,359 @@ def _write_progress_file(session_id: str, data: dict):
         os.replace(tmp_path, path)  # atomic on POSIX
     except Exception:
         pass
+
+
+def _json_write(path: str, data: dict):
+    tmp_path = path + ".tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    os.replace(tmp_path, path)
+
+
+def _json_read(path: str) -> dict:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _worker_script_args(*extra: str) -> list[str]:
+    return [sys.executable, "-u", os.path.abspath(__file__), *extra]
+
+
+def _worker_log_file(worker_id: str) -> str:
+    log_dir = os.path.abspath(os.path.expanduser(os.environ.get("PIXAL3D_LOG_DIR", os.path.join("~", "NymphsData", "logs", "pixal3d"))))
+    os.makedirs(log_dir, exist_ok=True)
+    return os.path.join(log_dir, f"pixal3d-worker-{worker_id}.log")
+
+
+def _worker_payload_file(payload: Dict[str, Any]) -> FileData:
+    path = payload.get("image_path") or payload.get("image", {}).get("path")
+    if not path:
+        raise ValueError("Missing worker image path")
+    return FileData(path=os.path.abspath(str(path)))
+
+
+def _worker_preprocess_payload(payload: Dict[str, Any]) -> dict:
+    result = preprocess(
+        image=_worker_payload_file(payload),
+        rembg_keep_gpu=_as_bool(payload.get("rembg_keep_gpu")),
+        session_id=str(payload.get("session_id") or ""),
+        low_vram=_as_bool(payload.get("low_vram"), True),
+        texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+    )
+    return {"file": _file_response(_file_path(result))}
+
+
+def _worker_generate_glb_payload(payload: Dict[str, Any]) -> dict:
+    generation = generate_3d(
+        image=_worker_payload_file(payload),
+        seed=int(payload.get("seed") or 42),
+        resolution=int(payload.get("resolution") or 1024),
+        ss_guidance_strength=float(payload.get("ss_guidance_strength") or 7.5),
+        ss_guidance_rescale=float(payload.get("ss_guidance_rescale") or 0.7),
+        ss_sampling_steps=int(payload.get("ss_sampling_steps") or 12),
+        ss_rescale_t=float(payload.get("ss_rescale_t") or 5.0),
+        shape_slat_guidance_strength=float(payload.get("shape_slat_guidance_strength") or 7.5),
+        shape_slat_guidance_rescale=float(payload.get("shape_slat_guidance_rescale") or 0.5),
+        shape_slat_sampling_steps=int(payload.get("shape_slat_sampling_steps") or 12),
+        shape_slat_rescale_t=float(payload.get("shape_slat_rescale_t") or 3.0),
+        tex_slat_guidance_strength=float(payload.get("tex_slat_guidance_strength") or 1.0),
+        tex_slat_guidance_rescale=float(payload.get("tex_slat_guidance_rescale") or 0.0),
+        tex_slat_sampling_steps=int(payload.get("tex_slat_sampling_steps") or 12),
+        tex_slat_rescale_t=float(payload.get("tex_slat_rescale_t") or 3.0),
+        manual_fov=float(payload.get("manual_fov") or -1.0),
+        fov_unit=str(payload.get("fov_unit") or "deg"),
+        source_preprocessed=_as_bool(payload.get("source_preprocessed"), True),
+        session_id=str(payload.get("session_id") or ""),
+        profile_id=str(payload.get("profile_id") or "balanced_16gb"),
+        low_vram=_as_bool(payload.get("low_vram"), True),
+        max_num_tokens=int(payload.get("max_num_tokens") or CASCADE_MAX_NUM_TOKENS),
+        texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+    )
+    result = extract_glb_api(
+        state_path=str(generation["state_path"]),
+        decimation_target=int(payload.get("decimation_target") or 1000000),
+        texture_size=int(payload.get("texture_size") or DEFAULT_TEXTURE_SIZE),
+        session_id=str(payload.get("session_id") or ""),
+        low_vram=_as_bool(payload.get("low_vram"), LOW_VRAM),
+        texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+    )
+    return {
+        "file": _file_response(_file_path(result)),
+        "camera_angle_x": generation.get("camera_angle_x"),
+        "distance": generation.get("distance"),
+    }
+
+
+def _run_worker_task_file(task_file: str):
+    request = _json_read(task_file)
+    task = request.get("task")
+    payload = request.get("payload") or {}
+    result_file = request.get("result_file")
+    try:
+        if task == "preprocess":
+            result = _worker_preprocess_payload(payload)
+        elif task == "warmup":
+            init_models(
+                low_vram=_as_bool(payload.get("low_vram"), LOW_VRAM),
+                texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0) or None,
+            )
+            result = {"ready": True}
+        elif task == "generate_glb":
+            result = _worker_generate_glb_payload(payload)
+        else:
+            raise ValueError(f"Unknown Pixal3D worker task: {task}")
+        if result_file:
+            _json_write(result_file, {"ok": True, "result": result})
+    except Exception as exc:
+        traceback.print_exc()
+        if result_file:
+            _json_write(result_file, {"ok": False, "error": str(exc) or exc.__class__.__name__})
+        raise
+
+
+def _run_isolated_worker_task(task: str, payload: Dict[str, Any], timeout: float = 1800.0) -> dict:
+    worker_id = f"{task}_{int(time.time() * 1000)}_{os.getpid()}"
+    worker_dir = os.path.join(WORKER_DIR, worker_id)
+    os.makedirs(worker_dir, exist_ok=True)
+    task_file = os.path.join(worker_dir, "task.json")
+    result_file = os.path.join(worker_dir, "result.json")
+    _json_write(task_file, {"task": task, "payload": payload, "result_file": result_file})
+    log_file = _worker_log_file(worker_id)
+    env = os.environ.copy()
+    env["PIXAL3D_WORKER_CHILD"] = "1"
+    with open(log_file, "ab", buffering=0) as log:
+        proc = subprocess.Popen(
+            _worker_script_args("--worker-task", task_file),
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            env=env,
+            stdout=log,
+            stderr=log,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if os.path.exists(result_file):
+                data = _json_read(result_file)
+                try:
+                    proc.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    proc.terminate()
+                if data.get("ok"):
+                    return data.get("result") or {}
+                raise RuntimeError(data.get("error") or f"Pixal3D worker {task} failed. See {log_file}")
+            code = proc.poll()
+            if code is not None:
+                break
+            time.sleep(0.25)
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        if os.path.exists(result_file):
+            data = _json_read(result_file)
+            if data.get("ok"):
+                return data.get("result") or {}
+            raise RuntimeError(data.get("error") or f"Pixal3D worker {task} failed. See {log_file}")
+        raise RuntimeError(f"Pixal3D worker {task} exited without a result. See {log_file}")
+
+
+def _isolated_settings(low_vram: bool | None = None, texture_naf_target_size: int | None = None) -> dict:
+    effective_low_vram = LOW_VRAM if low_vram is None else bool(low_vram)
+    return {
+        "low_vram": effective_low_vram,
+        "texture_naf_target_size": resolve_texture_naf_target_size(effective_low_vram, texture_naf_target_size),
+    }
+
+
+def _discard_isolated_worker(reason: str = ""):
+    with isolated_worker_lock:
+        proc = isolated_worker_slot.get("proc")
+        isolated_worker_slot.update({"proc": None, "dir": "", "settings": None, "ready": False, "warming": False, "error": ""})
+    if proc is not None and proc.poll() is None:
+        if reason:
+            print(f"[Worker] Discarding isolated Pixal3D worker: {reason}")
+        proc.terminate()
+        try:
+            proc.wait(timeout=8)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+
+
+def _start_isolated_worker(low_vram: bool | None = None, texture_naf_target_size: int | None = None, *, reason: str = "warmup") -> dict:
+    settings = _isolated_settings(low_vram, texture_naf_target_size)
+    with isolated_worker_lock:
+        proc = isolated_worker_slot.get("proc")
+        if (
+            proc is not None
+            and proc.poll() is None
+            and isolated_worker_slot.get("settings") == settings
+            and (isolated_worker_slot.get("ready") or isolated_worker_slot.get("warming"))
+        ):
+            return dict(isolated_worker_slot)
+
+    _discard_isolated_worker(f"new {reason}")
+    worker_id = f"daemon_{int(time.time() * 1000)}_{os.getpid()}"
+    worker_dir = os.path.join(WORKER_DIR, worker_id)
+    os.makedirs(worker_dir, exist_ok=True)
+    _json_write(os.path.join(worker_dir, "config.json"), {"settings": settings})
+    log_file = _worker_log_file(worker_id)
+    env = os.environ.copy()
+    env["PIXAL3D_WORKER_CHILD"] = "1"
+    with open(log_file, "ab", buffering=0) as log:
+        proc = subprocess.Popen(
+            _worker_script_args("--worker-daemon", worker_dir),
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            env=env,
+            stdout=log,
+            stderr=log,
+            stdin=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    with isolated_worker_lock:
+        isolated_worker_slot.update({
+            "proc": proc,
+            "dir": worker_dir,
+            "settings": settings,
+            "ready": False,
+            "warming": True,
+            "error": "",
+        })
+    _set_warmup("loading", "Preparing isolated Pixal3D worker", 1, total=5)
+    threading.Thread(target=_watch_isolated_worker_ready, args=(worker_dir, proc, settings, log_file), name="pixal3d-isolated-worker-watch", daemon=True).start()
+    return dict(isolated_worker_slot)
+
+
+def _watch_isolated_worker_ready(worker_dir: str, proc: subprocess.Popen, settings: dict, log_file: str):
+    ready_file = os.path.join(worker_dir, "ready.json")
+    error_file = os.path.join(worker_dir, "error.json")
+    for _ in range(7200):
+        if os.path.exists(ready_file):
+            with isolated_worker_lock:
+                if isolated_worker_slot.get("proc") is proc:
+                    isolated_worker_slot.update({"ready": True, "warming": False, "error": ""})
+            runtime_settings["low_vram"] = settings["low_vram"]
+            runtime_settings["texture_naf_target_size"] = settings["texture_naf_target_size"]
+            _set_warmup("ready", "Isolated worker ready", 5, done=True)
+            return
+        if os.path.exists(error_file):
+            error = (_json_read(error_file).get("error") or f"Worker failed. See {log_file}")
+            with isolated_worker_lock:
+                if isolated_worker_slot.get("proc") is proc:
+                    isolated_worker_slot.update({"ready": False, "warming": False, "error": error})
+            _set_warmup("error", "Worker preload failed", 0, done=True, error=error)
+            return
+        if proc.poll() is not None:
+            error = f"Worker exited during preload. See {log_file}"
+            with isolated_worker_lock:
+                if isolated_worker_slot.get("proc") is proc:
+                    isolated_worker_slot.update({"ready": False, "warming": False, "error": error})
+            _set_warmup("error", "Worker preload failed", 0, done=True, error=error)
+            return
+        time.sleep(0.25)
+
+
+def _wait_isolated_worker_ready(timeout: float = 900.0) -> dict:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        with isolated_worker_lock:
+            slot = dict(isolated_worker_slot)
+        if slot.get("ready") and slot.get("proc") is not None and slot["proc"].poll() is None:
+            return slot
+        if slot.get("error"):
+            raise RuntimeError(slot["error"])
+        time.sleep(0.25)
+    raise RuntimeError("Pixal3D isolated worker did not become ready before timeout.")
+
+
+def start_isolated_worker_warmup(low_vram: bool | None = None, texture_naf_target_size: int | None = None) -> Dict[str, Any]:
+    _start_isolated_worker(low_vram, texture_naf_target_size, reason="warmup")
+    return _warmup_snapshot()
+
+
+def _run_generate_glb_on_isolated_worker(payload: Dict[str, Any], timeout: float = 2400.0) -> dict:
+    settings = _isolated_settings(_as_bool(payload.get("low_vram"), LOW_VRAM), int(payload.get("texture_naf_target_size") or 0))
+    with runtime_op_lock:
+        with isolated_worker_lock:
+            slot = dict(isolated_worker_slot)
+        proc = slot.get("proc")
+        if proc is None or proc.poll() is not None or slot.get("settings") != settings:
+            _start_isolated_worker(settings["low_vram"], settings["texture_naf_target_size"], reason="generation")
+        worker = _wait_isolated_worker_ready()
+        worker_dir = worker["dir"]
+        task_file = os.path.join(worker_dir, "task.json")
+        result_file = os.path.join(worker_dir, "result.json")
+        error_file = os.path.join(worker_dir, "error.json")
+        _json_write(task_file, {"task": "generate_glb", "payload": payload, "result_file": result_file})
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if os.path.exists(result_file):
+                data = _json_read(result_file)
+                proc = worker["proc"]
+                try:
+                    proc.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    proc.terminate()
+                with isolated_worker_lock:
+                    if isolated_worker_slot.get("proc") is proc:
+                        isolated_worker_slot.update({"proc": None, "dir": "", "settings": None, "ready": False, "warming": False, "error": ""})
+                if data.get("ok"):
+                    threading.Thread(
+                        target=start_isolated_worker_warmup,
+                        kwargs={
+                            "low_vram": settings["low_vram"],
+                            "texture_naf_target_size": settings["texture_naf_target_size"],
+                        },
+                        name="pixal3d-prewarm-next-worker",
+                        daemon=True,
+                    ).start()
+                    return data.get("result") or {}
+                raise RuntimeError(data.get("error") or "Pixal3D isolated worker generation failed.")
+            if os.path.exists(error_file):
+                raise RuntimeError(_json_read(error_file).get("error") or "Pixal3D isolated worker failed.")
+            proc = worker["proc"]
+            if proc.poll() is not None:
+                break
+            time.sleep(0.25)
+        _discard_isolated_worker("generation timeout or exit")
+        raise RuntimeError("Pixal3D isolated worker exited without a generation result.")
+
+
+def _worker_daemon_main(worker_dir: str):
+    config = _json_read(os.path.join(worker_dir, "config.json"))
+    settings = config.get("settings") or {}
+    ready_file = os.path.join(worker_dir, "ready.json")
+    error_file = os.path.join(worker_dir, "error.json")
+    task_file = os.path.join(worker_dir, "task.json")
+    result_file = os.path.join(worker_dir, "result.json")
+    try:
+        init_models(
+            low_vram=bool(settings.get("low_vram", LOW_VRAM)),
+            texture_naf_target_size=int(settings.get("texture_naf_target_size") or 0) or None,
+        )
+        _json_write(ready_file, {"ready": True, "pid": os.getpid()})
+        deadline = time.time() + float(os.environ.get("PIXAL3D_WORKER_IDLE_TIMEOUT", "1800"))
+        while time.time() < deadline:
+            if os.path.exists(task_file):
+                request = _json_read(task_file)
+                task = request.get("task")
+                payload = request.get("payload") or {}
+                result_target = request.get("result_file") or result_file
+                if task != "generate_glb":
+                    raise ValueError(f"Unsupported daemon task: {task}")
+                result = _worker_generate_glb_payload(payload)
+                _json_write(result_target, {"ok": True, "result": result})
+                return
+            time.sleep(0.25)
+        _json_write(error_file, {"error": "Isolated worker timed out waiting for a generation task."})
+    except Exception as exc:
+        traceback.print_exc()
+        _json_write(error_file, {"error": str(exc) or exc.__class__.__name__})
+        if not os.path.exists(result_file):
+            _json_write(result_file, {"ok": False, "error": str(exc) or exc.__class__.__name__})
+        raise
 
 # Monkey-patch tqdm to intercept progress
 import tqdm as _tqdm_module
@@ -723,6 +1090,7 @@ async def get_config():
         "cuda_memory_fraction": os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", ""),
         "auto_free_after_generation": AUTO_FREE_AFTER_GENERATION,
         "auto_free_after_export": AUTO_FREE_AFTER_EXPORT,
+        "worker_isolation": WORKER_ISOLATION,
     })
 
 @app.get("/health")
@@ -735,6 +1103,7 @@ async def server_info():
         "ok": True,
         "service": "pixal3d-ui",
         "pid": os.getpid(),
+        "worker_isolation": WORKER_ISOLATION,
         "runtime_settings": dict(runtime_settings),
         "process_runtime_settings": dict(process_runtime_settings),
         "warmup": _warmup_snapshot(),
@@ -760,10 +1129,16 @@ async def warmup_status():
 @app.post("/api/warmup")
 async def warmup_nymph_api(request: Request):
     payload = await request.json()
-    snapshot = start_model_warmup(
-        low_vram=_as_bool(payload.get("low_vram"), LOW_VRAM),
-        texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
-    )
+    if WORKER_ISOLATION and os.environ.get("PIXAL3D_WORKER_CHILD") != "1":
+        snapshot = start_isolated_worker_warmup(
+            low_vram=_as_bool(payload.get("low_vram"), LOW_VRAM),
+            texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+        )
+    else:
+        snapshot = start_model_warmup(
+            low_vram=_as_bool(payload.get("low_vram"), LOW_VRAM),
+            texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+        )
     return JSONResponse({"data": [snapshot]})
 
 
@@ -920,6 +1295,26 @@ def _payload_file(payload: Dict[str, Any]) -> FileData:
 async def preprocess_nymph_api(request: Request):
     payload = await _request_payload(request)
     try:
+        if WORKER_ISOLATION and os.environ.get("PIXAL3D_WORKER_CHILD") != "1":
+            _discard_isolated_worker("isolated source preprocessing")
+            result = await asyncio.to_thread(
+                _run_isolated_worker_task,
+                "preprocess",
+                {
+                    "image_path": _file_path(_payload_file(payload)),
+                    "rembg_keep_gpu": _as_bool(payload.get("rembg_keep_gpu")),
+                    "session_id": str(payload.get("session_id") or ""),
+                    "low_vram": _as_bool(payload.get("low_vram"), True),
+                    "texture_naf_target_size": int(payload.get("texture_naf_target_size") or 0),
+                },
+                1800.0,
+            )
+            start_isolated_worker_warmup(
+                low_vram=_as_bool(payload.get("low_vram"), True),
+                texture_naf_target_size=int(payload.get("texture_naf_target_size") or 0),
+            )
+            return JSONResponse({"data": [result["file"]]})
+
         result = await asyncio.to_thread(
             preprocess,
             image=_payload_file(payload),
@@ -931,6 +1326,48 @@ async def preprocess_nymph_api(request: Request):
         return JSONResponse({"data": [_file_response(_file_path(result))]})
     except Exception as exc:
         print("[NymphUI] Source preprocessing failed:")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(exc) or exc.__class__.__name__) from exc
+
+
+@app.post("/api/generate_glb")
+async def generate_glb_nymph_api(request: Request):
+    payload = await _request_payload(request)
+    try:
+        worker_payload = {
+            "image_path": _file_path(_payload_file(payload)),
+            "seed": int(payload.get("seed") or 42),
+            "resolution": int(payload.get("resolution") or 1024),
+            "ss_guidance_strength": float(payload.get("ss_guidance_strength") or 7.5),
+            "ss_guidance_rescale": float(payload.get("ss_guidance_rescale") or 0.7),
+            "ss_sampling_steps": int(payload.get("ss_sampling_steps") or 12),
+            "ss_rescale_t": float(payload.get("ss_rescale_t") or 5.0),
+            "shape_slat_guidance_strength": float(payload.get("shape_slat_guidance_strength") or 7.5),
+            "shape_slat_guidance_rescale": float(payload.get("shape_slat_guidance_rescale") or 0.5),
+            "shape_slat_sampling_steps": int(payload.get("shape_slat_sampling_steps") or 12),
+            "shape_slat_rescale_t": float(payload.get("shape_slat_rescale_t") or 3.0),
+            "tex_slat_guidance_strength": float(payload.get("tex_guidance_strength") or payload.get("tex_slat_guidance_strength") or 1.0),
+            "tex_slat_guidance_rescale": float(payload.get("tex_slat_guidance_rescale") or 0.0),
+            "tex_slat_sampling_steps": int(payload.get("tex_slat_sampling_steps") or 12),
+            "tex_slat_rescale_t": float(payload.get("tex_slat_rescale_t") or 3.0),
+            "manual_fov": float(payload.get("manual_fov") or -1.0),
+            "fov_unit": str(payload.get("fov_unit") or "deg"),
+            "source_preprocessed": _as_bool(payload.get("source_preprocessed"), True),
+            "session_id": str(payload.get("session_id") or ""),
+            "profile_id": str(payload.get("profile_id") or "balanced_16gb"),
+            "low_vram": _as_bool(payload.get("low_vram"), True),
+            "max_num_tokens": int(payload.get("max_num_tokens") or CASCADE_MAX_NUM_TOKENS),
+            "texture_naf_target_size": int(payload.get("texture_naf_target_size") or 0),
+            "decimation_target": int(payload.get("decimation_target") or 1000000),
+            "texture_size": int(payload.get("texture_size") or DEFAULT_TEXTURE_SIZE),
+        }
+        if WORKER_ISOLATION and os.environ.get("PIXAL3D_WORKER_CHILD") != "1":
+            result = await asyncio.to_thread(_run_generate_glb_on_isolated_worker, worker_payload)
+        else:
+            result = await asyncio.to_thread(_worker_generate_glb_payload, worker_payload)
+        return JSONResponse({"data": [result]})
+    except Exception as exc:
+        print("[NymphUI] Isolated GLB generation failed:")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(exc) or exc.__class__.__name__) from exc
 
@@ -1297,9 +1734,19 @@ if __name__ == "__main__":
     parser.add_argument("--warmup-delay", type=float, default=float(os.environ.get("PIXAL3D_WARMUP_DELAY", "0")),
                         help="Start model preload after this many seconds; 0 disables delayed preload unless --warm-on-start is set.")
     parser.add_argument("--reinstall-utils3d", action="store_true", help="Reinstall upstream utils3d wheel before launch.")
+    parser.add_argument("--worker-task", help=argparse.SUPPRESS)
+    parser.add_argument("--worker-daemon", help=argparse.SUPPRESS)
     args, remaining = parser.parse_known_args()
     if args.low_vram is not None:
         LOW_VRAM = bool(args.low_vram)
+
+    if args.worker_task:
+        _run_worker_task_file(args.worker_task)
+        raise SystemExit(0)
+
+    if args.worker_daemon:
+        _worker_daemon_main(args.worker_daemon)
+        raise SystemExit(0)
 
     if args.reinstall_utils3d or os.environ.get("PIXAL3D_REINSTALL_UTILS3D") == "1":
         subprocess.run([
@@ -1309,11 +1756,17 @@ if __name__ == "__main__":
         ensure_utils3d_moge_aliases()
     
     if args.warm_on_start:
-        start_model_warmup()
+        if WORKER_ISOLATION and os.environ.get("PIXAL3D_WORKER_CHILD") != "1":
+            start_isolated_worker_warmup()
+        else:
+            start_model_warmup()
     elif args.lazy_load and args.warmup_delay > 0:
         threading.Thread(target=delayed_init_models, args=(args.warmup_delay,), name="pixal3d-model-delayed-warmup", daemon=True).start()
     elif not args.lazy_load:
-        init_models()
+        if WORKER_ISOLATION and os.environ.get("PIXAL3D_WORKER_CHILD") != "1":
+            start_isolated_worker_warmup()
+        else:
+            init_models()
     
     app.launch(
         show_error=True,
