@@ -735,6 +735,13 @@
       return response.json();
     }
 
+    function flushRmbg() {
+      if (!modelReady || backendKilled) return;
+      client.predict("/flush_rmbg_api", { session_id: sessionId }).catch((err) => {
+        console.warn("RMBG flush failed", err);
+      });
+    }
+
     function toast(message) {
       const el = $("toast");
       el.textContent = message;
@@ -1420,6 +1427,7 @@
       $("output-label").textContent = "None";
       $("camera-label").textContent = "Auto";
       $("state-label").textContent = "No run yet";
+      flushRmbg();
       setResultEmpty("Generated GLB appears here.");
       setProgressUi("Idle", "Waiting for source image.", "0%");
       setStatus(
@@ -1701,7 +1709,7 @@
         $("max-tokens").value = String(cfg.max_num_tokens || $("max-tokens").value || 32768);
         $("faces").value = String(cfg.decimation_target || $("faces").value || 200000);
         applyRunProfile($("run-profile").value);
-        $("rembg-keep-gpu").checked = true;
+        $("rembg-keep-gpu").checked = cfg.rembg_keep_gpu === true;
         setWeightProfileUi(cfg);
         $("runtime-text").textContent = cfg.weight_format === "gguf-experimental"
           ? `GGUF ${cfg.gguf_quant}${cfg.gguf_supported ? "" : " fetched"}`
@@ -1738,6 +1746,7 @@
       outputPath = "";
       preprocessing = false;
       stopProgress(false);
+      flushRmbg();
       updateGenerateState();
       $("extract").disabled = true;
       $("open-output").disabled = true;

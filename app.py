@@ -385,6 +385,19 @@ def _cleanup_cuda_stage(label: str):
     _cuda_memory_report(label)
 
 
+def _offload_rmbg(label: str = "after RMBG offload"):
+    if pipeline is None:
+        return
+    rembg_model = getattr(pipeline, "rembg_model", None)
+    if rembg_model is None:
+        return
+    try:
+        rembg_model.cpu()
+    except Exception as exc:
+        print(f"[LowVRAM] Warning: could not offload RMBG: {exc}", flush=True)
+    _cleanup_cuda_stage(label)
+
+
 def init_models(low_vram: bool | None = None, texture_naf_target_size: int | None = None, force_reload: bool = False):
     global pipeline, moge_model, envmap
     global LOW_VRAM
@@ -719,7 +732,7 @@ async def get_config():
         "weight_format": os.environ.get("PIXAL3D_WEIGHT_FORMAT", "safetensors"),
         "gguf_quant": os.environ.get("PIXAL3D_QUANT", "Q5_K_M"),
         "gguf_supported": os.environ.get("PIXAL3D_QUANT_RUNTIME_SUPPORTED", "0") == "1",
-        "rembg_keep_gpu": os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "1") == "1",
+        "rembg_keep_gpu": os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "0") == "1",
         "cuda_memory_fraction": os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", ""),
         "auto_free_after_generation": AUTO_FREE_AFTER_GENERATION,
         "auto_free_after_export": AUTO_FREE_AFTER_EXPORT,
@@ -1007,11 +1020,21 @@ async def free_pipeline_nymph_api(request: Request):
     return JSONResponse({"data": [result]})
 
 
+@app.post("/api/flush_rmbg_api")
+async def flush_rmbg_nymph_api(request: Request):
+    payload = await request.json()
+    result = await asyncio.to_thread(
+        flush_rmbg_api,
+        session_id=str(payload.get("session_id") or ""),
+    )
+    return JSONResponse({"data": [result]})
+
+
 @app.api()
 @spaces.GPU(duration=30)
 def preprocess(
     image: FileData,
-    rembg_keep_gpu: bool = True,
+    rembg_keep_gpu: bool = False,
     session_id: str = "",
     low_vram: bool = True,
     texture_naf_target_size: int = 0,
@@ -1027,6 +1050,8 @@ def preprocess(
         img = Image.open(_file_path(image))
         os.environ["PIXAL3D_REMBG_KEEP_GPU"] = "1" if rembg_keep_gpu else "0"
         processed = pipeline.preprocess_image(img)
+        if bool(low_vram):
+            _offload_rmbg("after source preprocessing")
         _update_progress("Saving preprocessed image", 2, 3)
         out_path = _preprocessed_file(session_id) if session_id else os.path.join(TMP_DIR, f"preprocessed_{int(time.time()*1000)}.png")
         processed.save(out_path)
@@ -1249,6 +1274,16 @@ def free_pipeline_api(session_id: str = "") -> Dict:
             _free_models_locked("manual frontend request")
         _finish_progress("GPU memory cleared")
         return {"freed": True}
+
+
+@app.api()
+def flush_rmbg_api(session_id: str = "") -> Dict:
+    with runtime_op_lock:
+        _reset_progress(session_id)
+        _update_progress("Flushing RMBG source-prep memory", 1, 1)
+        _offload_rmbg("after RMBG flush")
+        _finish_progress("RMBG memory flushed")
+        return {"flushed": True}
 
 # Mount assets and tmp for direct access
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
