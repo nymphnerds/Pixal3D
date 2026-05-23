@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.102",
+  "version": "0.1.103",
   "description": "Pixal3D generates high-fidelity textured 3D assets from a single image.",
   "category": "3d",
   "packaging": "repo",
@@ -389,6 +389,7 @@
     "v0.1.100 skips duplicate latent decoding in the Manager generation path, clears per-run latent caches, and adds opt-in backend auto-free controls for repeat-run OOM diagnostics.",
     "v0.1.101 resets the Manager model-viewer WebGL scene before new generation, source replacement, and GLB loading so stale preview meshes do not stay resident across CUDA runs.",
     "v0.1.102 moves the Manager custom UI onto isolated single-use Pixal3D CUDA workers for source prep and combined generate/export, keeping FlashAttention enabled while avoiding second generation reuse of a spent CUDA process.",
+    "v0.1.103 restores the stable 0.1.101 Manager runtime flow after the isolated-worker experiment caused confusing double pipeline loads and hangs; repeat-run diagnostics remain source-only for root-cause investigation.",
     "Do not vendor model weights into this repo."
   ]
 }
