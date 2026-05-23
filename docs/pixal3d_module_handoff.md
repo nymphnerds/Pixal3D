@@ -130,6 +130,20 @@ Updated: 2026-05-22 after Pixal3D `0.1.99`. Made standalone Pixal3D install
 self-heal a missing CUDA 13 toolkit/nvcc before building FlashAttention, using
 the same WSL CUDA repository/keyring path as Base Runtime.
 
+Updated: 2026-05-23 after Pixal3D `0.1.100` and `0.1.101` repeat-run crash
+work. Detailed findings are in
+`docs/pixal3d_second_run_oom_findings_2026-05-23.md`. Short version: the first
+Manager generation/export can complete, but the second generation can still
+crash WSL without a Python traceback. `0.1.100` reduced Manager CUDA pressure by
+skipping the first decode/render path and clearing sparse/mesh state. `0.1.101`
+copied the official UI model-viewer reset behavior so stale GLB/WebGL scenes are
+not retained. The remaining failure looks like reuse of the same long-lived
+Python/CUDA process after one complete Pixal3D run. Official upstream local
+`app.py` has the same architecture and does not recycle the CUDA process between
+runs. Next recommended fix: keep FlashAttention enabled, but automatically
+recycle/reconnect/prewarm the backend after successful export so a second
+generation never runs in the spent CUDA process.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
