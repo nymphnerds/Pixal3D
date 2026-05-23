@@ -626,6 +626,7 @@ class Pixal3DImageTo3DPipeline(Pipeline):
         tex_slat_sampler_params: dict = {},
         preprocess_image: bool = True,
         return_latent: bool = False,
+        decode_output: bool = True,
         pipeline_type: Optional[str] = None,
         max_num_tokens: int = 49152,
     ) -> List[MeshWithVoxel]:
@@ -645,6 +646,7 @@ class Pixal3DImageTo3DPipeline(Pipeline):
             tex_slat_sampler_params (dict): Additional parameters for the texture SLat sampler.
             preprocess_image (bool): Whether to preprocess the image.
             return_latent (bool): Whether to return the latent codes.
+            decode_output (bool): Whether to decode mesh output before returning.
             pipeline_type (str): The type of the pipeline. Options: '1024_cascade', '1536_cascade'.
             max_num_tokens (int): The maximum number of tokens to use.
         """
@@ -788,7 +790,7 @@ class Pixal3DImageTo3DPipeline(Pipeline):
 
         # ---- Stage 5: Decode ----
         res = actual_hr_resolution
-        out_mesh = self.decode_latent(shape_slat, tex_slat, res)
+        out_mesh = self.decode_latent(shape_slat, tex_slat, res) if decode_output else []
         if return_latent:
             return out_mesh, (shape_slat, tex_slat, res)
         else:

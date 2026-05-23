@@ -177,6 +177,8 @@ pipeline = None
 moge_model = None
 envmap = None
 LOW_VRAM = os.environ.get("PIXAL3D_LOW_VRAM", os.environ.get("LOW_VRAM", "1" if DEFAULT_PROFILE_SETTINGS["low_vram"] else "0")) == "1"
+AUTO_FREE_AFTER_GENERATION = os.environ.get("PIXAL3D_AUTO_FREE_AFTER_GENERATION", "0").strip().lower() in {"1", "true", "yes", "on"}
+AUTO_FREE_AFTER_EXPORT = os.environ.get("PIXAL3D_AUTO_FREE_AFTER_EXPORT", "0").strip().lower() in {"1", "true", "yes", "on"}
 runtime_settings = {
     "low_vram": None,
     "texture_naf_target_size": None,
@@ -311,16 +313,68 @@ def _cuda_memory_report(label: str):
         allocated = torch.cuda.memory_allocated() / 1024**3
         reserved = torch.cuda.memory_reserved() / 1024**3
         max_allocated = torch.cuda.max_memory_allocated() / 1024**3
+        driver_used = ""
+        smi = shutil.which("nvidia-smi")
+        if smi:
+            try:
+                pid = str(os.getpid())
+                smi_result = subprocess.run(
+                    [
+                        smi,
+                        "--query-compute-apps=pid,used_memory",
+                        "--format=csv,noheader,nounits",
+                    ],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=3,
+                )
+                for line in smi_result.stdout.splitlines():
+                    parts = [part.strip() for part in line.split(",")]
+                    if len(parts) == 2 and parts[0] == pid:
+                        driver_used = f", driver_process={int(parts[1]) / 1024:.2f} GB"
+                        break
+            except Exception:
+                driver_used = ""
         print(
             f"[CUDA] {label}: allocated={allocated:.2f} GB, "
-            f"reserved={reserved:.2f} GB, max_allocated={max_allocated:.2f} GB",
+            f"reserved={reserved:.2f} GB, max_allocated={max_allocated:.2f} GB"
+            f"{driver_used}",
             flush=True,
         )
     except Exception as exc:
         print(f"[CUDA] {label}: memory report failed: {exc}", flush=True)
 
 
+def _clear_sparse_cache(obj, label: str = ""):
+    if obj is None or not hasattr(obj, "clear_spatial_cache"):
+        return
+    try:
+        obj.clear_spatial_cache()
+        if label:
+            print(f"[CUDA] Cleared sparse cache for {label}", flush=True)
+    except Exception as exc:
+        if label:
+            print(f"[CUDA] Could not clear sparse cache for {label}: {exc}", flush=True)
+
+
+def _drop_mesh_tensors(mesh):
+    if mesh is None:
+        return
+    for attr in ("vertices", "faces", "coords", "attrs", "origin", "vertex_attrs"):
+        if hasattr(mesh, attr):
+            try:
+                setattr(mesh, attr, None)
+            except Exception:
+                pass
+
+
 def _cleanup_cuda_stage(label: str):
+    if torch.cuda.is_available():
+        try:
+            torch.cuda.synchronize()
+        except Exception:
+            pass
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -522,11 +576,13 @@ def get_camera_params_wild_moge(image_path, device="cuda", mesh_scale=1.0, exten
 
 def pack_state(shape_slat, tex_slat, res):
     state_data = {
-        'shape_slat_feats': shape_slat.feats.cpu().numpy(),
-        'tex_slat_feats': tex_slat.feats.cpu().numpy(),
-        'coords': shape_slat.coords.cpu().numpy(),
+        'shape_slat_feats': shape_slat.feats.detach().cpu().numpy(),
+        'tex_slat_feats': tex_slat.feats.detach().cpu().numpy(),
+        'coords': shape_slat.coords.detach().cpu().numpy(),
         'res': res,
     }
+    _clear_sparse_cache(shape_slat, "shape latent after state pack")
+    _clear_sparse_cache(tex_slat, "texture latent after state pack")
     import random
     state_path = os.path.join(TMP_DIR, f"state_{int(time.time()*1000)}_{random.randint(0,9999):04d}.npz")
     np.savez_compressed(state_path, **state_data)
@@ -665,6 +721,8 @@ async def get_config():
         "gguf_supported": os.environ.get("PIXAL3D_QUANT_RUNTIME_SUPPORTED", "0") == "1",
         "rembg_keep_gpu": os.environ.get("PIXAL3D_REMBG_KEEP_GPU", "1") == "1",
         "cuda_memory_fraction": os.environ.get("PIXAL3D_CUDA_MEMORY_FRACTION", ""),
+        "auto_free_after_generation": AUTO_FREE_AFTER_GENERATION,
+        "auto_free_after_export": AUTO_FREE_AFTER_EXPORT,
     })
 
 @app.get("/health")
@@ -1090,6 +1148,7 @@ def generate_3d(
                 tex_slat_sampler_params=tex_sampler_override,
                 preprocess_image=False,
                 return_latent=True,
+                decode_output=False,
                 pipeline_type=pipeline_type,
                 max_num_tokens=effective_max_tokens,
             )
@@ -1105,8 +1164,13 @@ def generate_3d(
             "distance": camera_params['distance'],
         }
     finally:
+        _clear_sparse_cache(shape_slat, "shape latent after generation")
+        _clear_sparse_cache(tex_slat, "texture latent after generation")
         del image_preprocessed, camera_params, _mesh_list, shape_slat, tex_slat, res
         _cleanup_cuda_stage("after generation cleanup")
+        if AUTO_FREE_AFTER_GENERATION:
+            with init_lock:
+                _free_models_locked("automatic cleanup after generation")
         if lock_acquired:
             runtime_op_lock.release()
 
@@ -1166,8 +1230,14 @@ def extract_glb_api(
             _finish_progress("GLB ready")
             return FileData(path=out_glb)
         finally:
+            _clear_sparse_cache(shape_slat, "shape latent after GLB export")
+            _clear_sparse_cache(tex_slat, "texture latent after GLB export")
+            _drop_mesh_tensors(mesh)
             del shape_slat, tex_slat, mesh, glb, res
             _cleanup_cuda_stage("after GLB export cleanup")
+            if AUTO_FREE_AFTER_EXPORT:
+                with init_lock:
+                    _free_models_locked("automatic cleanup after GLB export")
 
 
 @app.api()
