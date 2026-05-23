@@ -970,23 +970,42 @@
       }
     }
 
+    function resetModelViewer() {
+      const container = document.querySelector(".pane-body");
+      const old = $("model");
+      if (old) {
+        try {
+          old.pause?.();
+          old.removeAttribute("src");
+          old.src = "";
+        } catch (_) {}
+        old.remove();
+      }
+      const model = document.createElement("model-viewer");
+      model.id = "model";
+      model.setAttribute("camera-controls", "");
+      model.setAttribute("auto-rotate", "");
+      model.setAttribute("shadow-intensity", "0.6");
+      model.setAttribute("exposure", "1");
+      model.style.display = "none";
+      container.appendChild(model);
+      return model;
+    }
+
     function renderModel(url) {
+      const model = resetModelViewer();
       $("empty").style.display = "none";
-      $("model").src = url;
-      $("model").setAttribute("camera-controls", "");
-      $("model").setAttribute("auto-rotate", "");
-      $("model").setAttribute("shadow-intensity", "0.8");
-      $("model").setAttribute("exposure", "1");
-      $("model").setAttribute("interaction-prompt", "auto");
-      $("model").style.display = "block";
-      if (typeof $("model").updateFraming === "function") {
-        requestAnimationFrame(() => $("model").updateFraming());
+      model.src = url;
+      model.setAttribute("shadow-intensity", "0.8");
+      model.setAttribute("interaction-prompt", "auto");
+      model.style.display = "block";
+      if (typeof model.updateFraming === "function") {
+        requestAnimationFrame(() => model.updateFraming());
       }
     }
 
     function setResultEmpty(message) {
-      $("model").removeAttribute("src");
-      $("model").style.display = "none";
+      resetModelViewer();
       $("empty").querySelector("div").textContent = message;
       $("empty").style.display = "flex";
     }
