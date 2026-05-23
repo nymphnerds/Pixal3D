@@ -8,6 +8,18 @@ from ...modules import sparse as sp
 from ...modules.norm import LayerNorm32
 
 
+def _subdivision_mask_with_fallback(subdiv: sp.SparseTensor, training: bool) -> sp.SparseTensor:
+    mask = subdiv.feats > 0
+    if not training and mask.ndim == 2 and mask.shape[0] > 0:
+        empty_rows = ~mask.any(dim=-1)
+        if empty_rows.any():
+            mask = mask.clone()
+            row_idx = empty_rows.nonzero(as_tuple=False).flatten()
+            child_idx = subdiv.feats[row_idx].argmax(dim=-1)
+            mask[row_idx, child_idx] = True
+    return subdiv.replace(mask)
+
+
 class SparseResBlock3d(nn.Module):
     def __init__(
         self,
@@ -60,7 +72,7 @@ class SparseResBlock3d(nn.Module):
         if self.downsample:
             x = self.updown(x)
         elif self.upsample:
-            x = self.updown(x, subdiv.replace(subdiv.feats > 0))
+            x = self.updown(x, _subdivision_mask_with_fallback(subdiv, self.training))
         return x
 
     def _forward(self, x: sp.SparseTensor) -> sp.SparseTensor:
@@ -156,7 +168,7 @@ class SparseResBlockUpsample3d(nn.Module):
             subdiv = self.to_subdiv(x)
         h = x.replace(self.norm1(x.feats))
         h = h.replace(F.silu(h.feats))
-        subdiv_binarized = subdiv.replace(subdiv.feats > 0) if subdiv is not None else None
+        subdiv_binarized = _subdivision_mask_with_fallback(subdiv, self.training) if subdiv is not None else None
         h = self.updown(h, subdiv_binarized)
         x = self.updown(x, subdiv_binarized)
         h = self.conv1(h)
@@ -243,7 +255,7 @@ class SparseResBlockC2S3d(nn.Module):
         h = x.replace(self.norm1(x.feats))
         h = h.replace(F.silu(h.feats))
         h = self.conv1(h)
-        subdiv_binarized = subdiv.replace(subdiv.feats > 0) if subdiv is not None else None
+        subdiv_binarized = _subdivision_mask_with_fallback(subdiv, self.training) if subdiv is not None else None
         h = self.updown(h, subdiv_binarized)
         x = self.updown(x, subdiv_binarized)
         h = h.replace(self.norm2(h.feats))
