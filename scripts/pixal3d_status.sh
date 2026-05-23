@@ -21,7 +21,7 @@ weight_profiles_available="Low VRAM 1024,Standard 1536"
 weight_profiles_downloaded="none"
 weight_profiles_missing="Low VRAM 1024,Standard 1536"
 weight_profile_ready=false
-display_url="${PIXAL3D_SERVER_URL}"
+display_url="${PIXAL3D_GRADIO_URL}"
 api_running=false
 gradio_running=false
 version=not-installed
@@ -69,7 +69,7 @@ if [[ "${installed}" == "true" && "${trellis_runtime_ready}" != "true" ]]; then
   detail="Pixal3D uses the shared TRELLIS.2/Pixal3D runtime venv. Run Install or Repair to create it automatically. TRELLIS model weights are not required."
 fi
 
-if [[ "${installed}" == "true" && -f "${PIXAL3D_INSTALL_ROOT}/scripts/api_server_pixal3d.py" ]]; then
+if [[ "${installed}" == "true" && -f "${PIXAL3D_INSTALL_ROOT}/app.py" ]]; then
   adapter_ready=true
 fi
 
@@ -89,7 +89,7 @@ fi
 if [[ "${env_ready}" == "true" && "${adapter_ready}" == "true" ]]; then
   if (
     cd "${PIXAL3D_INSTALL_ROOT}" &&
-    "$(pixal3d_python)" -m py_compile scripts/api_server_pixal3d.py >/dev/null 2>&1 &&
+    "$(pixal3d_python)" -m py_compile app.py >/dev/null 2>&1 &&
     pixal3d_validate_runtime_stack &&
     "$(pixal3d_python)" - <<'PY' >/dev/null 2>&1
 import importlib
@@ -100,7 +100,7 @@ PY
   ); then
     runtime_ready=true
     [[ "${health}" != "unreachable" ]] && health=ok
-    detail="API wrapper imports are ready."
+    detail="Pixal3D app runtime imports are ready."
 else
     health=degraded
     detail="Pixal3D shared runtime imports are incomplete. Run Repair to rebuild the shared TRELLIS.2/Pixal3D runtime venv."

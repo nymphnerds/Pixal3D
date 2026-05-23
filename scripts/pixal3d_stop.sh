@@ -23,8 +23,8 @@ stop_pid_file() {
   fi
 }
 
-stop_pid_file "${PIXAL3D_PID_FILE}" "Pixal3D API"
-stop_pid_file "${PIXAL3D_GRADIO_PID_FILE}" "Pixal3D Gradio"
+stop_pid_file "${PIXAL3D_PID_FILE}" "Pixal3D runtime"
+stop_pid_file "${PIXAL3D_GRADIO_PID_FILE}" "Pixal3D runtime"
 
 (command -v fuser >/dev/null 2>&1 && fuser -k "${PIXAL3D_PORT}/tcp" >/dev/null 2>&1) || true
 (command -v fuser >/dev/null 2>&1 && fuser -k "${PIXAL3D_GRADIO_PORT}/tcp" >/dev/null 2>&1) || true

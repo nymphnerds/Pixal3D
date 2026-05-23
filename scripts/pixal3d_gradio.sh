@@ -19,6 +19,8 @@ if [[ ! -x "$(pixal3d_python)" ]]; then
   exit 1
 fi
 
+pixal3d_repair_utils3d_compat "$(pixal3d_python)" >/dev/null 2>&1 || true
+
 if ! pixal3d_validate_runtime_stack; then
   pixal3d_print_trellis_runtime_prerequisite
   exit 1

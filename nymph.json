@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.108",
+  "version": "0.1.109",
   "description": "Pixal3D generates high-fidelity textured 3D assets from a single image.",
   "category": "3d",
   "packaging": "repo",
@@ -138,10 +138,10 @@
   },
   "runtime": {
     "host": "127.0.0.1",
-    "port": 8096,
-    "health_url": "http://127.0.0.1:8096/health",
-    "server_info_url": "http://127.0.0.1:8096/server_info",
-    "frontend_url": "http://127.0.0.1:8097"
+    "port": 8097,
+    "health_url": "http://127.0.0.1:8097/health",
+    "server_info_url": "http://127.0.0.1:8097/server_info",
+    "frontend_url": "http://127.0.0.1:8097/nymph"
   },
   "artifacts": {
     "models_root": "$HOME/NymphsData/models",
@@ -395,6 +395,7 @@
     "v0.1.106 trims the native CPU heap during cleanup and logs process RSS, targeting second-run WSL crashes where CUDA memory is clean but the warmed process remains near the WSL RAM ceiling.",
     "v0.1.107 cache-busts Manager UI prepared-image and GLB preview URLs and clears stale result state even when the same source file is selected again.",
     "v0.1.108 prevents shape decode from collapsing to an empty sparse tensor by preserving one fallback child voxel per active parent when inferred subdivision masks are all false.",
+    "v0.1.109 unifies Pixal3D runtime startup around the Manager/Nymph UI app server on port 8097 so Manager and Blender use the same warm-up, preprocess, generate, export, and cleanup flow instead of the older separate 8096 API wrapper.",
     "Do not vendor model weights into this repo."
   ]
 }
