@@ -12,6 +12,7 @@ import base64
 import io
 import json
 import gc
+import ctypes
 import traceback
 import sys
 import asyncio
@@ -303,6 +304,7 @@ def _free_models_locked(reason: str = ""):
             torch.cuda.ipc_collect()
         except Exception:
             pass
+    _trim_process_memory("after pipeline free")
     _set_warmup("idle", "Pipeline freed", 0, done=False)
 
 
@@ -346,6 +348,32 @@ def _cuda_memory_report(label: str):
         print(f"[CUDA] {label}: memory report failed: {exc}", flush=True)
 
 
+def _process_rss_gb() -> float | None:
+    try:
+        with open("/proc/self/status", "r", encoding="utf-8") as handle:
+            for line in handle:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / 1024**2
+    except Exception:
+        return None
+    return None
+
+
+def _trim_process_memory(label: str):
+    gc.collect()
+    before = _process_rss_gb()
+    try:
+        libc = ctypes.CDLL("libc.so.6")
+        libc.malloc_trim(0)
+    except Exception as exc:
+        if before is not None:
+            print(f"[Memory] {label}: rss={before:.2f} GB, malloc_trim unavailable: {exc}", flush=True)
+        return
+    after = _process_rss_gb()
+    if before is not None and after is not None:
+        print(f"[Memory] {label}: rss={before:.2f} GB -> {after:.2f} GB", flush=True)
+
+
 def _clear_sparse_cache(obj, label: str = ""):
     if obj is None or not hasattr(obj, "clear_spatial_cache"):
         return
@@ -382,6 +410,7 @@ def _cleanup_cuda_stage(label: str):
             torch.cuda.ipc_collect()
         except Exception:
             pass
+    _trim_process_memory(label)
     _cuda_memory_report(label)
 
 

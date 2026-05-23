@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.105",
+  "version": "0.1.106",
   "description": "Pixal3D generates high-fidelity textured 3D assets from a single image.",
   "category": "3d",
   "packaging": "repo",
@@ -392,6 +392,7 @@
     "v0.1.103 restores the stable 0.1.101 Manager runtime flow after the isolated-worker experiment caused confusing double pipeline loads and hangs; repeat-run diagnostics remain source-only for root-cause investigation.",
     "v0.1.104 offloads the BRIA RMBG source-prep model after preprocessing in low-VRAM mode so repeated Manager runs start generation with clean CUDA memory while keeping FlashAttention enabled.",
     "v0.1.105 stops retaining unused per-step sampler prediction tensors during inference, reducing peak memory pressure at the shape SLat step where repeat runs could crash WSL.",
+    "v0.1.106 trims the native CPU heap during cleanup and logs process RSS, targeting second-run WSL crashes where CUDA memory is clean but the warmed process remains near the WSL RAM ceiling.",
     "Do not vendor model weights into this repo."
   ]
 }
