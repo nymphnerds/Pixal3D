@@ -650,6 +650,7 @@
     let prepFailed = false;
     let prepGeneration = 0;
     let runGeneration = 0;
+    let previewGeneration = 0;
     let activeProfile = "low_vram_1024";
     let optimizationProfiles = {};
     let applyingRunProfile = false;
@@ -1024,6 +1025,12 @@
       return "";
     }
 
+    function cacheBustUrl(url, token = Date.now()) {
+      if (!url || url.startsWith("blob:") || url.startsWith("data:")) return url;
+      const separator = url.includes("?") ? "&" : "?";
+      return `${url}${separator}_=${encodeURIComponent(token)}`;
+    }
+
     function serverFile(file) {
       if (!file || !file.path) return file;
       const { url, ...rest } = file;
@@ -1165,7 +1172,7 @@
         preparedFile = result?.data?.[0] || null;
         prepFailed = false;
         stopProgress(true);
-        const preparedUrl = normalizeFileUrl(preparedFile);
+        const preparedUrl = cacheBustUrl(normalizeFileUrl(preparedFile), `prep-${prepId}-${previewGeneration}`);
         if (preparedUrl) {
           if (sourceObjectUrl) {
             URL.revokeObjectURL(sourceObjectUrl);
@@ -1295,7 +1302,7 @@
         }
 
         const file = result.data[0];
-        outputUrl = normalizeFileUrl(file);
+        outputUrl = cacheBustUrl(normalizeFileUrl(file), `glb-${runId}-${Date.now()}`);
         outputPath = file.path || outputUrl;
         renderModel(outputUrl);
         $("output-label").textContent = outputPath.split(/[\\/]/).pop();
@@ -1407,6 +1414,7 @@
       preparedFile = null;
       generationResult = null;
       runGeneration += 1;
+      previewGeneration += 1;
       prepFailed = false;
       prepGeneration += 1;
       outputUrl = "";
@@ -1734,6 +1742,23 @@
       }
       const nextSignature = fileSignature(file);
       if (currentFile && nextSignature && nextSignature === fileSignature(currentFile)) {
+        currentFile = file;
+        runGeneration += 1;
+        previewGeneration += 1;
+        invalidatePreparedSource();
+        generationResult = null;
+        outputUrl = "";
+        outputPath = "";
+        stopProgress(false);
+        $("extract").disabled = true;
+        $("open-output").disabled = true;
+        $("output-label").textContent = "None";
+        $("camera-label").textContent = "Auto";
+        setResultEmpty("Waiting for generated GLB.");
+        showOriginalSourcePreview();
+        setProgressUi("Source selected", modelReady ? "Click Prepare Source." : "Warm-up is running.", "0%");
+        $("state-label").textContent = modelReady ? "Source selected" : "Warm-up required";
+        setStatus("Image selected", "");
         updateGenerateState();
         return;
       }
@@ -1741,6 +1766,7 @@
       preparedFile = null;
       generationResult = null;
       runGeneration += 1;
+      previewGeneration += 1;
       prepFailed = false;
       outputUrl = "";
       outputPath = "";
