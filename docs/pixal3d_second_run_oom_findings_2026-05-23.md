@@ -21,10 +21,11 @@ the runtime after export. It uses FlashAttention by default, low-VRAM CPU/GPU
 stage movement, and `torch.cuda.empty_cache()`, but those are still inside the
 same Python process.
 
-The recommended next fix is automatic process isolation/recycle while keeping
-FlashAttention enabled: after a successful export, treat the CUDA worker as
-spent, start a fresh backend process, reconnect, and prewarm it in the
-background so the next Generate does not run inside the poisoned process.
+Implemented follow-up: Pixal3D `0.1.102` now uses isolated single-use CUDA
+workers for the Manager custom UI while keeping FlashAttention enabled. The
+Manager web/control process stays alive, source prep runs in a worker process,
+Generate consumes one prewarmed worker for combined generation/export, and the
+server starts another worker in the background for the next run.
 
 ## Observed Symptom
 
@@ -214,42 +215,51 @@ may involve some combination of:
 The key problem is repeat generation inside the same Python/CUDA process, not
 just peak settings and not just visible allocated VRAM.
 
-## Recommended Next Patch
+## Implemented Patch In 0.1.102
 
-Implement automatic single-use CUDA runtime behavior for the Manager path while
-keeping FlashAttention enabled.
+Pixal3D `0.1.102` implements single-use CUDA runtime behavior for the Manager
+path while keeping FlashAttention enabled.
 
-Minimum viable approach:
+Implemented approach:
 
-- After successful GLB export, mark the current CUDA runtime as stale/spent.
-- Start a backend restart/reconnect cycle automatically, using the existing
-  `/api/restart_runtime` machinery.
-- After reconnect, warm the fresh backend automatically in the background.
-- Preserve the selected source and prepared source state when possible.
-- If the user presses Generate while recycle/prewarm is still running, wait for
-  it instead of allowing a second generation in the old process.
-- Fix duplicate preprocess calls by guarding `prepareSource()` when
-  `preprocessing` is already true.
+- `PIXAL3D_WORKER_ISOLATION` defaults on for the Manager backend.
+- Warm Up starts a single-use isolated worker process instead of loading the
+  model into the web/control process.
+- Source preprocessing discards any pending generation worker, preprocesses in
+  its own subprocess, then starts the next generation worker in the background.
+- Generate calls a new combined `/api/generate_glb` endpoint rather than
+  calling `/generate_3d` and `/extract_glb_api` separately from the UI.
+- The combined endpoint sends the task to one prewarmed worker. That worker runs
+  generation and GLB export, writes the result, and exits.
+- After a successful GLB, the stable server starts the next isolated worker in
+  the background.
+- `prepareSource()` now ignores duplicate clicks while preprocessing is already
+  active.
 
 User-facing goal:
 
 - Do not ask the user to manually kill/reopen/warm.
-- Keep the UI honest with status such as "Preparing next run".
-- Hide most of the restart/warm cost by doing it immediately after export while
-  the user is inspecting the result.
+- Keep the UI honest by showing the worker warmup state.
+- Avoid running a second generation inside a spent CUDA process.
 
-Preferred long-term architecture:
+Validation completed before publishing:
 
-- Keep the UI/FastAPI control server alive.
-- Run the heavy Pixal3D generate/export operation inside a one-shot CUDA worker
-  subprocess.
-- Return the final GLB to the stable server, then terminate the worker.
-- Optionally prewarm the next worker in the background.
+- `python3 -m py_compile app.py inference.py scripts/api_server_pixal3d.py scripts/gradio_pixal3d_module.py pixal3d/pipelines/pixal3d_image_to_3d.py`
+- `python3 -m json.tool nymph.json`
+- `git diff --check`
+- Import sanity check in `/home/nymph/TRELLIS.2/.venv/bin/python` confirmed
+  `worker_isolation True` and FlashAttention selected.
 
-The one-shot worker design is cleaner than restarting the whole UI backend, but
-it is a larger change. The restart/reconnect/prewarm path is the smaller next
-step because the module already has `/api/restart_runtime`, `waitForBackend()`,
-and warmup polling.
+Published artifacts:
+
+- Baseline rollback tag:
+  `pixal3d-0.1.101-second-run-oom-baseline`
+- Pixal3D commit: `361b6d8`
+- Pixal3D version: `0.1.102`
+- Verified raw manifest hash:
+  `eced511cc027fd88ceb8a904bfbba682e9a076e0d39814dad10a99faaeb7cdc5`
+- Registry commit: `51ee26e`
+- Registry version: `130`
 
 ## What Not To Do
 
@@ -263,19 +273,15 @@ and warmup polling.
 
 ## Next Testing Path
 
-After the next patch is implemented:
+After Manager sees Pixal3D `0.1.102` through registry `130`:
 
-1. Bump Pixal3D module version.
-2. Push `nymphnerds/Pixal3D`.
-3. Verify raw `nymph.json` from GitHub.
-4. Update `nymphs-registry/nymphs.json` only after the raw module manifest is
-   public and correct.
-5. Push registry.
-6. In Manager, update Pixal3D through the normal registry path.
-7. Test:
-   - First generation/export.
-   - Let automatic recycle/prewarm complete.
-   - Second generation/export without manually killing Pixal3D.
-   - Try pressing Generate during the recycle window and verify it waits or
-     gives a clear status rather than running in the stale process.
-
+1. Update Pixal3D through the normal Manager registry path.
+2. Open the Manager custom Pixal3D UI.
+3. Warm Up and wait for the isolated worker to become ready.
+4. Prepare a source image.
+5. Wait for the next isolated generation worker to become ready.
+6. Generate/export the first GLB.
+7. Let the next background worker warm while inspecting the result.
+8. Generate/export a second GLB without manually killing Pixal3D.
+9. Try pressing Generate during the worker warmup window and verify it waits or
+   gives a clear status rather than running in a stale CUDA process.
