@@ -1,6 +1,7 @@
 from typing import *
 import torch
 import numpy as np
+import os
 from tqdm import tqdm
 from easydict import EasyDict as edict
 from .base import Sampler
@@ -90,6 +91,7 @@ class FlowEulerSampler(Sampler):
         rescale_t: float = 1.0,
         verbose: bool = True,
         tqdm_desc: str = "Sampling",
+        return_intermediate: bool = False,
         **kwargs
     ):
         """
@@ -108,9 +110,10 @@ class FlowEulerSampler(Sampler):
         Returns:
             a dict containing the following
             - 'samples': the model samples.
-            - 'pred_x_t': a list of prediction of x_t.
-            - 'pred_x_0': a list of prediction of x_0.
+            - 'pred_x_t': optional list of prediction of x_t.
+            - 'pred_x_0': optional list of prediction of x_0.
         """
+        keep_intermediate = return_intermediate or os.environ.get("PIXAL3D_KEEP_SAMPLER_INTERMEDIATES", "0") == "1"
         sample = noise
         t_seq = np.linspace(1, 0, steps + 1)
         t_seq = rescale_t * t_seq / (1 + (rescale_t - 1) * t_seq)
@@ -120,8 +123,11 @@ class FlowEulerSampler(Sampler):
         for t, t_prev in tqdm(t_pairs, desc=tqdm_desc, disable=not verbose):
             out = self.sample_once(model, sample, t, t_prev, cond, **kwargs)
             sample = out.pred_x_prev
-            ret.pred_x_t.append(out.pred_x_prev)
-            ret.pred_x_0.append(out.pred_x_0)
+            if keep_intermediate:
+                ret.pred_x_t.append(out.pred_x_prev)
+                ret.pred_x_0.append(out.pred_x_0)
+            else:
+                del out
         ret.samples = sample
         return ret
 
