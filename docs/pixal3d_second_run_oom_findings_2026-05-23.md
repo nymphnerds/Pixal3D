@@ -9,11 +9,38 @@ runtime state were hand-edited.
 
 ## Executive Summary
 
-Pixal3D can complete a first Manager generation/export, then crash the next run
-hard enough to take down WSL without a Python traceback. The strongest current
-conclusion is that the crash is not ordinary Python object retention and not
-primarily the embedded model viewer. It is repeat use of the same long-lived
-Python/CUDA process after one complete Pixal3D run.
+Pixal3D's repeat-run Manager failure is confirmed fixed as of `0.1.108`.
+
+The final confirmed root cause had two layers:
+
+- A repeat-run host-memory/RSS problem could take down WSL before Python raised
+  a normal exception.
+- After RSS trimming exposed the next failure cleanly, GLB export could fail
+  during shape decode because an inferred subdivision mask collapsed the sparse
+  tensor to zero coordinates.
+
+The confirmed fixes were:
+
+- `0.1.106`: trim the native CPU heap with `malloc_trim(0)` during cleanup and
+  log process RSS. In the confirmed Manager run this reduced RSS from about
+  `22.08 GB` to `15.89 GB` after generation cleanup and prevented the old WSL
+  hard-crash pattern.
+- `0.1.108`: keep one fallback child voxel for each active parent when inferred
+  decoder subdivision masks are all false. This prevents shape decode from
+  producing an empty sparse tensor and fixed the export crash:
+  `IndexError: max(): Expected reduction dim 0 to have non-zero size`.
+
+Current confirmed baseline: Pixal3D `0.1.108`.
+
+Earlier notes in this document about `0.1.102` worker isolation are historical.
+That experiment was reverted in `0.1.103` because it caused confusing double
+pipeline loads and hangs. It is not the confirmed fix.
+
+Before the fix, Pixal3D could complete a first Manager generation/export, then
+crash the next run hard enough to take down WSL without a Python traceback. The
+working conclusion at the time was that the crash was not ordinary Python object
+retention and not primarily the embedded model viewer. Later evidence narrowed
+that to native host-memory pressure plus a sparse decode collapse.
 
 The official local Pixal3D app has the same long-lived process architecture. It
 does not isolate generations in a fresh CUDA worker process and does not restart
@@ -21,11 +48,9 @@ the runtime after export. It uses FlashAttention by default, low-VRAM CPU/GPU
 stage movement, and `torch.cuda.empty_cache()`, but those are still inside the
 same Python process.
 
-Implemented follow-up: Pixal3D `0.1.102` now uses isolated single-use CUDA
-workers for the Manager custom UI while keeping FlashAttention enabled. The
-Manager web/control process stays alive, source prep runs in a worker process,
-Generate consumes one prewarmed worker for combined generation/export, and the
-server starts another worker in the background for the next run.
+Historical follow-up: Pixal3D `0.1.102` tried isolated single-use CUDA workers
+for the Manager custom UI while keeping FlashAttention enabled. That path was
+not kept; it was reverted in `0.1.103`.
 
 ## Observed Symptom
 
@@ -145,6 +170,61 @@ Result:
 - The WebGL viewer retention bug was real and worth fixing.
 - It did not eliminate the second-run hard crash.
 
+### Pixal3D 0.1.102
+
+Historical experiment, later reverted in `0.1.103`.
+
+Changes:
+
+- Moved the Manager custom UI onto isolated single-use CUDA workers for source
+  prep and combined generation/export.
+
+Result:
+
+- Did not become the final fix.
+- Caused confusing double pipeline loads and hangs in the Manager flow.
+- Reverted in `0.1.103`, restoring the warmed runtime flow.
+
+### Pixal3D 0.1.106
+
+Changes:
+
+- Added process RSS logging.
+- Added `malloc_trim(0)` in cleanup/free paths so native CPU heap pages return
+  to WSL instead of staying resident after a run.
+
+Evidence:
+
+- In the confirmed Manager run, after generation cleanup logged:
+  `rss=22.08 GB -> 15.89 GB`.
+- This stopped the old WSL-wide hard-crash pattern and exposed the next failure
+  as a normal Python export traceback.
+
+Result:
+
+- Fixed the host-memory/RSS side of the repeat-run failure.
+- Did not by itself fix export for every latent.
+
+### Pixal3D 0.1.108
+
+Changes:
+
+- During inference, decoder subdivision masks now preserve one fallback child
+  voxel per active parent when all predicted children are false.
+
+Why:
+
+- The failing export traceback showed `decode_shape_slat` entered sparse
+  convolution with an empty coordinate tensor:
+  `IndexError: max(): Expected reduction dim 0 to have non-zero size`.
+- The empty tensor was caused by an inferred subdivision mask erasing every
+  child voxel from an active sparse parent.
+
+Result:
+
+- Confirmed fixed by the user in the Manager path.
+- Current stable Pixal3D test baseline is `0.1.108`.
+
 ## Latest Manager/Test Evidence
 
 After updating through Manager to `0.1.101`, the Manager log showed:
@@ -200,22 +280,23 @@ the official UI reset confirms stale viewer memory is a real concern. However:
 
 Conclusion: viewer cleanup should stay, but it is not sufficient.
 
-## Current Root-Cause Hypothesis
+## Final Root Cause
 
-The first full Pixal3D run leaves unsafe native CUDA process state behind. This
-may involve some combination of:
+The confirmed failure had two parts:
 
-- PyTorch CUDA allocator state.
-- FlashAttention kernels.
-- Sparse/flex-gemm CUDA extension state.
-- MoGe camera estimation.
-- NVDiffRec/rendering or mesh/export related CUDA libraries.
-- WSL GPU bridge behavior after a native CUDA fault.
+1. The warmed Pixal3D process could remain close to the WSL RAM ceiling after a
+   complete generation/export. CUDA memory looked clean, but native CPU heap/RSS
+   stayed high enough that the next heavy stage could trip WSL without a Python
+   traceback.
+2. Once RSS trimming prevented the hard WSL crash, GLB export could fail because
+   shape decode let an all-false inferred subdivision mask collapse a sparse
+   tensor to zero coordinates. The next sparse convolution then crashed while
+   computing `spatial_shape`.
 
-The key problem is repeat generation inside the same Python/CUDA process, not
-just peak settings and not just visible allocated VRAM.
+The key lesson: visible PyTorch CUDA allocation was not enough to diagnose this.
+The fix needed both native process RSS cleanup and a sparse decoder guard.
 
-## Implemented Patch In 0.1.102
+## Historical Patch In 0.1.102
 
 Pixal3D `0.1.102` implements single-use CUDA runtime behavior for the Manager
 path while keeping FlashAttention enabled.
@@ -261,6 +342,12 @@ Published artifacts:
 - Registry commit: `51ee26e`
 - Registry version: `130`
 
+Status:
+
+- Superseded. Reverted in `0.1.103`.
+- The final confirmed fix is `0.1.108`, with the important runtime memory fix
+  in `0.1.106`.
+
 ## Diagnostic Harness Added After 0.1.102
 
 Source-only diagnostic tooling was added after the `0.1.102` publish to help
@@ -304,17 +391,17 @@ Manager worker-isolation safety net to reproduce the original failure.
 - Do not advertise a module version before the module commit and raw manifest
   are pushed and verified.
 
-## Next Testing Path
+## Confirmed Testing Path
 
-After Manager sees Pixal3D `0.1.102` through registry `130`:
+Confirmed after Manager updated to Pixal3D `0.1.108`:
 
 1. Update Pixal3D through the normal Manager registry path.
 2. Open the Manager custom Pixal3D UI.
-3. Warm Up and wait for the isolated worker to become ready.
+3. Warm Up.
 4. Prepare a source image.
-5. Wait for the next isolated generation worker to become ready.
-6. Generate/export the first GLB.
-7. Let the next background worker warm while inspecting the result.
-8. Generate/export a second GLB without manually killing Pixal3D.
-9. Try pressing Generate during the worker warmup window and verify it waits or
-   gives a clear status rather than running in a stale CUDA process.
+5. Generate/export a GLB.
+6. Run again without manually killing Pixal3D.
+7. Verify WSL does not crash and export completes.
+
+Result: confirmed fixed by the user. Keep `0.1.108` as the current stable
+baseline for repeat-run Manager testing.

@@ -163,6 +163,23 @@ with `/home/nymph/TRELLIS.2/.venv/bin/python`, not system Python. It supports
 so the second-run failure can be bisected while keeping the published Manager
 worker-isolation path as the safety net.
 
+Updated: 2026-05-23 after confirmed Pixal3D `0.1.108`. The repeat-run failure
+is now considered fixed in the Manager path. The final working line was not the
+`0.1.102` worker-isolation experiment; that experiment was reverted in
+`0.1.103` because it caused confusing double pipeline loads and hangs. The
+confirmed fix was:
+
+- `0.1.106`: trim native CPU heap/RSS during cleanup with `malloc_trim(0)`.
+  This changed the observed failure from a WSL-wide crash into a normal Python
+  export exception and logged a key proof point: RSS dropped from about
+  `22.08 GB` to `15.89 GB` after generation cleanup.
+- `0.1.108`: prevent shape decode from collapsing to an empty sparse tensor by
+  preserving one fallback child voxel per active parent when inferred
+  subdivision masks are all false. This fixed the export failure:
+  `IndexError: max(): Expected reduction dim 0 to have non-zero size`.
+
+Current confirmed Pixal3D baseline: `0.1.108`.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
