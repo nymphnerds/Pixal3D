@@ -261,6 +261,39 @@ Published artifacts:
 - Registry commit: `51ee26e`
 - Registry version: `130`
 
+## Diagnostic Harness Added After 0.1.102
+
+Source-only diagnostic tooling was added after the `0.1.102` publish to help
+pinpoint the exact stage that poisons the long-lived CUDA process:
+
+- Script: `scripts/pixal3d_repeat_diagnostics.py`
+- Interpreter: run it with the Pixal3D/TRELLIS shared venv, not system Python:
+  `/home/nymph/TRELLIS.2/.venv/bin/python`
+- It deliberately runs multiple Pixal3D passes in one Python/CUDA process.
+- It logs timestamps, PID, process RSS, PyTorch allocated/reserved/max memory,
+  and `nvidia-smi` GPU memory at each stage.
+- It can stop after `preprocess`, `camera`, `ss`, `shape-lr`, `upsample`,
+  `shape-hr`, `tex`, `pack`, `decode`, or `glb`.
+- It has `--cleanup-each-stage` and `--free-models-between-runs` switches to
+  compare normal repeat behavior with more aggressive cleanup.
+
+Suggested bisection sequence:
+
+```bash
+cd /home/nymph/Pixal3D
+/home/nymph/TRELLIS.2/.venv/bin/python scripts/pixal3d_repeat_diagnostics.py --stop-after ss --repeats 2
+/home/nymph/TRELLIS.2/.venv/bin/python scripts/pixal3d_repeat_diagnostics.py --stop-after shape-lr --repeats 2
+/home/nymph/TRELLIS.2/.venv/bin/python scripts/pixal3d_repeat_diagnostics.py --stop-after shape-hr --repeats 2
+/home/nymph/TRELLIS.2/.venv/bin/python scripts/pixal3d_repeat_diagnostics.py --stop-after tex --repeats 2
+/home/nymph/TRELLIS.2/.venv/bin/python scripts/pixal3d_repeat_diagnostics.py --stop-after decode --repeats 2
+/home/nymph/TRELLIS.2/.venv/bin/python scripts/pixal3d_repeat_diagnostics.py --stop-after glb --repeats 2
+```
+
+If WSL crashes, the last complete `[DIAG]` checkpoint in
+`~/NymphsData/logs/pixal3d/pixal3d-repeat-diagnostics-*.log` is the current
+best clue. This is a dangerous diagnostic path by design; it bypasses the
+Manager worker-isolation safety net to reproduce the original failure.
+
 ## What Not To Do
 
 - Do not disable FlashAttention as the primary fix.

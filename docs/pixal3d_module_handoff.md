@@ -155,6 +155,14 @@ generate/export endpoint that consumes one preloaded worker and exits it after
 the GLB is written. This keeps FlashAttention enabled while avoiding a second
 generation inside a spent CUDA process.
 
+Updated: 2026-05-23 after adding source-only diagnostics. Added
+`scripts/pixal3d_repeat_diagnostics.py` to deliberately reproduce repeated
+Pixal3D runs inside one Python/CUDA process and log memory at each stage. Use it
+with `/home/nymph/TRELLIS.2/.venv/bin/python`, not system Python. It supports
+`--stop-after preprocess|camera|ss|shape-lr|upsample|shape-hr|tex|pack|decode|glb`
+so the second-run failure can be bisected while keeping the published Manager
+worker-isolation path as the safety net.
+
 ## Goal
 
 Research whether TencentARC/Pixal3D can become a Nymph module, whether it can
