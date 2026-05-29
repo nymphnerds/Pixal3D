@@ -212,42 +212,15 @@ pixal3d_refresh_cuda_env() {
 }
 
 pixal3d_ensure_cuda_toolkit() {
-  local cuda_home="/usr/local/cuda-13.0"
-  local keyring_deb="${HOME}/cuda-keyring_1.1-1_all.deb"
-  local keyring_url="https://developer.download.nvidia.com/compute/cuda/repos/wsl-ubuntu/x86_64/cuda-keyring_1.1-1_all.deb"
-
   pixal3d_refresh_cuda_env
   if [[ -n "${CUDA_HOME:-}" && -x "${CUDA_HOME}/bin/nvcc" ]]; then
-    echo "CUDA toolkit found at ${CUDA_HOME}"
+    echo "Base Runtime CUDA toolkit found at ${CUDA_HOME}"
     return 0
   fi
 
-  echo "CUDA toolkit with nvcc is required for Pixal3D FlashAttention build."
-
-  if ! command -v sudo >/dev/null 2>&1 ||
-     ! command -v apt-get >/dev/null 2>&1 ||
-     ! command -v wget >/dev/null 2>&1; then
-    echo "CUDA toolkit is missing and automatic installation is not available." >&2
-    echo "Install CUDA toolkit 13.0 so ${cuda_home}/bin/nvcc exists, then retry Pixal3D Install/Repair." >&2
-    exit 1
-  fi
-
-  echo "Installing NVIDIA CUDA repository keyring for WSL..."
-  if [[ ! -f "${keyring_deb}" ]]; then
-    wget -O "${keyring_deb}" "${keyring_url}"
-  fi
-  sudo dpkg -i "${keyring_deb}"
-  sudo env DEBIAN_FRONTEND=noninteractive apt-get update
-  pixal3d_apt_install cuda-toolkit-13-0
-
-  pixal3d_refresh_cuda_env
-  if [[ -z "${CUDA_HOME:-}" || ! -x "${CUDA_HOME}/bin/nvcc" ]]; then
-    echo "CUDA toolkit install did not provide ${cuda_home}/bin/nvcc." >&2
-    echo "Repair Base Runtime CUDA, then retry Pixal3D Install/Repair." >&2
-    exit 1
-  fi
-
-  echo "CUDA toolkit ready at ${CUDA_HOME}"
+  echo "Base Runtime CUDA toolkit with nvcc is required for Pixal3D FlashAttention build." >&2
+  echo "Repair or reinstall Base Runtime so /usr/local/cuda-13.0/bin/nvcc exists, then retry Pixal3D Install/Repair." >&2
+  exit 1
 }
 
 pixal3d_sync_trellis_runtime_source() {
