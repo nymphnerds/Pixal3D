@@ -88,6 +88,14 @@ pixal3d_ensure_data_dirs() {
   mkdir -p "${PIXAL3D_LOG_DIR}" "${PIXAL3D_OUTPUT_DIR}" "${PIXAL3D_CONFIG_DIR}" "${NYMPHS3D_HF_CACHE_DIR}" "${HF_HOME}" "${TORCH_HOME}"
 }
 
+pixal3d_prepare_pip_work_dirs() {
+  export TMPDIR="${PIXAL3D_PIP_TMP_DIR:-$PIXAL3D_TRELLIS_RUNTIME_ROOT/runtime/pip-tmp}"
+  export PIP_CACHE_DIR="${PIXAL3D_PIP_CACHE_DIR:-$PIXAL3D_TRELLIS_RUNTIME_ROOT/runtime/pip-cache}"
+  mkdir -p "${TMPDIR}" "${PIP_CACHE_DIR}"
+  echo "Using pip temp dir: ${TMPDIR}"
+  echo "Using pip cache dir: ${PIP_CACHE_DIR}"
+}
+
 pixal3d_python() {
   printf '%s\n' "${PIXAL3D_VENV_DIR}/bin/python"
 }

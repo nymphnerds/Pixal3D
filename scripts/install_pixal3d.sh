@@ -414,6 +414,7 @@ pixal3d_install_shared_trellis_runtime() {
     exit 1
   fi
   PIXAL3D_VENV_DIR="${PIXAL3D_TRELLIS_VENV_DIR}"
+  pixal3d_prepare_pip_work_dirs
 
   if [[ -d "${PIXAL3D_VENV_DIR}" ]] && {
     [[ ! -x "$(pixal3d_python)" ]] ||
