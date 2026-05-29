@@ -68,8 +68,20 @@ elif [[ -d /usr/local/cuda-12.4 ]]; then
   export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda-12.4}"
 fi
 if [[ -n "${CUDA_HOME:-}" ]]; then
+  cuda_lib_dir="${CUDA_HOME}/lib64"
+  if [[ -d "${CUDA_HOME}/targets/x86_64-linux/lib" ]]; then
+    cuda_lib_dir="${CUDA_HOME}/targets/x86_64-linux/lib"
+  fi
+  cuda_include_dir="${CUDA_HOME}/include"
+  if [[ -d "${CUDA_HOME}/targets/x86_64-linux/include" ]]; then
+    cuda_include_dir="${CUDA_HOME}/targets/x86_64-linux/include"
+  fi
   export PATH="${CUDA_HOME}/bin:${PATH}"
-  export LD_LIBRARY_PATH="${CUDA_HOME}/lib64:${LD_LIBRARY_PATH:-}"
+  export LD_LIBRARY_PATH="${cuda_lib_dir}:${LD_LIBRARY_PATH:-}"
+  export LIBRARY_PATH="${cuda_lib_dir}:${LIBRARY_PATH:-}"
+  export CUDA_INCLUDE_DIRS="${cuda_include_dir}"
+  export CUDACXX="${CUDACXX:-${CUDA_HOME}/bin/nvcc}"
+  export CMAKE_PREFIX_PATH="${CUDA_HOME}:${CUDA_HOME}/targets/x86_64-linux:${CMAKE_PREFIX_PATH:-}"
 fi
 
 pixal3d_ensure_data_dirs() {

@@ -3,7 +3,7 @@
   "id": "pixal3d",
   "name": "Pixal3D",
   "short_name": "PX",
-  "version": "0.1.109",
+  "version": "0.1.110",
   "description": "Pixal3D generates high-fidelity textured 3D assets from a single image.",
   "category": "3d",
   "packaging": "repo",
@@ -396,6 +396,7 @@
     "v0.1.107 cache-busts Manager UI prepared-image and GLB preview URLs and clears stale result state even when the same source file is selected again.",
     "v0.1.108 prevents shape decode from collapsing to an empty sparse tensor by preserving one fallback child voxel per active parent when inferred subdivision masks are all false.",
     "v0.1.109 unifies Pixal3D runtime startup around the Manager/Nymph UI app server on port 8097 so Manager and Blender use the same warm-up, preprocess, generate, export, and cleanup flow instead of the older separate 8096 API wrapper.",
+    "v0.1.110 aligns CUDA environment setup with the Base Runtime CUDA 13 WSL targets/x86_64-linux include and library layout.",
     "Do not vendor model weights into this repo."
   ]
 }
